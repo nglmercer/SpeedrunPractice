@@ -38,7 +38,7 @@ dependencies {
     modIncludeImplementation("me.shedaniel.cloth:config-2:4.6.0"){
         exclude(group: "net.fabricmc.fabric-api")
     }
-    compileOnlyApi files("libs/SpeedRunIGT-10.3+1.16.1.jar")
+    compileOnlyApi "com.github.RedLime:SpeedRunIGT:f742cbaf81"
 }
 
 processResources {
