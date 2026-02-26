@@ -50,6 +50,7 @@ public class ModConfig{
     public boolean postBlindSpawnChunks =false;
     public boolean caveSpawns=true;
     public boolean randomisePostBlindInventory=true;
+    public boolean useSeedList = false;
 
 
     public static ModConfig load() {
@@ -117,6 +118,10 @@ public class ModConfig{
                 .build());
         general.addEntry(entryBuilder.startBooleanToggle(new TranslatableText("speedrun-practice.options.calc_mode"),calcMode)
                 .setDefaultValue(true)
+                .build());
+        general.addEntry(entryBuilder.startBooleanToggle(new TranslatableText("speedrun-practice.options.useSeedList"), useSeedList)
+                .setDefaultValue(false)
+                .setSaveConsumer(a -> useSeedList = a)
                 .build());
         general.addEntry(entryBuilder.startSubCategory(new TranslatableText("speedrun-practice.options.bastions"), Lists.newArrayList(
                 entryBuilder.startBooleanToggle(new TranslatableText("speedrun-practice.options.bastions.housing"), ptConfig.isHousing())

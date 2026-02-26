@@ -16,6 +16,7 @@
   "speedrun-practice.options.postBlindSpawnChunks.tooltip2":"but the practice world will not load the spawn chunks.",
   "speedrun-practice.options.postBlindCaveSpawns": "Include Cave Spawns in Post Blind Practice",
   "speedrun-practice.options.randomisePostBlindInventory": "Randomise Post Blind Inventory",
+  "speedrun-practice.options.useSeedList": "Use Seed List",
   "speedrun-practice.options.end": "End Settings",
   "speedrun-practice.options.dragon_type": "Dragon Type",
   "speedrun-practice.options.eliminate_cage_spawns": "Eliminate Cage Spawns",

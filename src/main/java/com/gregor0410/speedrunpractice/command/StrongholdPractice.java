@@ -24,7 +24,7 @@ public class StrongholdPractice implements Command<ServerCommandSource> {
         try{
             seed = ctx.getArgument("seed",long.class);
         }catch(IllegalArgumentException e){
-            seed = SpeedrunPractice.random.nextLong();
+            seed = SpeedrunPractice.seedManager.getNextSeed();
         }
         Practice.linkedPracticeWorldPractice(ctx,seed,SpeedrunPractice.config.postBlindSpawnChunks,false,false,this::getOverworldPos,"stronghold");
         return 1;

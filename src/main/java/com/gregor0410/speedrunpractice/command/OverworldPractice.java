@@ -14,7 +14,7 @@ public class OverworldPractice implements Command<ServerCommandSource> {
         try{
             seed = ctx.getArgument("seed",long.class);
         }catch(IllegalArgumentException e){
-            seed = SpeedrunPractice.random.nextLong();
+            seed = SpeedrunPractice.seedManager.getNextSeed();
         }
         Practice.linkedPracticeWorldPractice(ctx,seed,true,false,false, ServerWorld::getSpawnPos,"overworld");
         return 1;

@@ -35,6 +35,7 @@ public class SpeedrunPractice implements ModInitializer {
     public static AutoSaveStater autoSaveStater = new AutoSaveStater();
     public static SpeedrunIGTInterface speedrunIGTInterface=null;
     private static final UpdateChecker updateChecker = new UpdateChecker();
+    public static final SeedManager seedManager = new SeedManager();
 
 
     @Override
@@ -47,6 +48,7 @@ public class SpeedrunPractice implements ModInitializer {
             }
         }
         config = ModConfig.load();
+        seedManager.reload();
         PTLib.setConfig(config.ptConfig);
         Command.registerCommands();
         updateChecker.checkUpdate();

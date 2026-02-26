@@ -46,6 +46,9 @@ public class Command {
                         return 1;
                     }))
                     .then(literal("seed").executes(Practice::seed).then(argument("seed",LongArgumentType.longArg()).executes(Practice::setSeed)))
+                    .then(literal("seedlist")
+                            .then(literal("reload").executes(Practice::reloadSeedList))
+                            .then(literal("toggle").executes(Practice::toggleSeedList)))
                     .then(inventoryTree)
                     .then(literal("revert")
                         .then(argument("split", StringArgumentType.word()).executes(new Revert()).suggests(revertSuggestionsProvider)))

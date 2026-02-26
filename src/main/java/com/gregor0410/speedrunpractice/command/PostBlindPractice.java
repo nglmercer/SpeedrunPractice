@@ -26,7 +26,7 @@ public class PostBlindPractice implements Command<ServerCommandSource> {
         try{
             seed = ctx.getArgument("seed",long.class);
         }catch(IllegalArgumentException e){
-            seed = SpeedrunPractice.random.nextLong();
+            seed = SpeedrunPractice.seedManager.getNextSeed();
         }
         int finalMaxDist = maxDist;
         long finalSeed = seed;
