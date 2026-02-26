@@ -27,7 +27,7 @@ public class EndPractice implements Command<ServerCommandSource> {
         try {
             seed = context.getArgument("seed", long.class);
         }catch (IllegalArgumentException e){
-            seed = SpeedrunPractice.random.nextLong();
+            seed = SpeedrunPractice.seedManager.getNextSeed();
         }
         try {
             world = ((IMinecraftServer)server).createEndPracticeWorld(seed);

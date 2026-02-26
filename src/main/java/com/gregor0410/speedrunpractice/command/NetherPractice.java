@@ -14,7 +14,7 @@ public class NetherPractice implements Command<ServerCommandSource> {
         try{
             seed = ctx.getArgument("seed",long.class);
         }catch(IllegalArgumentException e){
-            seed = SpeedrunPractice.random.nextLong();
+            seed = SpeedrunPractice.seedManager.getNextSeed();
         }
         Practice.linkedPracticeWorldPractice(ctx,seed,true,true,true, ServerWorld::getSpawnPos,"nether");
 //        MinecraftServer server = ctx.getSource().getMinecraftServer();

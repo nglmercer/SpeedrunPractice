@@ -136,6 +136,23 @@ public class Practice {
         return 1;
     }
 
+    public static int reloadSeedList(CommandContext<ServerCommandSource> ctx) {
+        SpeedrunPractice.seedManager.reload();
+        ctx.getSource().sendFeedback(new LiteralText("§aReloaded seed list. Found " + SpeedrunPractice.seedManager.getSeedCount() + " seeds."), false);
+        return 1;
+    }
+
+    public static int toggleSeedList(CommandContext<ServerCommandSource> ctx) {
+        SpeedrunPractice.config.useSeedList = !SpeedrunPractice.config.useSeedList;
+        try {
+            SpeedrunPractice.config.save();
+        } catch (IOException e) {
+            return 0;
+        }
+        ctx.getSource().sendFeedback(new LiteralText("§aSeed list is now " + (SpeedrunPractice.config.useSeedList ? "§2enabled" : "§4disabled")), false);
+        return 1;
+    }
+
     public static void linkedPracticeWorldPractice(CommandContext<ServerCommandSource> ctx, long seed, boolean spawnChunks, boolean netherSpawn,boolean createPortals, Function<ServerWorld,BlockPos> overworldPosProvider, String key) throws CommandSyntaxException {
         MinecraftServer server = ctx.getSource().getMinecraftServer();
         Map<RegistryKey<DimensionType>, PracticeWorld> linkedPracticeWorld = null;
