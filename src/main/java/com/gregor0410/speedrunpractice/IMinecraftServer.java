@@ -1,7 +1,5 @@
 package com.gregor0410.speedrunpractice;
 
-import net.minecraft.text.Text;
-
 import com.gregor0410.speedrunpractice.world.PracticeWorld;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.registry.RegistryKey;
