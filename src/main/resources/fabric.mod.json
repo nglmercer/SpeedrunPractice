@@ -7,7 +7,7 @@
   "authors": [],
   "contact": {},
   "license": "MIT",
-  "icon": "assets/SpeedrunPractice/icon.png",
+  "icon": "assets/speedrun-practice/icon.png",
   "environment": "*",
   "entrypoints": {
     "main": [

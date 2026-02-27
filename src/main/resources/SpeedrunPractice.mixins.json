@@ -2,7 +2,7 @@
   "required": true,
   "minVersion": "0.8",
   "package": "com.gregor0410.speedrunpractice.mixin",
-  "compatibilityLevel": "JAVA_8",
+  "compatibilityLevel": "JAVA_21",
   "mixins": [
     "AbstractFireBlockMixin",
     "EnderDragonFightAccess",
