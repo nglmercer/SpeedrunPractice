@@ -28,21 +28,12 @@ public abstract class MinecraftServerMixin implements IMinecraftServer {
     @Shadow @Final private Map<RegistryKey<World>, ServerWorld> worlds;
     @Shadow public abstract ServerWorld getOverworld();
     @Shadow public abstract PlayerManager getPlayerManager();
-    @Shadow public abstract boolean save(boolean bl, boolean bl2, boolean bl3);
 
     private final List<PracticeWorld> endPracticeWorlds = new ArrayList<>();
 
     @Override
     public ServerWorld createEndPracticeWorld(long seed) throws IOException {
         return null;
-    }
-
-    @Inject(method="tick",at=@At("HEAD"))
-    private void onTick(BooleanSupplier shouldKeepTicking, CallbackInfo ci){
-    }
-
-    @Inject(method="setDifficulty",at=@At("HEAD"))
-    private void setDifficulty(Difficulty difficulty, boolean bl, CallbackInfo ci){
     }
 
     @Override

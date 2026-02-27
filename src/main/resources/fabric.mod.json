@@ -18,8 +18,9 @@
     "SpeedrunPractice.mixins.json"
   ],
   "depends": {
-    "fabricloader": ">=0.12.12",
-    "minecraft": "1.16.1"
+    "fabricloader": ">=0.16.10",
+    "minecraft": "1.21.1",
+    "java": ">=21"
   },
   "breaks": {
     "lazystronghold": "<1.1.0",
