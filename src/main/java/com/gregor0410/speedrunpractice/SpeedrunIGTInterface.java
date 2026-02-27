@@ -1,5 +1,7 @@
 package com.gregor0410.speedrunpractice;
 
+import net.minecraft.text.Text;
+
 import com.redlimerl.speedrunigt.timer.InGameTimer;
 import com.redlimerl.speedrunigt.timer.running.RunType;
 

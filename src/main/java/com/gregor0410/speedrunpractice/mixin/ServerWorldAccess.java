@@ -1,5 +1,7 @@
 package com.gregor0410.speedrunpractice.mixin;
 
+import net.minecraft.text.Text;
+
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.world.level.ServerWorldProperties;
 import org.spongepowered.asm.mixin.Mixin;

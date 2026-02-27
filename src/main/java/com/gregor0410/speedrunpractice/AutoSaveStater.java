@@ -2,12 +2,9 @@ package com.gregor0410.speedrunpractice;
 
 import com.google.common.collect.ImmutableMap;
 import net.fabricmc.loader.api.FabricLoader;
-import net.fabricmc.loader.api.VersionParsingException;
-import net.fabricmc.loader.impl.util.version.SemanticVersionImpl;
-import net.minecraft.advancement.Advancement;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.advancement.AdvancementEntry;
 
-import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -17,7 +14,6 @@ import java.util.concurrent.atomic.AtomicReference;
 public class AutoSaveStater {
     public final Map<String,String> splitsToUUID = new HashMap<>();
     private final Map<String, SpeedrunIGTInterface.TimerState> uuidToTimerState = new HashMap<>();
-    private final Boolean LOCK=false;
     private static final Map<String,String> criterionToAdvancementId = new ImmutableMap.Builder<String,String>()
             .put("entered_nether","nether/root")
             .put("bastion","nether/find_bastion")
@@ -37,30 +33,21 @@ public class AutoSaveStater {
             .put("in_stronghold","stronghold")
             .put("entered_end","end").build();
 
-    public void onGrantCriterion(Advancement advancement, String criterionName, MinecraftServer server){
+    public void onGrantCriterion(AdvancementEntry advancement, String criterionName, MinecraftServer server){
         if(!FabricLoader.getInstance().isModLoaded("delorean")){
             return;
         }
-        else {
-            try {
-                if(FabricLoader.getInstance().getModContainer("delorean").get().getMetadata().getVersion().compareTo(new SemanticVersionImpl("0.2.10",false))<0){
-                    return;
-                }
-            } catch (VersionParsingException e) {
-                e.printStackTrace();
-            }
-        }
-        if(advancement.getId().getPath().equals(criterionToAdvancementId.get(criterionName))){
+        if(advancement.id().getPath().equals(criterionToAdvancementId.get(criterionName))){
             String uuid = UUID.randomUUID().toString();
             splitsToUUID.put(criterionToSplitName.get(criterionName), uuid);
             server.execute(()->{
                 try {
                     saveState(uuid,server);
-                } catch (ClassNotFoundException | NoSuchFieldException | IllegalAccessException | InterruptedException | InvocationTargetException | NoSuchMethodException ignored) {}
+                } catch (Exception ignored) {}
             });
         }
     }
-    private void saveState(String uuid,MinecraftServer server) throws ClassNotFoundException, NoSuchFieldException, IllegalAccessException, InterruptedException, InvocationTargetException, NoSuchMethodException {
+    private void saveState(String uuid,MinecraftServer server) throws Exception {
         if(!FabricLoader.getInstance().isModLoaded("delorean")){
             return;
         }
@@ -85,7 +72,7 @@ public class AutoSaveStater {
         }
     }
 
-    public boolean revertToSplit(String splitName) throws ClassNotFoundException, NoSuchFieldException, IllegalAccessException, InterruptedException, InvocationTargetException, NoSuchMethodException {
+    public boolean revertToSplit(String splitName) throws Exception {
         String uuid = splitsToUUID.get(splitName);
         if(uuid==null){
             return false;
@@ -138,7 +125,7 @@ public class AutoSaveStater {
                 }).start();
             }
         }
-        catch (NoSuchFieldException | ClassNotFoundException | IllegalAccessException e) {
+        catch (Exception e) {
             e.printStackTrace();
         }
         this.splitsToUUID.clear();

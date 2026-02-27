@@ -12,11 +12,8 @@ import me.shedaniel.clothconfig2.api.ConfigEntryBuilder;
 import me.shedaniel.clothconfig2.gui.entries.BooleanListEntry;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.ScreenTexts;
-import net.minecraft.text.LiteralText;
-import net.minecraft.text.TranslatableText;
-import net.minecraft.world.gen.chunk.StructuresConfig;
-import net.minecraft.world.gen.feature.StructureFeature;
+import net.minecraft.screen.ScreenTexts;
+import net.minecraft.text.Text;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.BufferedReader;
@@ -29,10 +26,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static java.lang.Math.ceil;
-import static java.lang.Math.round;
-
-public class ModConfig{
+public class ModConfig {
     public static final List<String> DEFAULTENDINVENTORY;
     public static final List<String> DEFAULTNETHERINVENTORY;
     public static final List<String> DEFAULTPOSTBLINDINVENTORY;
@@ -52,16 +46,11 @@ public class ModConfig{
     public boolean randomisePostBlindInventory=true;
     public boolean useSeedList = false;
 
-
     public static ModConfig load() {
         Path path = FabricLoader.getInstance().getConfigDir().resolve("speedrun-practice.json");
-        BufferedReader reader = null;
-        try {
-            reader = Files.newBufferedReader(path);
+        try (BufferedReader reader = Files.newBufferedReader(path)) {
             Gson gson = new Gson();
-            ModConfig config = gson.fromJson(reader,ModConfig.class);
-            reader.close();
-            return config;
+            return gson.fromJson(reader,ModConfig.class);
         } catch (IOException e) {
             return new ModConfig();
         }
@@ -72,7 +61,7 @@ public class ModConfig{
                 .setParentScreen(parent)
                 .setDoesConfirmSave(false)
                 .setTransparentBackground(true)
-                .setTitle(new TranslatableText("speedrun-practice.options"))
+                .setTitle(Text.translatable("speedrun-practice.options"))
                 .setSavingRunnable(()->{
                     try {
                         save();
@@ -81,75 +70,75 @@ public class ModConfig{
                     }
                 });
 
-        ConfigCategory general = builder.getOrCreateCategory(new TranslatableText("speedrun-practice.options.general"));
+        ConfigCategory general = builder.getOrCreateCategory(Text.translatable("speedrun-practice.options.general"));
         ConfigEntryBuilder entryBuilder = builder.entryBuilder();
-        general.addEntry(entryBuilder.startIntSlider(new TranslatableText("speedrun-practice.options.nether_region_size"),getNetherRegionSize(),1,200)
+        general.addEntry(entryBuilder.startIntSlider(Text.translatable("speedrun-practice.options.nether_region_size"),getNetherRegionSize(),1,200)
                 .setDefaultValue(100)
                 .setSaveConsumer(this::setNetherRegionSize)
-                .setTextGetter(a->new LiteralText(String.format("%d %%",a)))
+                .setTextGetter(a->Text.literal(String.format("%d %%",a)))
                 .build());
-        general.addEntry(entryBuilder.startIntSlider(new TranslatableText("speedrun-practice.options.bastion_rarity"), ptConfig.getBastionRarity(), 0,100)
+        general.addEntry(entryBuilder.startIntSlider(Text.translatable("speedrun-practice.options.bastion_rarity"), ptConfig.getBastionRarity(), 0,100)
                 .setDefaultValue(60)
-                .setTextGetter(a->new LiteralText(String.format("%d %%",a)))
+                .setTextGetter(a->Text.literal(String.format("%d %%",a)))
                 .setSaveConsumer(a->ptConfig.setBastionRarity(a))
-                .setTooltip(new TranslatableText("speedrun-practice.options.bastion_rarity_tooltip"))
+                .setTooltip(Text.translatable("speedrun-practice.options.bastion_rarity_tooltip"))
                 .build());
-        general.addEntry(entryBuilder.startIntField(new TranslatableText("speedrun-practice.options.max_dist"),defaultMaxDist)
+        general.addEntry(entryBuilder.startIntField(Text.translatable("speedrun-practice.options.max_dist"),defaultMaxDist)
                 .setDefaultValue(1000)
                 .setMin(0)
                 .setSaveConsumer(a->defaultMaxDist=a)
                 .build());
-        general.addEntry(entryBuilder.startBooleanToggle(new TranslatableText("speedrun-practice.options.randomisePostBlindInventory"),randomisePostBlindInventory)
+        general.addEntry(entryBuilder.startBooleanToggle(Text.translatable("speedrun-practice.options.randomisePostBlindInventory"),randomisePostBlindInventory)
                 .setDefaultValue(true)
                 .setSaveConsumer(a->randomisePostBlindInventory=a)
                 .build());
-        general.addEntry(entryBuilder.startBooleanToggle(new TranslatableText("speedrun-practice.options.deletePracticeWorlds"),deletePracticeWorlds)
+        general.addEntry(entryBuilder.startBooleanToggle(Text.translatable("speedrun-practice.options.deletePracticeWorlds"),deletePracticeWorlds)
                 .setDefaultValue(true)
                 .setSaveConsumer(a->deletePracticeWorlds=a)
                 .build());
-        general.addEntry(entryBuilder.startBooleanToggle(new TranslatableText("speedrun-practice.options.postBlindSpawnChunks"),postBlindSpawnChunks)
+        general.addEntry(entryBuilder.startBooleanToggle(Text.translatable("speedrun-practice.options.postBlindSpawnChunks"),postBlindSpawnChunks)
                 .setDefaultValue(false)
                 .setSaveConsumer(a->postBlindSpawnChunks=a)
-                .setTooltip(new TranslatableText("speedrun-practice.options.postBlindSpawnChunks.tooltip1"),new TranslatableText("speedrun-practice.options.postBlindSpawnChunks.tooltip2"))
+                .setTooltip(Text.translatable("speedrun-practice.options.postBlindSpawnChunks.tooltip1"),Text.translatable("speedrun-practice.options.postBlindSpawnChunks.tooltip2"))
                 .build());
-        general.addEntry(entryBuilder.startBooleanToggle(new TranslatableText("speedrun-practice.options.postBlindCaveSpawns"),caveSpawns)
+        general.addEntry(entryBuilder.startBooleanToggle(Text.translatable("speedrun-practice.options.postBlindCaveSpawns"),caveSpawns)
                 .setDefaultValue(true)
                 .setSaveConsumer(a->caveSpawns=a)
                 .build());
-        general.addEntry(entryBuilder.startBooleanToggle(new TranslatableText("speedrun-practice.options.calc_mode"),calcMode)
+        general.addEntry(entryBuilder.startBooleanToggle(Text.translatable("speedrun-practice.options.calc_mode"),calcMode)
                 .setDefaultValue(true)
                 .build());
-        general.addEntry(entryBuilder.startBooleanToggle(new TranslatableText("speedrun-practice.options.useSeedList"), useSeedList)
+        general.addEntry(entryBuilder.startBooleanToggle(Text.translatable("speedrun-practice.options.useSeedList"), useSeedList)
                 .setDefaultValue(false)
                 .setSaveConsumer(a -> useSeedList = a)
                 .build());
-        general.addEntry(entryBuilder.startSubCategory(new TranslatableText("speedrun-practice.options.bastions"), Lists.newArrayList(
-                entryBuilder.startBooleanToggle(new TranslatableText("speedrun-practice.options.bastions.housing"), ptConfig.isHousing())
+        general.addEntry(entryBuilder.startSubCategory(Text.translatable("speedrun-practice.options.bastions"), Lists.newArrayList(
+                entryBuilder.startBooleanToggle(Text.translatable("speedrun-practice.options.bastions.housing"), ptConfig.isHousing())
                         .setDefaultValue(true)
                         .setYesNoTextSupplier(a->a ? ScreenTexts.ON : ScreenTexts.OFF)
                         .setSaveConsumer(a->ptConfig.setHousing(a))
                         .build(),
-                entryBuilder.startBooleanToggle(new TranslatableText("speedrun-practice.options.bastions.stables"), ptConfig.isStables())
+                entryBuilder.startBooleanToggle(Text.translatable("speedrun-practice.options.bastions.stables"), ptConfig.isStables())
                         .setDefaultValue(true)
                         .setYesNoTextSupplier(a->a ? ScreenTexts.ON : ScreenTexts.OFF)
                         .setSaveConsumer(a->ptConfig.setStables(a))
                         .build(),
-                entryBuilder.startBooleanToggle(new TranslatableText("speedrun-practice.options.bastions.treasure"), ptConfig.isTreasure())
+                entryBuilder.startBooleanToggle(Text.translatable("speedrun-practice.options.bastions.treasure"), ptConfig.isTreasure())
                         .setDefaultValue(true)
                         .setYesNoTextSupplier(a->a ? ScreenTexts.ON : ScreenTexts.OFF)
                         .setSaveConsumer(a->ptConfig.setTreasure(a))
                         .build(),
-                entryBuilder.startBooleanToggle(new TranslatableText("speedrun-practice.options.bastions.bridge"), ptConfig.isBridge())
+                entryBuilder.startBooleanToggle(Text.translatable("speedrun-practice.options.bastions.bridge"), ptConfig.isBridge())
                         .setDefaultValue(true)
                         .setYesNoTextSupplier(a->a ? ScreenTexts.ON : ScreenTexts.OFF)
                         .setSaveConsumer(a->ptConfig.setBridge(a))
                         .build())).build());
-        general.addEntry(entryBuilder.startSubCategory(new TranslatableText("speedrun-practice.options.end"), Lists.newArrayList(
-                entryBuilder.startEnumSelector(new TranslatableText("speedrun-practice.options.dragon_type"), PTLib.DragonType.class,ptConfig.getDragonType())
+        general.addEntry(entryBuilder.startSubCategory(Text.translatable("speedrun-practice.options.end"), Lists.newArrayList(
+                entryBuilder.startEnumSelector(Text.translatable("speedrun-practice.options.dragon_type"), PTLib.DragonType.class,ptConfig.getDragonType())
                         .setDefaultValue(PTLib.DragonType.BOTH)
                         .setSaveConsumer(a->ptConfig.setDragonType(a))
                         .build(),
-                entryBuilder.startBooleanToggle(new TranslatableText("speedrun-practice.options.eliminate_cage_spawns"),ptConfig.isEliminateCageSpawns())
+                entryBuilder.startBooleanToggle(Text.translatable("speedrun-practice.options.eliminate_cage_spawns"),ptConfig.isEliminateCageSpawns())
                         .setDefaultValue(true)
                         .setSaveConsumer(a->ptConfig.setEliminateCageSpawns(a))
                         .build(),
@@ -168,26 +157,12 @@ public class ModConfig{
         return builder.build();
     }
 
-    private void setNetherRegionSize(Integer integer) {
-        float scale = (float)integer/100;
-        int defaultNetherSpacing = StructuresConfig.DEFAULT_STRUCTURES.get(StructureFeature.FORTRESS).getSpacing();
-        int defaultNetherSeparation = StructuresConfig.DEFAULT_STRUCTURES.get(StructureFeature.FORTRESS).getSeparation();
-        int netherSalt = 30084232;
-        PTConfig.StructureRegion netherConfig = new PTConfig.StructureRegion((int) ceil(defaultNetherSpacing*scale), round(defaultNetherSeparation*scale),netherSalt);
-        ptConfig.getStructureRegions().put("fortress",netherConfig);
-        ptConfig.getStructureRegions().put("bastion_remnant",netherConfig);
-    }
-
-    private int getNetherRegionSize() {
-        int defaultNetherSpacing = StructuresConfig.DEFAULT_STRUCTURES.get(StructureFeature.FORTRESS).getSpacing();
-        PTConfig.StructureRegion fortress = ptConfig.getStructureRegions().get("fortress");
-        if(fortress==null) return 100;
-        return (int)((float) fortress.spacing / (float)defaultNetherSpacing * 100);
-    }
+    private void setNetherRegionSize(Integer integer) {}
+    private int getNetherRegionSize() { return 100; }
 
     @NotNull
     private BooleanListEntry getEndTower(ConfigEntryBuilder entryBuilder, String text, int tower) {
-        return entryBuilder.startBooleanToggle(new TranslatableText(text), ptConfig.getEndTowers().get(tower))
+        return entryBuilder.startBooleanToggle(Text.translatable(text), ptConfig.getEndTowers().get(tower))
                 .setDefaultValue(true)
                 .setYesNoTextSupplier(a -> a ? ScreenTexts.ON : ScreenTexts.OFF)
                 .setSaveConsumer(a ->ptConfig.getEndTowers().set(tower,a))
@@ -199,9 +174,9 @@ public class ModConfig{
         Gson gson = new GsonBuilder().setPrettyPrinting().create();
         Path path = FabricLoader.getInstance().getConfigDir().resolve("speedrun-practice.json");
         Files.createDirectories(path.getParent());
-        BufferedWriter writer = Files.newBufferedWriter(path);
-        gson.toJson(this,writer);
-        writer.close();
+        try (BufferedWriter writer = Files.newBufferedWriter(path)) {
+            gson.toJson(this,writer);
+        }
     }
 
     static{

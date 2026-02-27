@@ -1,8 +1,10 @@
 package com.gregor0410.speedrunpractice;
 
+import net.minecraft.text.Text;
+
 import com.gregor0410.speedrunpractice.world.PracticeWorld;
 import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.registry.RegistryKey;
+import net.minecraft.registry.RegistryKey;
 import net.minecraft.world.dimension.DimensionType;
 
 import java.io.IOException;

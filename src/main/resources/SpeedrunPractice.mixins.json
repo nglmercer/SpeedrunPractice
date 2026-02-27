@@ -5,7 +5,6 @@
   "compatibilityLevel": "JAVA_8",
   "mixins": [
     "AbstractFireBlockMixin",
-    "DimensionTypeAccess",
     "EnderDragonFightAccess",
     "EndPortalBlockMixin",
     "EntityMixin",
@@ -21,7 +20,7 @@
     "ServerPlayerEntityAccess",
     "ServerPlayerEntityMixin",
     "ServerWorldAccess",
-    "ThreadedAnvilChunkStorageAccess"
+    "ServerChunkLoadingManagerAccess"
   ],
   "client": [
     "DebugHudMixin"

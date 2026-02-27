@@ -1,5 +1,7 @@
 package com.gregor0410.speedrunpractice.mixin;
 
+import net.minecraft.text.Text;
+
 import com.gregor0410.speedrunpractice.SpeedrunPractice;
 import com.gregor0410.speedrunpractice.world.PracticeWorld;
 import net.fabricmc.loader.api.VersionParsingException;

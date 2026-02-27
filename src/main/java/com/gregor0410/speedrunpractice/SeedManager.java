@@ -1,5 +1,7 @@
 package com.gregor0410.speedrunpractice;
 
+import net.minecraft.text.Text;
+
 import net.fabricmc.loader.api.FabricLoader;
 
 import java.io.IOException;

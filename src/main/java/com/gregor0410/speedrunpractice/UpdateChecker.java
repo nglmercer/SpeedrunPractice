@@ -1,5 +1,7 @@
 package com.gregor0410.speedrunpractice;
 
+import net.minecraft.text.Text;
+
 import com.google.gson.JsonObject;
 import net.fabricmc.loader.api.VersionParsingException;
 import net.fabricmc.loader.impl.util.version.SemanticVersionImpl;
