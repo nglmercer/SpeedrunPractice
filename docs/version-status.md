@@ -10,38 +10,41 @@ or compilation alone (plan section 98). Until then the vocabulary is:
 
 ## New architecture (`PracticeRuntime` + `ScenarioEngine` + `AdapterSet`)
 
-All three adapters are compilation-checked skeletons: every live-Minecraft
-method throws `pending()` and `supports()` returns `false` for every
-capability. Nothing below runs in-game yet on any version.
+1.16.1 runs the new runtime for real: `Runtime116` wires the shared engine
+to `LiveAdapter116` (worlds, players, inventories, structures, portals,
+dragon, registry, commands, timer) inside the root Loom jar, and
+`AdapterSet116` is a delegation shell with no `pending()` left. 1.21.1 and
+26.3 are still compilation-checked skeletons. Nothing below has run
+in-game yet on any version, so no cell is ✅.
 
 | Feature | 1.16.1 | 1.21.1 | 26.3 |
 | ------- | ------ | ------ | ---- |
-| Mod loads (new adapter entrypoint) | ❌ adapter pending | ❌ adapter pending | ❌ adapter pending |
-| `/practice` commands register | ❌ adapter pending | ❌ adapter pending | ❌ adapter pending |
-| Practice world creation | ❌ adapter pending | ❌ adapter pending | ❌ adapter pending |
-| Practice world deletion/reset | ❌ adapter pending | ❌ adapter pending | ❌ adapter pending |
-| `/practice start overworld` | ❌ adapter pending | ❌ adapter pending | ❌ adapter pending |
-| `/practice start nether` | ❌ adapter pending | ❌ adapter pending | ❌ adapter pending |
-| `/practice start bastion` | ❌ adapter pending | ❌ adapter pending | ❌ adapter pending |
-| `/practice start fortress` | ❌ adapter pending | ❌ adapter pending | ❌ adapter pending |
-| `/practice start blind_travel` | ❌ adapter pending | ❌ adapter pending | ❌ adapter pending |
-| `/practice start postblind` | ❌ adapter pending | ❌ adapter pending | ❌ adapter pending |
-| `/practice start stronghold` | ❌ adapter pending | ❌ adapter pending | ❌ adapter pending |
-| `/practice start end` | ❌ adapter pending | ❌ adapter pending | ❌ adapter pending |
-| `/practice start onecycle` | ❌ adapter pending | ❌ adapter pending | ❌ adapter pending |
-| Same-seed reset | ❌ adapter pending | ❌ adapter pending | ❌ adapter pending |
-| New-seed reset | ❌ adapter pending | ❌ adapter pending | ❌ adapter pending |
-| Previous-seed reset | ❌ adapter pending | ❌ adapter pending | ❌ adapter pending |
-| Loadouts | ❌ adapter pending | ❌ adapter pending | ❌ adapter pending |
-| Checkpoints | ❌ adapter pending | ❌ adapter pending | ❌ adapter pending |
-| Timer | ❌ adapter pending | ❌ adapter pending | ❌ adapter pending |
-| Completion detection | ❌ adapter pending | ❌ adapter pending | ❌ adapter pending |
-| Statistics | ❌ adapter pending | ❌ adapter pending | ❌ adapter pending |
-| Seed list | ❌ adapter pending | ❌ adapter pending | ❌ adapter pending |
-| Seed search | ❌ adapter pending | ❌ adapter pending | ❌ adapter pending |
-| Favorites | ❌ adapter pending | ❌ adapter pending | ❌ adapter pending |
-| GUI screens | ❌ adapter pending | ❌ adapter pending | ❌ adapter pending |
-| Keybinds | ❌ adapter pending | ❌ adapter pending | ❌ adapter pending |
+| Mod loads (new adapter entrypoint) | runtime unverified | ❌ adapter pending | ❌ adapter pending |
+| `/practice` commands register | runtime unverified | ❌ adapter pending | ❌ adapter pending |
+| Practice world creation | runtime unverified | ❌ adapter pending | ❌ adapter pending |
+| Practice world deletion/reset | runtime unverified | ❌ adapter pending | ❌ adapter pending |
+| `/practice start overworld` | runtime unverified | ❌ adapter pending | ❌ adapter pending |
+| `/practice start nether` | runtime unverified | ❌ adapter pending | ❌ adapter pending |
+| `/practice start bastion` | runtime unverified | ❌ adapter pending | ❌ adapter pending |
+| `/practice start fortress` | runtime unverified | ❌ adapter pending | ❌ adapter pending |
+| `/practice start blind_travel` | runtime unverified | ❌ adapter pending | ❌ adapter pending |
+| `/practice start postblind` | runtime unverified | ❌ adapter pending | ❌ adapter pending |
+| `/practice start stronghold` | runtime unverified | ❌ adapter pending | ❌ adapter pending |
+| `/practice start end` | runtime unverified | ❌ adapter pending | ❌ adapter pending |
+| `/practice start onecycle` | runtime unverified | ❌ adapter pending | ❌ adapter pending |
+| Same-seed reset | runtime unverified | ❌ adapter pending | ❌ adapter pending |
+| New-seed reset | runtime unverified | ❌ adapter pending | ❌ adapter pending |
+| Previous-seed reset | runtime unverified | ❌ adapter pending | ❌ adapter pending |
+| Loadouts | runtime unverified | ❌ adapter pending | ❌ adapter pending |
+| Checkpoints | runtime unverified | ❌ adapter pending | ❌ adapter pending |
+| Timer | runtime unverified | ❌ adapter pending | ❌ adapter pending |
+| Completion detection | runtime unverified | ❌ adapter pending | ❌ adapter pending |
+| Statistics | runtime unverified | ❌ adapter pending | ❌ adapter pending |
+| Seed list | runtime unverified | ❌ adapter pending | ❌ adapter pending |
+| Seed search | runtime unverified (lava presets need a stage-B chunk verifier) | ❌ adapter pending | ❌ adapter pending |
+| Favorites | runtime unverified | ❌ adapter pending | ❌ adapter pending |
+| GUI screens | runtime unverified | ❌ adapter pending | ❌ adapter pending |
+| Keybinds | runtime unverified | ❌ adapter pending | ❌ adapter pending |
 | `CUSTOM_DIMENSION_RUNTIME` | ❌ | ❌ | ❌ |
 | `FAST_WORLD_RESET` | ❌ | ❌ | ❌ |
 | `BASTION_TYPE_QUERY` | ❌ | ❌ | ❌ |
@@ -57,8 +60,12 @@ completion conditions, the exception-safe start/reset state machine
 + scenario checkpoint snapshots with seed/dimension world consistency,
 persistent `stats.json` with per-version/preset slices, analyze-once seed
 search with verified/failed progress, cancellable search thread ownership,
-custom `completion`/`requires` definitions, and cross-version loadout item
-filtering. Region block snapshots are a data model only — live capture
+runnable JSON search presets with result export, scenario `seed.filters`
+wiring, custom `completion`/`requires` definitions, and cross-version
+loadout item filtering. 1.16.1 seed analysis covers spawn biome, structure
+positions/distances, bastion subtype and stronghold rings; lava is not
+emitted (it needs generated chunks) and lava-constrained searches fail
+fast with a readable error until a stage-B verifier exists. Region block snapshots are a data model only — live capture
 needs version block APIs. No row flips to ✅ until exercised in-game.
 
 ## Shared unit tests (in-memory harness, no Minecraft)
