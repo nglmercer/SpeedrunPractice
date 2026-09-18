@@ -1,0 +1,65 @@
+{
+  "id": "postblind_default",
+  "items": [
+    {
+      "item": "minecraft:iron_axe",
+      "slot": 0,
+      "count": 1
+    },
+    {
+      "item": "minecraft:iron_shovel",
+      "slot": 1,
+      "count": 1
+    },
+    {
+      "item": "minecraft:iron_pickaxe",
+      "slot": 2,
+      "count": 1
+    },
+    {
+      "item": "minecraft:flint_and_steel",
+      "slot": 3,
+      "count": 1
+    },
+    {
+      "item": "minecraft:ender_pearl",
+      "slot": 4,
+      "count": 16
+    },
+    {
+      "item": "minecraft:ender_eye",
+      "slot": 5,
+      "count": 12
+    },
+    {
+      "item": "minecraft:crafting_table",
+      "slot": 6,
+      "count": 1
+    },
+    {
+      "item": "minecraft:water_bucket",
+      "slot": 7,
+      "count": 1
+    },
+    {
+      "item": "minecraft:nether_bricks",
+      "slot": 8,
+      "count": 32
+    },
+    {
+      "item": "minecraft:iron_boots",
+      "slot": 100,
+      "count": 1
+    },
+    {
+      "item": "minecraft:golden_helmet",
+      "slot": 103,
+      "count": 1
+    },
+    {
+      "item": "minecraft:bread",
+      "slot": -106,
+      "count": 5
+    }
+  ]
+}

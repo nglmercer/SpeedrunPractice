@@ -1,0 +1,38 @@
+plugins {
+    id 'java-library'
+}
+
+group = 'com.gregor0410'
+// 1.16.1 = primary speedrunning build (plan section 1).
+// Migration target for the 1.16.1 adapter set. The live 1.16.1 runtime still
+// lives in the root Loom project (src/); this module compiles offline as plain
+// Java. Full Loom wiring (loom block + minecraft/loader deps) lands once the
+// adapter set is validated in-game; see versions/README.md.
+description = 'Minecraft 1.16.1 adapter set (primary speedrunning build).'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.encoding = 'UTF-8'
+}
+
+dependencies {
+    api project(':common')
+    api project(':practices')
+    api project(':seed-search')
+}
+
+// Loom wiring (enable when validating in-game; requires network + JDK 17):
+// plugins { id 'fabric-loom' version '0.10-SNAPSHOT' }
+// dependencies {
+//     minecraft 'com.mojang:minecraft:1.16.1'
+//     mappings 'net.fabricmc:yarn:1.16.1+build.21:v2'
+//     modImplementation 'net.fabricmc:fabric-loader:0.12.12'
+// }
+
+jar {
+    archiveBaseName = 'speedrun-practice-1.16.1'
+}

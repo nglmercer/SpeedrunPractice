@@ -1,0 +1,34 @@
+{
+  "version": "1.16.1",
+  "scenarios": [
+    {
+      "id": "end",
+      "type": "end",
+      "seed": 12345,
+      "expect": {
+        "dimension": "end",
+        "spawn": "100,49,0",
+        "loadout": "end_default"
+      }
+    },
+    {
+      "id": "bastion_housing_default",
+      "type": "bastion",
+      "seed": 12345,
+      "expect": {
+        "dimension": "nether",
+        "bastion.type": "housing",
+        "loadout": "bastion_default"
+      }
+    },
+    {
+      "id": "postblind_default",
+      "type": "postblind",
+      "seed": 12345,
+      "expect": {
+        "dimension": "overworld",
+        "maxDist": "1000"
+      }
+    }
+  ]
+}

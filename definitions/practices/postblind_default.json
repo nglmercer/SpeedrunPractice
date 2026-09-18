@@ -1,0 +1,24 @@
+{
+  "id": "postblind_default",
+  "type": "postblind",
+  "displayName": "Post Blind Practice",
+  "world": {
+    "dimension": "overworld"
+  },
+  "seed": {
+    "source": "random"
+  },
+  "spawn": {
+    "type": "world_spawn"
+  },
+  "loadout": "postblind_default",
+  "settings": {
+    "postblind.maxDist": "1000",
+    "postblind.minDist": "0",
+    "postblind.eyes": "12"
+  },
+  "timer": {
+    "start": "player_move",
+    "stop": "manual"
+  }
+}

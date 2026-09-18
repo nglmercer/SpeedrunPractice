@@ -1,0 +1,23 @@
+{
+  "id": "fortress_default",
+  "type": "fortress",
+  "displayName": "Fortress Practice",
+  "world": {
+    "dimension": "nether"
+  },
+  "seed": {
+    "source": "random"
+  },
+  "spawn": {
+    "type": "structure",
+    "structure": "fortress"
+  },
+  "loadout": "nether_default",
+  "settings": {
+    "fortress.mode": "find"
+  },
+  "timer": {
+    "start": "player_move",
+    "stop": "scenario_complete"
+  }
+}

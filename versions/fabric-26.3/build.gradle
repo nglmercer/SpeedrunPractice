@@ -1,0 +1,28 @@
+plugins {
+    id 'java-library'
+}
+
+group = 'com.gregor0410'
+// 26.3 = latest supported build (plan section 1).
+// Skeleton adapter set; compiles offline as plain Java. Full Loom wiring
+// needs Gradle 8 + a modern JDK once 26.3 mappings exist; see versions/README.md.
+description = 'Minecraft 26.3 adapter set (latest supported build).'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.encoding = 'UTF-8'
+}
+
+dependencies {
+    api project(':common')
+    api project(':practices')
+    api project(':seed-search')
+}
+
+jar {
+    archiveBaseName = 'speedrun-practice-26.3'
+}

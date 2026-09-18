@@ -1,0 +1,20 @@
+{
+  "name": "housing-close-fortress",
+  "description": "Housing bastion with a fortress 200-500 blocks away",
+  "query": {
+    "version": "1.16.1",
+    "maxDistance": 10000
+  },
+  "filters": [
+    {
+      "type": "bastion_type",
+      "value": "housing"
+    },
+    {
+      "type": "structure_distance",
+      "structure": "fortress",
+      "min": 200,
+      "max": 500
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "id": "bastion_default",
+  "items": [
+    {
+      "item": "minecraft:iron_pickaxe",
+      "slot": 0,
+      "count": 1
+    },
+    {
+      "item": "minecraft:bread",
+      "slot": 1,
+      "count": 16
+    },
+    {
+      "item": "minecraft:golden_helmet",
+      "slot": 103,
+      "count": 1
+    },
+    {
+      "item": "minecraft:cobblestone",
+      "slot": 8,
+      "count": 64
+    }
+  ]
+}

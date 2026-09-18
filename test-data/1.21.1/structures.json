@@ -1,0 +1,32 @@
+{
+  "version": "1.21.1",
+  "note": "Rows are illustrative until verified in-game; flip verified to true after checking each seed.",
+  "seeds": [
+    {
+      "seed": 12345,
+      "verified": false,
+      "structures": {
+        "fortress": {
+          "x": 96,
+          "y": 64,
+          "z": -120
+        },
+        "bastion_remnant": {
+          "x": -320,
+          "y": 70,
+          "z": 180
+        },
+        "stronghold": {
+          "x": 1400,
+          "y": 30,
+          "z": 600
+        },
+        "buried_treasure": {
+          "x": -80,
+          "y": 60,
+          "z": 220
+        }
+      }
+    }
+  ]
+}

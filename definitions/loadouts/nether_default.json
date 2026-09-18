@@ -1,0 +1,55 @@
+{
+  "id": "nether_default",
+  "items": [
+    {
+      "item": "minecraft:iron_axe",
+      "slot": 0,
+      "count": 1
+    },
+    {
+      "item": "minecraft:iron_shovel",
+      "slot": 1,
+      "count": 1
+    },
+    {
+      "item": "minecraft:iron_pickaxe",
+      "slot": 2,
+      "count": 1
+    },
+    {
+      "item": "minecraft:flint_and_steel",
+      "slot": 3,
+      "count": 1
+    },
+    {
+      "item": "minecraft:oak_boat",
+      "slot": 4,
+      "count": 1
+    },
+    {
+      "item": "minecraft:bread",
+      "slot": 5,
+      "count": 5
+    },
+    {
+      "item": "minecraft:crafting_table",
+      "slot": 6,
+      "count": 1
+    },
+    {
+      "item": "minecraft:lava_bucket",
+      "slot": 7,
+      "count": 1
+    },
+    {
+      "item": "minecraft:oak_planks",
+      "slot": 8,
+      "count": 20
+    },
+    {
+      "item": "minecraft:stick",
+      "slot": 27,
+      "count": 2
+    }
+  ]
+}

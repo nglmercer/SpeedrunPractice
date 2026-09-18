@@ -9,7 +9,8 @@ on:
     branches: [ main, master ]
 
 jobs:
-  build:
+  shared:
+    name: Shared modules + tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -25,30 +26,92 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
-      - name: Build with Gradle
-        run: ./gradlew build
+      - name: Build and test shared modules
+        run: ./gradlew :common:build :practices:build :seed-search:build :test-support:build
 
-      - name: Upload Artifacts
+      - name: Verify architecture guard (offline script)
+        run: python scripts/verify-architecture.py
+
+  versions:
+    name: Adapter ${{ matrix.module }}
+    needs: shared
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        module: [ fabric-1.16.1, fabric-1.21.1, fabric-26.3 ]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      - name: Build adapter module
+        run: ./gradlew :versions:${{ matrix.module }}:build
+
+      - name: Upload adapter jar
         uses: actions/upload-artifact@v4
         with:
-          name: artifacts
-          path: build/libs/
+          name: adapter-${{ matrix.module }}
+          path: versions/${{ matrix.module }}/build/libs/*.jar
+
+  legacy-1161:
+    name: Legacy 1.16.1 Loom runtime
+    needs: shared
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      - name: Build legacy runtime
+        run: ./gradlew :build -x :common:build -x :practices:build -x :seed-search:build -x :test-support:build
+
+      - name: Upload legacy jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: legacy-1.16.1
+          path: build/libs/*.jar
 
   release:
-    needs: build
+    needs: [ shared, versions, legacy-1161 ]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
-      - name: Download Artifacts
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          name: artifacts
           path: artifacts
+          merge-multiple: true
+
+      - name: Checksums
+        run: |
+          cd artifacts
+          sha256sum *.jar > sha256sums.txt
+          cat sha256sums.txt
 
       - name: Create Release
-        id: create_release
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/*.jar
+          files: |
+            artifacts/*.jar
+            artifacts/sha256sums.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

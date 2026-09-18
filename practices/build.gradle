@@ -1,0 +1,44 @@
+plugins {
+    id 'java-library'
+}
+
+group = 'com.gregor0410'
+description = 'Version-independent practice scenarios (Overworld, Nether, Bastion, ...). No Minecraft imports.'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.encoding = 'UTF-8'
+}
+
+dependencies {
+    api project(':common')
+    testImplementation project(':test-support')
+    testImplementation 'junit:junit:4.13.2'
+}
+
+tasks.withType(Test).configureEach {
+    useJUnit()
+}
+
+tasks.register('verifyNoMinecraftImports') {
+    doLast {
+        def violations = []
+        fileTree(dir: 'src/main/java', include: '**/*.java').each { f ->
+            int n = 0
+            f.eachLine { line ->
+                n++
+                if (line ==~ /\s*import\s+net\.minecraft\..*/ || line ==~ /\s*import\s+net\.fabricmc\..*/) {
+                    violations.add("${f.name}:${n}: ${line.trim()}")
+                }
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("practices/ imports Minecraft/Fabric classes:\n" + violations.join('\n'))
+        }
+    }
+}
+tasks.named('check') { dependsOn 'verifyNoMinecraftImports' }
