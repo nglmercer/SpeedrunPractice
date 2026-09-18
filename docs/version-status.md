@@ -90,6 +90,15 @@ new 1.16.1 adapter reaches parity practice by practice (plan section 5).
 Baseline capabilities live in `docs/original-feature-matrix.md`; nothing was
 re-verified as part of the new-architecture work.
 
+## Server-side verification harness (not yet green)
+
+`scripts/verify-server-116/` drives a headless 1.16.1 dedicated server over
+RCON (`practice seeds search/results/export`) plus a `/locate` cross-check
+procedure for prediction correctness. It has not produced a passing run
+yet: the 1.16.1 loader/mixin stack refuses to boot on the only JDK on this
+machine (25) and no older JDK is fetchable offline. No row above changes
+until the harness (or a real client) runs it green.
+
 ## Update protocol
 
 When a feature is tested in-game on a version, flip its cell to ✅ and note
