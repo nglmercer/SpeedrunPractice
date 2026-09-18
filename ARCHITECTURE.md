@@ -19,7 +19,8 @@ multiplayer Ranked clone (plan sections 45, 54).
 
 Dependency direction is strictly `common <- practices <- version modules`.
 `common -> Minecraft/Fabric/mixins` is a build failure
-(`:common:verifyNoMinecraftImports`, plus `scripts/verify-architecture.py`).
+(`:common:verifyNoMinecraftImports`, plus `scripts/verify-architecture.sh` /
+`scripts/verify-architecture.ps1`).
 
 ## Shared packages (`com.gregor0410.speedrunpractice.common`)
 

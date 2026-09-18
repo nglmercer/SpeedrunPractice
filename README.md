@@ -1,9 +1,23 @@
 # SpeedrunPractice
 
-[![CI Build](https://github.com/Gregor0410/SpeedrunPractice/actions/workflows/build.yml/badge.svg)](https://github.com/Gregor0410/SpeedrunPractice/actions/workflows/build.yml)
-[![Latest Release](https://img.shields.io/github/v/release/Gregor0410/SpeedrunPractice)](https://github.com/Gregor0410/SpeedrunPractice/releases/latest)
+[![CI Build](https://github.com/nglmercer/SpeedrunPractice/actions/workflows/build.yml/badge.svg)](https://github.com/nglmercer/SpeedrunPractice/actions/workflows/build.yml)
+[![Latest Release](https://img.shields.io/github/v/release/nglmercer/SpeedrunPractice)](https://github.com/nglmercer/SpeedrunPractice/releases/latest)
 
 A mod designed to streamline the practicing process for Minecraft speedrunners. Includes end practice, post blind practice, nether practice, and overworld practice, as well as the ability to change structure generation settings like nether structure region size and what bastion types can spawn.
+
+Single-player only: no ranked matchmaking, ratings, multiplayer racing, accounts, or online services.
+
+Forked from [Gregor0410/SpeedrunPractice](https://github.com/Gregor0410/SpeedrunPractice) (upstream); this repo is being rebuilt on one shared practice engine with per-version adapters.
+
+## Supported versions
+
+| Minecraft | Role | Status |
+| --------- | ---- | ------ |
+| 1.16.1 | Primary speedrunning build | Playable (legacy runtime) |
+| 1.21.1 | Modern compatibility build | In development (adapter pending in-game wiring) |
+| 26.3 | Latest supported build | In development (adapter pending in-game wiring) |
+
+Releases ship one jar per version, e.g. `speedrun-practice-1.16.1-2.0.0.jar`. Until the new adapters are wired in-game, the playable 1.16.1 experience is the legacy runtime described below.
 
 ## Features
 
@@ -14,6 +28,8 @@ A mod designed to streamline the practicing process for Minecraft speedrunners. 
 - **Inventory Management:** Save and load custom inventories for each practice type.
 - **Customizable Structure Generation:** Change bastion types and nether structure frequency.
 - **Seed List:** Practice on a specific set of seeds from a file.
+
+Coming with the new engine (shared code done, in-game wiring pending): Bastion, Fortress, Blind Travel, Stronghold, and One Cycle scenarios, named loadouts, filtered seed search, checkpoints, timers, statistics, and data-driven custom scenarios via JSON. See [docs/practices.md](docs/practices.md), [docs/seed-search.md](docs/seed-search.md), [docs/loadouts.md](docs/loadouts.md), and [docs/custom-scenarios.md](docs/custom-scenarios.md).
 
 ## Settings
 
@@ -48,6 +64,8 @@ The settings menu can be opened by pressing the button marked **"Speedrun Practi
 - `/practice world` - Displays the RegistryKey of the current world.
 - `/practice revert <split>` - Reverts to a previous state (if using auto-save).
 
+The new unified `/practice` tree (start/restart, seeds search, loadouts, checkpoints, stats) is specified in [docs/commands.md](docs/commands.md) and lands with the version adapters; legacy spellings above stay as aliases.
+
 ## Seed List Feature
 
 To use a specific list of seeds:
@@ -56,3 +74,27 @@ To use a specific list of seeds:
 3. In-game, run `/practice seedlist reload` to load the seeds.
 4. Enable the feature via the settings menu or `/practice seedlist toggle`.
 5. Every time you start a practice without providing a specific seed, the mod will cycle through your list.
+
+## Building from source
+
+Requires JDK 17. Shared modules compile offline; only the legacy Loom build downloads Minecraft artifacts (needs network).
+
+```bash
+./gradlew :common:build :practices:build :seed-search:build :test-support:build
+./gradlew :versions:fabric-1.16.1:build :versions:fabric-1.21.1:build :versions:fabric-26.3:build
+./gradlew build   # everything, incl. the legacy 1.16.1 runtime
+```
+
+On Windows use `.\gradlew.bat` instead of `./gradlew`. The offline architecture guard (no JDK needed) is `sh scripts/verify-architecture.sh`, or `powershell -File scripts/verify-architecture.ps1` on Windows.
+
+## Docs
+
+- [ARCHITECTURE.md](ARCHITECTURE.md) - module map for developers
+- [CONTRIBUTING.md](CONTRIBUTING.md) - workflow and commit rules
+- [docs/development.md](docs/development.md) - builds, tests, adding features
+- [docs/compatibility.md](docs/compatibility.md) - per-version capability matrix
+- [docs/practices.md](docs/practices.md), [docs/seed-search.md](docs/seed-search.md), [docs/loadouts.md](docs/loadouts.md), [docs/custom-scenarios.md](docs/custom-scenarios.md), [docs/commands.md](docs/commands.md) - feature guides
+
+## License
+
+MIT, preserved from upstream - see [LICENSE](LICENSE).

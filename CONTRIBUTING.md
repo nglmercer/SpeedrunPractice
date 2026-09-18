@@ -17,7 +17,8 @@
 ```bash
 ./gradlew :common:test                                # smallest relevant build first
 ./gradlew :common:build :practices:build :seed-search:build
-python scripts/verify-architecture.py                 # offline import guard
+sh scripts/verify-architecture.sh                   # offline import guard
+# Windows: powershell -File scripts/verify-architecture.ps1
 ./gradlew build                                       # full build (needs network for Loom)
 ```
 

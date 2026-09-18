@@ -29,7 +29,8 @@ tasks.withType(Test).configureEach {
 }
 
 // Architecture guardrail (plan section 49): fail the build if shared code
-// touches Minecraft/Fabric classes. Mirrored by scripts/verify-architecture.py.
+// touches Minecraft/Fabric classes. Mirrored by scripts/verify-architecture.sh
+// (Linux/macOS) and scripts/verify-architecture.ps1 (Windows).
 tasks.register('verifyNoMinecraftImports') {
     doLast {
         def violations = []

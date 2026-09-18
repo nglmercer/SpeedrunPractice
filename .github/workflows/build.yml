@@ -30,7 +30,7 @@ jobs:
         run: ./gradlew :common:build :practices:build :seed-search:build :test-support:build
 
       - name: Verify architecture guard (offline script)
-        run: python scripts/verify-architecture.py
+        run: sh scripts/verify-architecture.sh
 
   versions:
     name: Adapter ${{ matrix.module }}

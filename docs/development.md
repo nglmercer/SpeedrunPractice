@@ -5,8 +5,9 @@
 ```bash
 ./gradlew :common:test                                # smallest check first
 ./gradlew :common:build :practices:build :seed-search:build :test-support:build
-./gradlew :versions:fabric-1.16.1:build :versions:fabric-1.21.1:build :versions/fabric-26.3:build
-python scripts/verify-architecture.py                 # offline import guard (no JDK needed)
+./gradlew :versions:fabric-1.16.1:build :versions:fabric-1.21.1:build :versions:fabric-26.3:build
+sh scripts/verify-architecture.sh                   # offline import guard (no JDK needed)
+# Windows: powershell -File scripts/verify-architecture.ps1
 ./gradlew build                                       # everything incl. legacy Loom (needs network)
 ```
 

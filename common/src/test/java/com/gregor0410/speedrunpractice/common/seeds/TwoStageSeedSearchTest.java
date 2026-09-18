@@ -52,8 +52,10 @@ public class TwoStageSeedSearchTest {
         for (SeedResult result : results) {
             assertEquals(SeedResult.VerificationState.VERIFIED, result.verificationState());
         }
-        assertEquals(2, search.failed().size());
-        assertEquals(4L, search.progress().seedsTested());
+        // Seeds 0 (verified), 1 (failed), 2 (verified): the scan stops once
+        // maxResults is reached, so seed 3 is never tested.
+        assertEquals(1, search.failed().size());
+        assertEquals(3L, search.progress().seedsTested());
         assertEquals(2L, search.progress().seedsMatched());
     }
 
