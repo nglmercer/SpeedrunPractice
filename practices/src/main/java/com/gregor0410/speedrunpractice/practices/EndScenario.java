@@ -6,11 +6,13 @@ import com.gregor0410.speedrunpractice.common.api.PracticeException;
 import com.gregor0410.speedrunpractice.common.api.PracticeId;
 import com.gregor0410.speedrunpractice.common.api.PracticePosition;
 import com.gregor0410.speedrunpractice.common.api.PracticeType;
+import com.gregor0410.speedrunpractice.common.events.PracticeEvent;
 
 /**
  * End practice (legacy parity): fresh dragon fight, spawn platform provided
  * by the version's {@code resetFight}, teleport to the obsidian platform.
- * Completes when no living dragon remains.
+ * Completes when no living dragon remains in the practice world; completion
+ * fires exactly once (the engine short-circuits finished sessions).
  */
 public class EndScenario extends AbstractPracticeScenario {
     public static final PracticeId ID = PracticeId.of("end");
@@ -40,6 +42,16 @@ public class EndScenario extends AbstractPracticeScenario {
     @Override
     public TickResult tick(PracticeContext context) throws PracticeException {
         if (context.world() != null && !context.adapter().dragons().hasLivingDragon(context.world())) {
+            return TickResult.finished();
+        }
+        return TickResult.continueTick();
+    }
+
+    @Override
+    public TickResult onEvent(PracticeContext context, PracticeEvent event) {
+        if (event instanceof PracticeEvent.DragonKilledEvent && context.world() != null
+                && context.world().handleId()
+                        .equals(((PracticeEvent.DragonKilledEvent) event).worldHandle())) {
             return TickResult.finished();
         }
         return TickResult.continueTick();

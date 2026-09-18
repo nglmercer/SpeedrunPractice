@@ -1,0 +1,23 @@
+{
+  "id": "stronghold_default",
+  "type": "stronghold",
+  "displayName": "Stronghold Practice",
+  "world": {
+    "dimension": "overworld"
+  },
+  "seed": {
+    "source": "random"
+  },
+  "spawn": {
+    "type": "structure",
+    "structure": "stronghold"
+  },
+  "loadout": "stronghold_default",
+  "settings": {
+    "stronghold.mode": "entry"
+  },
+  "timer": {
+    "start": "player_move",
+    "stop": "manual"
+  }
+}

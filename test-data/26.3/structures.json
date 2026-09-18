@@ -1,32 +1,5 @@
 {
   "version": "26.3",
-  "note": "Rows are illustrative until verified in-game; flip verified to true after checking each seed.",
-  "seeds": [
-    {
-      "seed": 12345,
-      "verified": false,
-      "structures": {
-        "fortress": {
-          "x": 0,
-          "y": 64,
-          "z": 0
-        },
-        "bastion_remnant": {
-          "x": 0,
-          "y": 64,
-          "z": 0
-        },
-        "stronghold": {
-          "x": 0,
-          "y": 30,
-          "z": 0
-        },
-        "buried_treasure": {
-          "x": 0,
-          "y": 60,
-          "z": 0
-        }
-      }
-    }
-  ]
+  "note": "No verified rows yet. Placeholder 0,*,0 coordinates were removed (plan section 51): they must never be treated as test expectations. Add seeds here only after checking them against a live 26.3 game, then flip verified to true.",
+  "seeds": []
 }

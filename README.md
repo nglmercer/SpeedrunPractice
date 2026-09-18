@@ -17,7 +17,7 @@ Forked from [Gregor0410/SpeedrunPractice](https://github.com/Gregor0410/Speedrun
 | 1.21.1 | Modern compatibility build | In development (adapter pending in-game wiring) |
 | 26.3 | Latest supported build | In development (adapter pending in-game wiring) |
 
-Releases ship one jar per version, e.g. `speedrun-practice-1.16.1-2.0.0.jar`. Until the new adapters are wired in-game, the playable 1.16.1 experience is the legacy runtime described below.
+Releases currently ship only the legacy 1.16.1 jar. Per-version jars return once each new adapter is wired and verified in-game (see [docs/version-status.md](docs/version-status.md)). Until then, the playable 1.16.1 experience is the legacy runtime described below.
 
 ## Features
 

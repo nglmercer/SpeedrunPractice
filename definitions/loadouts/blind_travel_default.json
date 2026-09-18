@@ -1,0 +1,20 @@
+{
+  "id": "blind_travel_default",
+  "items": [
+    {
+      "item": "minecraft:obsidian",
+      "slot": 0,
+      "count": 10
+    },
+    {
+      "item": "minecraft:flint_and_steel",
+      "slot": 1,
+      "count": 1
+    },
+    {
+      "item": "minecraft:bread",
+      "slot": 2,
+      "count": 16
+    }
+  ]
+}

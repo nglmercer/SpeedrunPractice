@@ -51,7 +51,9 @@ public final class PracticeSession {
 
     /**
      * Guarded transition. Legal paths: IDLE -> PREPARING -> RUNNING ->
-     * COMPLETED/STOPPED, RUNNING <-> PAUSED, PAUSED -> STOPPED.
+     * COMPLETED/STOPPING/STOPPED, RUNNING <-> PAUSED, PAUSED -> STOPPING,
+     * any active state -> FAILED on error, STOPPING -> STOPPED/IDLE,
+     * and COMPLETED/STOPPED/FAILED -> PREPARING/IDLE for reuse.
      */
     public void transitionTo(PracticeState next) {
         if (next == null) {
@@ -63,19 +65,28 @@ public final class PracticeSession {
                 legal = next == PracticeState.PREPARING || next == PracticeState.STOPPED;
                 break;
             case PREPARING:
-                legal = next == PracticeState.RUNNING || next == PracticeState.STOPPED;
+                legal = next == PracticeState.RUNNING || next == PracticeState.STOPPED
+                        || next == PracticeState.FAILED;
                 break;
             case RUNNING:
                 legal = next == PracticeState.PAUSED || next == PracticeState.COMPLETED
-                        || next == PracticeState.STOPPED || next == PracticeState.PREPARING;
+                        || next == PracticeState.STOPPING || next == PracticeState.STOPPED
+                        || next == PracticeState.PREPARING || next == PracticeState.FAILED;
                 break;
             case PAUSED:
-                legal = next == PracticeState.RUNNING || next == PracticeState.STOPPED
-                        || next == PracticeState.PREPARING;
+                legal = next == PracticeState.RUNNING || next == PracticeState.STOPPING
+                        || next == PracticeState.STOPPED || next == PracticeState.PREPARING
+                        || next == PracticeState.FAILED;
                 break;
             case COMPLETED:
             case STOPPED:
-                legal = next == PracticeState.PREPARING || next == PracticeState.IDLE;
+            case FAILED:
+                legal = next == PracticeState.PREPARING || next == PracticeState.IDLE
+                        || next == PracticeState.STOPPED;
+                break;
+            case STOPPING:
+                legal = next == PracticeState.STOPPED || next == PracticeState.IDLE
+                        || next == PracticeState.FAILED;
                 break;
             default:
                 legal = false;

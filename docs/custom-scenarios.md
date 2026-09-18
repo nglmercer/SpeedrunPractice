@@ -35,6 +35,12 @@ startup and on `/practice config reload`. Schema:
 - `timer.start`: `scenario_load`, `player_move`, `dimension_entry`,
   `portal_exit`, `manual`. `timer.stop`: `scenario_complete`,
   `dimension_entry`, `structure_reached`, `dragon_death`, `manual`.
+- `completion`: `{ "type": "manual" | "dimension_entry" | "structure_reached"
+  | "dragon_death" | "scenario_complete" }`. `dimension_entry` needs
+  `dimension`; `structure_reached` needs `structure` plus optional `radius`
+  (default 8). Absent means `manual` (never auto-finishes).
+- `requires`: optional `Capability` name (e.g. `DRAGON_FORCE_PERCH`); the
+  practice refuses to start with a readable error where unsupported.
 - `settings`: free-form string map forwarded to the scenario.
 
 ## Errors

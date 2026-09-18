@@ -47,6 +47,31 @@
       "count": 32
     },
     {
+      "item": "minecraft:string",
+      "slot": 9,
+      "count": 64
+    },
+    {
+      "item": "minecraft:glowstone",
+      "slot": 10,
+      "count": 8
+    },
+    {
+      "item": "minecraft:crying_obsidian",
+      "slot": 11,
+      "count": 32
+    },
+    {
+      "item": "minecraft:oak_planks",
+      "slot": 12,
+      "count": 32
+    },
+    {
+      "item": "minecraft:oak_boat",
+      "slot": 13,
+      "count": 1
+    },
+    {
       "item": "minecraft:iron_boots",
       "slot": 100,
       "count": 1

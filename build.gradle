@@ -1,7 +1,24 @@
+buildscript {
+    repositories {
+        maven {
+            name = 'Fabric'
+            url = 'https://maven.fabricmc.net/'
+        }
+        mavenCentral()
+    }
+    dependencies {
+        // Applied by class below: this build also uses LoomNoRemapGradlePlugin
+        // from the same artifact, and Gradle cannot resolve both plugin
+        // markers at once.
+        classpath 'net.fabricmc:fabric-loom:1.18.2'
+    }
+}
+
 plugins {
-    id 'fabric-loom' version '0.10-SNAPSHOT'
     id 'maven-publish'
 }
+
+apply plugin: net.fabricmc.loom.LoomGradlePlugin
 
 version = project.mod_version
 group = project.maven_group
@@ -75,16 +92,19 @@ java {
     if (JavaVersion.current() < javaVersion) {
         toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
     }
-    archivesBaseName = project.archives_base_name
     // Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
     // if it is present.
     // If you remove this line, sources will not be generated.
     withSourcesJar()
 }
 
+base {
+    archivesName = project.archives_base_name
+}
+
 jar {
     from("LICENSE") {
-        rename { "${it}_${project.archivesBaseName}" }
+        rename { "${it}_${project.archives_base_name}" }
     }
 }
 

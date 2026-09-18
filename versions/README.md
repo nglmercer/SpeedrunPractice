@@ -17,16 +17,22 @@ methods that still need live Minecraft calls fail with a domain
 
 ## Capability matrix (initial)
 
+No adapter claims any capability yet: `supports()` returns `false` for every
+`Capability` on all three versions (plan sections 7 and 98). A capability may
+return `true` only after its implementation exists, compiles, and passes
+in-game testing on that version.
+
 | Capability | 1.16.1 | 1.21.1 | 26.3 |
 | ---------- | :----: | :----: | :--: |
-| `CUSTOM_DIMENSION_RUNTIME` | yes | yes | no (pending) |
-| `FAST_WORLD_RESET` | yes | no (pending) | no (pending) |
-| `BASTION_TYPE_QUERY` | yes | yes | no (pending) |
-| `DRAGON_FORCE_PERCH` | yes | yes | no (pending) |
-| `PORTAL_STATE_CAPTURE` | yes | no (pending) | no (pending) |
-| `STRUCTURE_METADATA_SEARCH` | no | yes | no (pending) |
+| `CUSTOM_DIMENSION_RUNTIME` | no (adapter pending) | no (adapter pending) | no (adapter pending) |
+| `FAST_WORLD_RESET` | no (adapter pending) | no (adapter pending) | no (adapter pending) |
+| `BASTION_TYPE_QUERY` | no (adapter pending) | no (adapter pending) | no (adapter pending) |
+| `DRAGON_FORCE_PERCH` | no (adapter pending) | no (adapter pending) | no (adapter pending) |
+| `PORTAL_STATE_CAPTURE` | no (adapter pending) | no (adapter pending) | no (adapter pending) |
+| `STRUCTURE_METADATA_SEARCH` | no (adapter pending) | no (adapter pending) | no (adapter pending) |
 
 GUI/commands consult `supports()` and disable or explain unsupported options.
+Per-version runtime status lives in `docs/version-status.md`.
 
 ## Loom wiring (follow-up)
 
@@ -42,6 +48,11 @@ versions/fabric-<mc>/
         ├── fabric.mod.json (per-version id/version/depends)
         └── mixins.json     (version-local mixins only)
 ```
+
+`CommandAdapter.register` already retains the shared tree plus its executor
+(`AdapterSet*.registeredCommands()` / `commandExecutor()`), so the entrypoint
+can build Brigadier nodes from the last registration once mappings land
+instead of rebuilding that state.
 
 Do not unify mixin targets across versions; per-version mixins are expected.
 Do not touch `common` just to fix mapping names.

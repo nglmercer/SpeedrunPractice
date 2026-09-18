@@ -7,6 +7,7 @@ import com.gregor0410.speedrunpractice.common.api.PracticeException;
 import com.gregor0410.speedrunpractice.common.api.PracticeId;
 import com.gregor0410.speedrunpractice.common.api.PracticePosition;
 import com.gregor0410.speedrunpractice.common.api.PracticeType;
+import com.gregor0410.speedrunpractice.common.checkpoint.PracticeCheckpoint;
 import com.gregor0410.speedrunpractice.common.loadout.Loadout;
 import com.gregor0410.speedrunpractice.common.util.SpeedrunLogger;
 
@@ -19,6 +20,13 @@ import java.util.Random;
  * Post-blind practice (legacy parity): seeded-random point between
  * {@code postblind.minDist} and {@code postblind.maxDist} from the stronghold.
  * Eye count via {@code postblind.eyes} when no loadout is configured.
+ *
+ * <p>Completion ({@code postblind.goal}, default {@code reach_stronghold}):
+ * reaching the attempt's stronghold within
+ * {@code postblind.completeRadius} (default 32); {@code enter_stronghold}
+ * and {@code reach_portal_room} use tighter radii against the stairs or the
+ * {@code portal_room} metadata when the version provides it;
+ * {@code manual} never auto-finishes.
  */
 public class PostBlindScenario extends AbstractPracticeScenario {
     public static final PracticeId ID = PracticeId.of("postblind");
@@ -52,6 +60,11 @@ public class PostBlindScenario extends AbstractPracticeScenario {
         Optional<StructureAdapter.StructureLocation> stronghold = locate(context, "stronghold", spawn, radius);
         PracticePosition target = spawn;
         if (stronghold.isPresent()) {
+            track(context, "target", stronghold.get().position());
+            String portalRoom = stronghold.get().metadata().get("portal_room");
+            if (portalRoom != null) {
+                track(context, "portalRoom", portalRoom);
+            }
             Random random = new Random(context.seed());
             double angle = random.nextDouble() * Math.PI * 2.0;
             int distance = maxDist == minDist ? maxDist : minDist + random.nextInt(maxDist - minDist + 1);
@@ -67,7 +80,7 @@ public class PostBlindScenario extends AbstractPracticeScenario {
             List<Loadout.Item> items = new ArrayList<Loadout.Item>();
             items.add(new Loadout.Item("minecraft:ender_eye", 5, eyes));
             items.add(new Loadout.Item("minecraft:ender_pearl", 4, 16));
-            context.adapter().players().applyLoadout(context.player(), new Loadout("postblind_eyes", items));
+            applyCompatibleLoadout(context, new Loadout("postblind_eyes", items));
         } else {
             applyLoadoutSetting(context);
         }
@@ -75,7 +88,61 @@ public class PostBlindScenario extends AbstractPracticeScenario {
 
     @Override
     public TickResult tick(PracticeContext context) {
+        String goal = context.settings().getOrDefault("postblind.goal", "reach_stronghold")
+                .trim().toLowerCase();
+        if ("manual".equals(goal)) {
+            return TickResult.continueTick();
+        }
+        PracticePosition stronghold = tracked(context, "target");
+        if (stronghold == null) {
+            return TickResult.continueTick();
+        }
+        if ("reach_stronghold".equals(goal)) {
+            double radius = Math.max(0, context.settings().getInt("postblind.completeRadius", 32));
+            if (reached(context, stronghold, radius)) {
+                return TickResult.finished();
+            }
+        } else if ("enter_stronghold".equals(goal)) {
+            double radius = Math.max(0, context.settings().getInt("postblind.enterRadius", 8));
+            if (reached(context, stronghold, radius)) {
+                return TickResult.finished();
+            }
+        } else if ("reach_portal_room".equals(goal)) {
+            double radius = Math.max(0, context.settings().getInt("postblind.portalRadius", 8));
+            PracticePosition portalRoom = parsePortalRoom(tracked(context, "portalRoom"));
+            if (reached(context, portalRoom == null ? stronghold : portalRoom, radius)) {
+                return TickResult.finished();
+            }
+        } else {
+            warnOnce(context, "goal", "Unknown postblind.goal \"" + goal + "\"; never auto-finishing");
+        }
         return TickResult.continueTick();
+    }
+
+    private PracticePosition parsePortalRoom(Object raw) {
+        if (!(raw instanceof String)) {
+            return null;
+        }
+        String[] parts = ((String) raw).split(",");
+        if (parts.length != 3) {
+            return null;
+        }
+        try {
+            return new PracticePosition(Double.parseDouble(parts[0].trim()),
+                    Double.parseDouble(parts[1].trim()), Double.parseDouble(parts[2].trim()));
+        } catch (NumberFormatException bad) {
+            return null;
+        }
+    }
+
+    @Override
+    public PracticeCheckpoint.ScenarioSnapshot captureState(PracticeContext context) {
+        return captureTrackedState(context);
+    }
+
+    @Override
+    public void restoreState(PracticeContext context, PracticeCheckpoint.ScenarioSnapshot snapshot) {
+        restoreTrackedState(context, snapshot);
     }
 
     @Override

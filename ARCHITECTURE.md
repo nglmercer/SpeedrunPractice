@@ -8,7 +8,7 @@ multiplayer Ranked clone (plan sections 45, 54).
 
 ```text
 :common                  pure Java 8, ZERO Minecraft imports (guarded by build)
-:practices               version-independent scenarios, depends on :common
+:practices               version-independent scenarios + shared PracticeRuntime, depends on :common
 :seed-search             cancellable search + cache, depends on :common
 :test-support            known seeds + fake adapters for tests
 :versions:fabric-1.16.1  1.16.1 adapter set (primary speedrunning build)

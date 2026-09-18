@@ -7,6 +7,7 @@ import com.gregor0410.speedrunpractice.common.api.PracticeException;
 import com.gregor0410.speedrunpractice.common.api.PracticeId;
 import com.gregor0410.speedrunpractice.common.api.PracticePosition;
 import com.gregor0410.speedrunpractice.common.api.PracticeType;
+import com.gregor0410.speedrunpractice.common.checkpoint.PracticeCheckpoint;
 import com.gregor0410.speedrunpractice.common.util.SpeedrunLogger;
 
 import java.util.Optional;
@@ -14,6 +15,12 @@ import java.util.Optional;
 /**
  * Fortress practice (new). {@code fortress.mode}: find (start outside),
  * enter, blaze, navigation, exit (start inside).
+ *
+ * <p>Completion differs per mode: {@code find} finishes on entering the
+ * fortress area, {@code enter} and {@code navigation} on reaching the
+ * fortress within their radii, {@code blaze} on holding
+ * {@code fortress.targetRods} (default 8) blaze rods, {@code exit} after
+ * entering and leaving again. Unknown modes never auto-finish.
  */
 public class FortressScenario extends AbstractPracticeScenario {
     public static final PracticeId ID = PracticeId.of("fortress");
@@ -43,6 +50,7 @@ public class FortressScenario extends AbstractPracticeScenario {
             throw new PracticeException("No fortress in range on seed " + context.seed(),
                     "Unable to start Fortress Practice: no fortress was found on this seed. Try a new seed.");
         }
+        track(context, "target", found.get().position());
         PracticePosition target;
         if ("find".equals(mode)) {
             int distance = Math.max(0, context.settings().getInt("spawn.distance", 64));
@@ -59,7 +67,50 @@ public class FortressScenario extends AbstractPracticeScenario {
 
     @Override
     public TickResult tick(PracticeContext context) {
+        String mode = context.settings().getOrDefault("fortress.mode", "find").trim().toLowerCase();
+        PracticePosition fortress = tracked(context, "target");
+        if (fortress == null) {
+            return TickResult.continueTick();
+        }
+        if ("find".equals(mode)) {
+            double radius = Math.max(0, context.settings().getInt("fortress.completeRadius", 32));
+            if (reached(context, fortress, radius)) {
+                return TickResult.finished();
+            }
+        } else if ("enter".equals(mode)) {
+            double radius = Math.max(0, context.settings().getInt("fortress.enterRadius", 4));
+            if (reached(context, fortress, radius)) {
+                return TickResult.finished();
+            }
+        } else if ("blaze".equals(mode)) {
+            int target = Math.max(1, context.settings().getInt("fortress.targetRods", 8));
+            if (countLiveItem(context, "minecraft:blaze_rod") >= target) {
+                return TickResult.finished();
+            }
+        } else if ("navigation".equals(mode)) {
+            double radius = Math.max(0, context.settings().getInt("fortress.targetRadius", 8));
+            if (reached(context, fortress, radius)) {
+                return TickResult.finished();
+            }
+        } else if ("exit".equals(mode)) {
+            double radius = Math.max(0, context.settings().getInt("fortress.completeRadius", 32));
+            if (reached(context, fortress, radius)) {
+                track(context, "entered", Boolean.TRUE);
+            } else if (Boolean.TRUE.equals(tracked(context, "entered"))) {
+                return TickResult.finished();
+            }
+        }
         return TickResult.continueTick();
+    }
+
+    @Override
+    public PracticeCheckpoint.ScenarioSnapshot captureState(PracticeContext context) {
+        return captureTrackedState(context);
+    }
+
+    @Override
+    public void restoreState(PracticeContext context, PracticeCheckpoint.ScenarioSnapshot snapshot) {
+        restoreTrackedState(context, snapshot);
     }
 
     @Override

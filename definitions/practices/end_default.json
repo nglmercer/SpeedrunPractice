@@ -1,0 +1,19 @@
+{
+  "id": "end_default",
+  "type": "end",
+  "displayName": "End Practice",
+  "world": {
+    "dimension": "end"
+  },
+  "seed": {
+    "source": "random"
+  },
+  "spawn": {
+    "type": "end_platform"
+  },
+  "loadout": "end_default",
+  "timer": {
+    "start": "player_move",
+    "stop": "dragon_death"
+  }
+}

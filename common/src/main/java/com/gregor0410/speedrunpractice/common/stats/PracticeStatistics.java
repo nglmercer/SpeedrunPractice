@@ -28,6 +28,45 @@ public interface PracticeStatistics {
 
     List<AttemptRecord> recent(PracticeId practice, int limit);
 
+    /**
+     * Attempts for one practice + version + preset slice (plan section 43).
+     * World generation differs per Minecraft version, so slices never mix.
+     * Null version/preset means "any".
+     */
+    default int attempts(PracticeId practice, GameVersion version, String preset) {
+        return slice(recent(practice, Integer.MAX_VALUE), version, preset).size();
+    }
+
+    /** Personal best inside one version/preset slice; empty when none completed. */
+    default OptionalLong personalBest(PracticeId practice, GameVersion version, String preset) {
+        OptionalLong best = OptionalLong.empty();
+        for (AttemptRecord record : slice(recent(practice, Integer.MAX_VALUE), version, preset)) {
+            if (record.completed() && (!best.isPresent() || record.elapsedMs() < best.getAsLong())) {
+                best = OptionalLong.of(record.elapsedMs());
+            }
+        }
+        return best;
+    }
+
+    /** Keeps records matching the version/preset slice (nulls are wildcards). */
+    static java.util.List<AttemptRecord> slice(java.util.List<AttemptRecord> records,
+                                               GameVersion version, String preset) {
+        java.util.List<AttemptRecord> out = new java.util.ArrayList<AttemptRecord>();
+        if (records == null) {
+            return out;
+        }
+        for (AttemptRecord record : records) {
+            if (version != null && record.version() != version) {
+                continue;
+            }
+            if (preset != null && !preset.equals(record.preset())) {
+                continue;
+            }
+            out.add(record);
+        }
+        return out;
+    }
+
     String exportJson();
 
     String exportCsv();

@@ -1,0 +1,23 @@
+{
+  "id": "blind_travel_default",
+  "type": "blind_travel",
+  "displayName": "Blind Travel Practice",
+  "world": {
+    "dimension": "nether"
+  },
+  "seed": {
+    "source": "random"
+  },
+  "spawn": {
+    "type": "random_nether",
+    "distance": 1000
+  },
+  "loadout": "blind_travel_default",
+  "settings": {
+    "blind.targetDistance": "1000"
+  },
+  "timer": {
+    "start": "player_move",
+    "stop": "manual"
+  }
+}

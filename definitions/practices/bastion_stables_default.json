@@ -1,0 +1,30 @@
+{
+  "id": "bastion_stables_default",
+  "type": "bastion",
+  "displayName": "Stables Bastion Practice",
+  "world": {
+    "dimension": "nether"
+  },
+  "seed": {
+    "source": "search",
+    "filters": [
+      {
+        "type": "bastion_type",
+        "value": "stables"
+      }
+    ]
+  },
+  "spawn": {
+    "type": "structure_exterior",
+    "structure": "bastion_remnant",
+    "distance": 40
+  },
+  "loadout": "bastion_default",
+  "settings": {
+    "bastion.type": "stables"
+  },
+  "timer": {
+    "start": "player_move",
+    "stop": "scenario_complete"
+  }
+}

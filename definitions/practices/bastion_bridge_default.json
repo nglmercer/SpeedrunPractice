@@ -1,0 +1,30 @@
+{
+  "id": "bastion_bridge_default",
+  "type": "bastion",
+  "displayName": "Bridge Bastion Practice",
+  "world": {
+    "dimension": "nether"
+  },
+  "seed": {
+    "source": "search",
+    "filters": [
+      {
+        "type": "bastion_type",
+        "value": "bridge"
+      }
+    ]
+  },
+  "spawn": {
+    "type": "structure_exterior",
+    "structure": "bastion_remnant",
+    "distance": 40
+  },
+  "loadout": "bastion_default",
+  "settings": {
+    "bastion.type": "bridge"
+  },
+  "timer": {
+    "start": "player_move",
+    "stop": "scenario_complete"
+  }
+}

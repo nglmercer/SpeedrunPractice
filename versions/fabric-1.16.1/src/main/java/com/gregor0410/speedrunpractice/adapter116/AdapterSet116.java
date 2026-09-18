@@ -37,6 +37,9 @@ import java.util.Optional;
 public final class AdapterSet116 implements MinecraftAdapter {
     private static final String PENDING = "The 1.16.1 adapter is not wired to the live game yet.";
 
+    private PracticeCommands.Node registeredCommands;
+    private CommandAdapter.CommandExecutor commandExecutor;
+
     private final WorldAdapter worlds = new WorldAdapter() {
         @Override
         public PracticeWorld createPracticeWorld(long seed, PracticeWorldOptions options) throws PracticeException {
@@ -201,7 +204,14 @@ public final class AdapterSet116 implements MinecraftAdapter {
     private final CommandAdapter commands = new CommandAdapter() {
         @Override
         public void register(PracticeCommands.Node root, CommandExecutor executor) {
-            // Recorded for the Loom wiring step; legacy dispatcher stays live meanwhile.
+            if (root == null || executor == null) {
+                throw new IllegalArgumentException("command root and executor must not be null");
+            }
+            // Retained for the Loom wiring step so the entrypoint can build
+            // Brigadier nodes from the shared tree; legacy dispatcher stays
+            // live meanwhile.
+            registeredCommands = root;
+            commandExecutor = executor;
             SpeedrunLogger.info("Registered /" + root.name() + " command model (" + root.children().size()
                     + " children) for 1.16.1");
         }
@@ -270,6 +280,20 @@ public final class AdapterSet116 implements MinecraftAdapter {
                 PENDING + " (" + operation + ")");
     }
 
+    /**
+     * Last command tree handed to {@link CommandAdapter#register}, or null
+     * when nothing was registered yet. The Loom entrypoint reads this to
+     * build Brigadier nodes once the live game is reachable.
+     */
+    public PracticeCommands.Node registeredCommands() {
+        return registeredCommands;
+    }
+
+    /** Executor paired with {@link #registeredCommands()}, or null when idle. */
+    public CommandAdapter.CommandExecutor commandExecutor() {
+        return commandExecutor;
+    }
+
     @Override
     public GameVersion version() {
         return GameVersion.MC_1_16_1;
@@ -332,16 +356,10 @@ public final class AdapterSet116 implements MinecraftAdapter {
 
     @Override
     public boolean supports(Capability capability) {
-        switch (capability) {
-            case CUSTOM_DIMENSION_RUNTIME:
-            case FAST_WORLD_RESET:
-            case BASTION_TYPE_QUERY:
-            case DRAGON_FORCE_PERCH:
-            case PORTAL_STATE_CAPTURE:
-                return true;
-            case STRUCTURE_METADATA_SEARCH:
-            default:
-                return false;
-        }
+        // Plan sections 7 and 98: a capability may return true only when the
+        // implementation exists, compiles, and passed in-game testing on this
+        // version. Every live method below still throws pending(), so claiming
+        // support would crash GUI/command flows that trust this flag.
+        return false;
     }
 }

@@ -37,6 +37,9 @@ import java.util.Optional;
 public final class AdapterSet263 implements MinecraftAdapter {
     private static final String PENDING = "The 26.3 adapter is not ported yet.";
 
+    private PracticeCommands.Node registeredCommands;
+    private CommandAdapter.CommandExecutor commandExecutor;
+
     private final WorldAdapter worlds = new WorldAdapter() {
         @Override
         public PracticeWorld createPracticeWorld(long seed, PracticeWorldOptions options) throws PracticeException {
@@ -197,6 +200,13 @@ public final class AdapterSet263 implements MinecraftAdapter {
     private final CommandAdapter commands = new CommandAdapter() {
         @Override
         public void register(PracticeCommands.Node root, CommandExecutor executor) {
+            if (root == null || executor == null) {
+                throw new IllegalArgumentException("command root and executor must not be null");
+            }
+            // Retained for the porting step so the entrypoint can build
+            // Brigadier nodes from the shared tree once mappings land.
+            registeredCommands = root;
+            commandExecutor = executor;
             SpeedrunLogger.info("Registered /" + root.name() + " command model (" + root.children().size()
                     + " children) for 26.3");
         }
@@ -262,6 +272,20 @@ public final class AdapterSet263 implements MinecraftAdapter {
     private static PracticeException.AdapterException pending(String operation) {
         return new PracticeException.AdapterException("26.3 adapter: " + operation + " is pending the port",
                 PENDING + " (" + operation + ")");
+    }
+
+    /**
+     * Last command tree handed to {@link CommandAdapter#register}, or null
+     * when nothing was registered yet. The entrypoint reads this to build
+     * Brigadier nodes once the live game is reachable.
+     */
+    public PracticeCommands.Node registeredCommands() {
+        return registeredCommands;
+    }
+
+    /** Executor paired with {@link #registeredCommands()}, or null when idle. */
+    public CommandAdapter.CommandExecutor commandExecutor() {
+        return commandExecutor;
     }
 
     @Override

@@ -176,4 +176,131 @@ public final class PracticeMenuModel {
             return out.toString();
         }
     }
+
+    /** Seed-search screen: preset, live counters and matched seeds. */
+    public static final class SeedSearchScreen {
+        private final String preset;
+        private final long tested;
+        private final long matched;
+        private final long verified;
+        private final long failed;
+        private final boolean finished;
+        private final boolean cancelled;
+        private final List<Long> seeds;
+
+        public SeedSearchScreen(String preset, long tested, long matched, long verified, long failed,
+                                boolean finished, boolean cancelled, List<Long> seeds) {
+            this.preset = preset;
+            this.tested = Math.max(0L, tested);
+            this.matched = Math.max(0L, matched);
+            this.verified = Math.max(0L, verified);
+            this.failed = Math.max(0L, failed);
+            this.finished = finished;
+            this.cancelled = cancelled;
+            this.seeds = seeds == null
+                    ? Collections.<Long>emptyList()
+                    : Collections.unmodifiableList(new ArrayList<Long>(seeds));
+        }
+
+        public String preset() {
+            return preset;
+        }
+
+        public long tested() {
+            return tested;
+        }
+
+        public long matched() {
+            return matched;
+        }
+
+        public long verified() {
+            return verified;
+        }
+
+        public long failed() {
+            return failed;
+        }
+
+        public boolean finished() {
+            return finished;
+        }
+
+        public boolean cancelled() {
+            return cancelled;
+        }
+
+        public List<Long> seeds() {
+            return seeds;
+        }
+    }
+
+    /** Loadout screen: preset list plus the selected preset. */
+    public static final class LoadoutScreen {
+        private final List<String> loadoutIds;
+        private final String selectedId;
+
+        public LoadoutScreen(List<String> loadoutIds, String selectedId) {
+            this.loadoutIds = loadoutIds == null
+                    ? Collections.<String>emptyList()
+                    : Collections.unmodifiableList(new ArrayList<String>(loadoutIds));
+            this.selectedId = selectedId;
+        }
+
+        public List<String> loadoutIds() {
+            return loadoutIds;
+        }
+
+        /** Null when nothing is selected. */
+        public String selectedId() {
+            return selectedId;
+        }
+    }
+
+    /** Statistics screen: one row per practice. */
+    public static final class StatisticsScreen {
+        /** One practice row. */
+        public static final class Row {
+            private final String displayName;
+            private final int attempts;
+            private final int completed;
+            private final Long personalBestMs;
+
+            public Row(String displayName, int attempts, int completed, Long personalBestMs) {
+                this.displayName = displayName;
+                this.attempts = attempts;
+                this.completed = completed;
+                this.personalBestMs = personalBestMs;
+            }
+
+            public String displayName() {
+                return displayName;
+            }
+
+            public int attempts() {
+                return attempts;
+            }
+
+            public int completed() {
+                return completed;
+            }
+
+            public Long personalBestMs() {
+                return personalBestMs;
+            }
+        }
+
+        private final List<Row> rows;
+
+        public StatisticsScreen(List<Row> rows) {
+            this.rows = rows == null
+                    ? Collections.<Row>emptyList()
+                    : Collections.unmodifiableList(new ArrayList<Row>(rows));
+        }
+
+        public List<Row> rows() {
+            return rows;
+        }
+    }
+
 }

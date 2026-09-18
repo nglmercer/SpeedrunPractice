@@ -1,16 +1,31 @@
-plugins {
-    id 'java-library'
+buildscript {
+    repositories {
+        maven {
+            name = 'Fabric'
+            url = 'https://maven.fabricmc.net/'
+        }
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'net.fabricmc:fabric-loom:1.18.2'
+    }
 }
 
+// NOTE: NoRemap plugin, not the `fabric-loom` remap one: 26.x ships
+// unobfuscated, so this module needs no mappings and no remapJar. Applied by
+// class because both Loom plugins ship in one artifact (see root build.gradle).
+apply plugin: net.fabricmc.loom.LoomNoRemapGradlePlugin
+
 group = 'com.gregor0410'
-// 26.3 = latest supported build (plan section 1).
-// Skeleton adapter set; compiles offline as plain Java. Full Loom wiring
-// needs Gradle 8 + a modern JDK once 26.3 mappings exist; see versions/README.md.
+// 26.3 = latest supported build (plan section 1). Loom-wired: MC 26.x ships
+// unobfuscated, so there is intentionally no `mappings` dependency.
 description = 'Minecraft 26.3 adapter set (latest supported build).'
 
+version = mod_version
+
 java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -18,9 +33,34 @@ tasks.withType(JavaCompile).configureEach {
 }
 
 dependencies {
-    api project(':common')
-    api project(':practices')
-    api project(':seed-search')
+    minecraft "com.mojang:minecraft:${project.mc263_minecraft_version}"
+    // Plain `implementation`: unobfuscated MC needs no remapping of mod deps.
+    implementation "net.fabricmc:fabric-loader:${project.mc263_loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.mc263_fabric_version}"
+
+    // Shared engine, bundled into the mod jar via `include` so the loader
+    // never needs separate library mods.
+    implementation project(':common')
+    implementation project(':practices')
+    implementation project(':seed-search')
+    include project(':common')
+    include project(':practices')
+    include project(':seed-search')
+
+    testImplementation 'junit:junit:4.13.2'
+}
+
+tasks.withType(Test).configureEach {
+    useJUnit()
+}
+
+processResources {
+    inputs.property "version", project.version
+    filteringCharset "UTF-8"
+
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version
+    }
 }
 
 jar {

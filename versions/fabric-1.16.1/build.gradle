@@ -23,6 +23,11 @@ dependencies {
     api project(':common')
     api project(':practices')
     api project(':seed-search')
+    testImplementation 'junit:junit:4.13.2'
+}
+
+tasks.withType(Test).configureEach {
+    useJUnit()
 }
 
 // Loom wiring (enable when validating in-game; requires network + JDK 17):

@@ -1,0 +1,105 @@
+{
+  "id": "onecycle_default",
+  "items": [
+    {
+      "item": "minecraft:iron_axe",
+      "slot": 0,
+      "count": 1
+    },
+    {
+      "item": "minecraft:white_bed",
+      "slot": 1,
+      "count": 1
+    },
+    {
+      "item": "minecraft:iron_pickaxe",
+      "slot": 2,
+      "count": 1
+    },
+    {
+      "item": "minecraft:water_bucket",
+      "slot": 3,
+      "count": 1
+    },
+    {
+      "item": "minecraft:ender_pearl",
+      "slot": 4,
+      "count": 4
+    },
+    {
+      "item": "minecraft:respawn_anchor",
+      "slot": 5,
+      "count": 4
+    },
+    {
+      "item": "minecraft:glowstone",
+      "slot": 6,
+      "count": 4
+    },
+    {
+      "item": "minecraft:crying_obsidian",
+      "slot": 7,
+      "count": 64
+    },
+    {
+      "item": "minecraft:cobblestone",
+      "slot": 8,
+      "count": 64
+    },
+    {
+      "item": "minecraft:white_bed",
+      "slot": 9,
+      "count": 1
+    },
+    {
+      "item": "minecraft:white_bed",
+      "slot": 10,
+      "count": 1
+    },
+    {
+      "item": "minecraft:white_bed",
+      "slot": 11,
+      "count": 1
+    },
+    {
+      "item": "minecraft:white_bed",
+      "slot": 12,
+      "count": 1
+    },
+    {
+      "item": "minecraft:white_bed",
+      "slot": 13,
+      "count": 1
+    },
+    {
+      "item": "minecraft:white_bed",
+      "slot": 14,
+      "count": 1
+    },
+    {
+      "item": "minecraft:white_bed",
+      "slot": 15,
+      "count": 1
+    },
+    {
+      "item": "minecraft:white_bed",
+      "slot": 16,
+      "count": 1
+    },
+    {
+      "item": "minecraft:white_bed",
+      "slot": 17,
+      "count": 1
+    },
+    {
+      "item": "minecraft:bow",
+      "slot": 27,
+      "count": 1
+    },
+    {
+      "item": "minecraft:arrow",
+      "slot": 28,
+      "count": 64
+    }
+  ]
+}

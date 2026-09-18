@@ -1,0 +1,19 @@
+{
+  "id": "overworld_default",
+  "type": "overworld",
+  "displayName": "Overworld Practice",
+  "world": {
+    "dimension": "overworld"
+  },
+  "seed": {
+    "source": "random"
+  },
+  "spawn": {
+    "type": "world_spawn"
+  },
+  "loadout": "overworld_default",
+  "timer": {
+    "start": "player_move",
+    "stop": "manual"
+  }
+}

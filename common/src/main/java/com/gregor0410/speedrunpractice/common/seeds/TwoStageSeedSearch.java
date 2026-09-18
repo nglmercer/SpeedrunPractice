@@ -39,6 +39,7 @@ public final class TwoStageSeedSearch implements SeedSearchTask {
     private final List<SeedResult> failed = Collections.synchronizedList(new ArrayList<SeedResult>());
     private final CountDownLatch done = new CountDownLatch(1);
     private volatile long seedsTested;
+    private volatile long startedAtMs;
     private volatile boolean cancelled;
     private volatile boolean started;
     private volatile boolean finished;
@@ -72,6 +73,7 @@ public final class TwoStageSeedSearch implements SeedSearchTask {
             throw new IllegalArgumentException("executor must not be null");
         }
         started = true;
+        startedAtMs = System.currentTimeMillis();
         executor.execute(new Runnable() {
             @Override
             public void run() {
@@ -85,13 +87,20 @@ public final class TwoStageSeedSearch implements SeedSearchTask {
             for (long i = 0; i < maxAttempts && results.size() < maxResults && !cancelled; i++) {
                 long seed = startSeed + i;
                 seedsTested++;
-                if (!analyzer.matches(seed, query)) {
+                // Stage A: one analysis per seed, shared by every filter and
+                // the location extraction (plan section 45).
+                SeedAnalyzer.SeedAnalysis analysis = analysisCache.get(seed);
+                if (analysis == null) {
+                    analysis = analyzer.analyze(seed, query);
+                    analysisCache.put(seed, analysis);
+                }
+                if (!analysis.matches()) {
                     continue;
                 }
                 List<String> matched = new ArrayList<String>();
                 boolean ok = true;
                 for (SeedFilters.Filter filter : filters) {
-                    if (filter.matches(seed, analyzer, query)) {
+                    if (filter.matches(seed, analysis, query)) {
                         matched.add(filter.id());
                     } else {
                         SpeedrunLogger.debug("Seed " + seed + " rejected by filter " + filter.id());
@@ -102,17 +111,15 @@ public final class TwoStageSeedSearch implements SeedSearchTask {
                 if (!ok) {
                     continue;
                 }
-                SeedAnalyzer.SeedAnalysis analysis = analysisCache.get(seed);
-                if (analysis == null) {
-                    analysis = analyzer.analyze(seed, query);
-                    analysisCache.put(seed, analysis);
-                }
                 SeedResult candidate = new SeedResult(seed, query.version(), matched,
                         extractLocations(analysis), SeedResult.VerificationState.UNVERIFIED,
                         System.currentTimeMillis());
                 if (verifier == null) {
                     results.add(candidate);
                 } else {
+                    if (cancelled) {
+                        break;
+                    }
                     try {
                         if (verifier.verify(seed, candidate)) {
                             results.add(candidate.withVerificationState(SeedResult.VerificationState.VERIFIED));
@@ -122,6 +129,9 @@ public final class TwoStageSeedSearch implements SeedSearchTask {
                     } catch (PracticeException failure) {
                         SpeedrunLogger.warn("Verification failed for seed " + seed + ": " + failure.getMessage());
                         failed.add(candidate.withVerificationState(SeedResult.VerificationState.FAILED));
+                    }
+                    if (cancelled) {
+                        break;
                     }
                 }
             }
@@ -145,7 +155,9 @@ public final class TwoStageSeedSearch implements SeedSearchTask {
 
     @Override
     public SearchProgress progress() {
-        return new SearchProgress(seedsTested, results.size(), cancelled, finished);
+        long elapsed = startedAtMs == 0L ? 0L : System.currentTimeMillis() - startedAtMs;
+        return new SearchProgress(seedsTested, results.size(),
+                verifier == null ? 0L : results.size(), failed.size(), elapsed, cancelled, finished);
     }
 
     @Override

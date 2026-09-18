@@ -5,8 +5,8 @@ plugins {
 group = 'com.gregor0410'
 // 1.21.1 = modern compatibility/reference build (plan section 1).
 // Skeleton adapter set; compiles offline as plain Java. Full Loom wiring
-// needs Gradle 8 + JDK 21 (this repo pins Gradle 7.3, whose JavaVersion enum
-// tops out at 17); see versions/README.md.
+// needs its Loom/Minecraft/loader dependencies plus a JDK 21+ toolchain;
+// see versions/README.md.
 description = 'Minecraft 1.21.1 adapter set (modern compatibility build).'
 
 java {
@@ -22,6 +22,11 @@ dependencies {
     api project(':common')
     api project(':practices')
     api project(':seed-search')
+    testImplementation 'junit:junit:4.13.2'
+}
+
+tasks.withType(Test).configureEach {
+    useJUnit()
 }
 
 jar {

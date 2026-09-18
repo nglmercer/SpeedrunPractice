@@ -28,6 +28,8 @@ public final class ScenarioDefinition {
             "scenario_load", "player_move", "dimension_entry", "portal_exit", "manual")));
     public static final Set<String> TIMER_STOPS = Collections.unmodifiableSet(new HashSet<String>(Arrays.asList(
             "scenario_complete", "dimension_entry", "structure_reached", "dragon_death", "manual")));
+    public static final Set<String> COMPLETION_TYPES = Collections.unmodifiableSet(new HashSet<String>(Arrays.asList(
+            "manual", "dimension_entry", "structure_reached", "dragon_death", "scenario_complete")));
 
     private final PracticeId id;
     private final PracticeType type;
@@ -46,13 +48,21 @@ public final class ScenarioDefinition {
     private final String loadout;
     private final String timerStart;
     private final String timerStop;
+    private final String completionType;
+    private final String completionDimension;
+    private final String completionStructure;
+    private final int completionRadius;
+    private final String requiresCapability;
     private final Map<String, String> settings;
 
     private ScenarioDefinition(PracticeId id, PracticeType type, String displayName, PracticeDimension dimension,
                                String seedSource, Long fixedSeed, String seedList, List<SeedFilterSpec> seedFilters,
                                String spawnType, String spawnStructure, int spawnDistance,
                                Double spawnX, Double spawnY, Double spawnZ,
-                               String loadout, String timerStart, String timerStop, Map<String, String> settings) {
+                               String loadout, String timerStart, String timerStop,
+                               String completionType, String completionDimension, String completionStructure,
+                               int completionRadius, String requiresCapability,
+                               Map<String, String> settings) {
         this.id = id;
         this.type = type;
         this.displayName = displayName;
@@ -70,6 +80,11 @@ public final class ScenarioDefinition {
         this.loadout = loadout;
         this.timerStart = timerStart;
         this.timerStop = timerStop;
+        this.completionType = completionType;
+        this.completionDimension = completionDimension;
+        this.completionStructure = completionStructure;
+        this.completionRadius = completionRadius;
+        this.requiresCapability = requiresCapability;
         this.settings = Collections.unmodifiableMap(settings);
     }
 
@@ -160,6 +175,31 @@ public final class ScenarioDefinition {
         return timerStop;
     }
 
+    /** Completion type; {@code manual} (never auto-finishes) when unspecified. */
+    public String completionType() {
+        return completionType;
+    }
+
+    /** Target dimension for {@code dimension_entry}; null otherwise. */
+    public String completionDimension() {
+        return completionDimension;
+    }
+
+    /** Target structure for {@code structure_reached}; null otherwise. */
+    public String completionStructure() {
+        return completionStructure;
+    }
+
+    /** Finish radius for {@code structure_reached}. */
+    public int completionRadius() {
+        return completionRadius;
+    }
+
+    /** Required {@code Capability} name; null when the definition needs none. */
+    public String requiresCapability() {
+        return requiresCapability;
+    }
+
     public Map<String, String> settings() {
         return settings;
     }
@@ -201,6 +241,17 @@ public final class ScenarioDefinition {
         }
         out.set("timer.start", timerStart);
         out.set("timer.stop", timerStop);
+        out.set("completion.type", completionType);
+        if (completionDimension != null) {
+            out.set("completion.dimension", completionDimension);
+        }
+        if (completionStructure != null) {
+            out.set("completion.structure", completionStructure);
+        }
+        out.set("completion.radius", String.valueOf(completionRadius));
+        if (requiresCapability != null) {
+            out.set("requires", requiresCapability);
+        }
         return out;
     }
 
@@ -314,6 +365,53 @@ public final class ScenarioDefinition {
                 throw error(origin, "timer.stop must be one of " + TIMER_STOPS);
             }
         }
+        Map<String, Object> completion = object(map.get("completion"), null);
+        String completionType = "manual";
+        String completionDimension = null;
+        String completionStructure = null;
+        int completionRadius = 8;
+        if (completion != null) {
+            completionType = string(completion.get("type"), "manual");
+            if (!COMPLETION_TYPES.contains(completionType)) {
+                throw error(origin, "completion.type must be one of " + COMPLETION_TYPES);
+            }
+            if ("dimension_entry".equals(completionType)) {
+                completionDimension = string(completion.get("dimension"), null);
+                if (completionDimension == null) {
+                    throw error(origin, "completion.type \"dimension_entry\" needs completion.dimension");
+                }
+                try {
+                    PracticeDimension.fromId(completionDimension);
+                } catch (IllegalArgumentException bad) {
+                    throw error(origin, "completion.dimension must be overworld, nether or end");
+                }
+            }
+            if ("structure_reached".equals(completionType)) {
+                completionStructure = string(completion.get("structure"), null);
+                if (completionStructure == null || completionStructure.trim().isEmpty()) {
+                    throw error(origin, "completion.type \"structure_reached\" needs completion.structure");
+                }
+                completionStructure = completionStructure.trim();
+            }
+            if (completion.get("radius") != null) {
+                if (!(completion.get("radius") instanceof Number)
+                        || ((Number) completion.get("radius")).intValue() < 0) {
+                    throw error(origin, "completion.radius must be a number >= 0");
+                }
+                completionRadius = ((Number) completion.get("radius")).intValue();
+            }
+        }
+        String requiresCapability = string(map.get("requires"), null);
+        if (requiresCapability != null) {
+            try {
+                requiresCapability = com.gregor0410.speedrunpractice.common.adapter.Capability
+                        .valueOf(requiresCapability.trim().toUpperCase()).name();
+            } catch (IllegalArgumentException bad) {
+                throw error(origin, "requires must name a Capability: "
+                        + java.util.Arrays.asList(
+                                com.gregor0410.speedrunpractice.common.adapter.Capability.values()));
+            }
+        }
         Map<String, String> settings = new LinkedHashMap<String, String>();
         Map<String, Object> rawSettings = object(map.get("settings"), null);
         if (rawSettings != null) {
@@ -323,7 +421,8 @@ public final class ScenarioDefinition {
         }
         return new ScenarioDefinition(PracticeId.of(id), type, displayName, dimension, seedSource, fixedSeed,
                 seedList, seedFilters, spawnType, spawnStructure, spawnDistance, spawnX, spawnY, spawnZ,
-                loadout, timerStart, timerStop, settings);
+                loadout, timerStart, timerStop, completionType, completionDimension, completionStructure,
+                completionRadius, requiresCapability, settings);
     }
 
     private static PracticeException.ScenarioLoadException error(String origin, String detail) {

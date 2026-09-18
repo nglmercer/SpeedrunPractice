@@ -1,0 +1,30 @@
+{
+  "id": "bastion_treasure_default",
+  "type": "bastion",
+  "displayName": "Treasure Bastion Practice",
+  "world": {
+    "dimension": "nether"
+  },
+  "seed": {
+    "source": "search",
+    "filters": [
+      {
+        "type": "bastion_type",
+        "value": "treasure"
+      }
+    ]
+  },
+  "spawn": {
+    "type": "structure_exterior",
+    "structure": "bastion_remnant",
+    "distance": 40
+  },
+  "loadout": "bastion_default",
+  "settings": {
+    "bastion.type": "treasure"
+  },
+  "timer": {
+    "start": "player_move",
+    "stop": "scenario_complete"
+  }
+}

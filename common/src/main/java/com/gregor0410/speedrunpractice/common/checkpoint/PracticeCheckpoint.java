@@ -22,10 +22,18 @@ public final class PracticeCheckpoint {
     private final PlayerSnapshot player;
     private final ScenarioSnapshot scenario;
     private final TimerSnapshot timer;
+    private final WorldRegionSnapshot region;
 
     public PracticeCheckpoint(PracticeId practice, long seed, PracticeDimension dimension,
                               PracticePosition position, PlayerSnapshot player,
                               ScenarioSnapshot scenario, TimerSnapshot timer) {
+        this(practice, seed, dimension, position, player, scenario, timer, null);
+    }
+
+    public PracticeCheckpoint(PracticeId practice, long seed, PracticeDimension dimension,
+                              PracticePosition position, PlayerSnapshot player,
+                              ScenarioSnapshot scenario, TimerSnapshot timer,
+                              WorldRegionSnapshot region) {
         if (practice == null || dimension == null || position == null || player == null || timer == null) {
             throw new IllegalArgumentException("checkpoint core fields must not be null");
         }
@@ -36,6 +44,7 @@ public final class PracticeCheckpoint {
         this.player = player;
         this.scenario = scenario;
         this.timer = timer;
+        this.region = region;
     }
 
     public PracticeId practice() {
@@ -65,6 +74,11 @@ public final class PracticeCheckpoint {
 
     public TimerSnapshot timer() {
         return timer;
+    }
+
+    /** Null unless a region snapshot was captured (optional, plan section 41). */
+    public WorldRegionSnapshot region() {
+        return region;
     }
 
     /** Health, food, XP, inventory, effects and selected slot. */
@@ -140,6 +154,33 @@ public final class PracticeCheckpoint {
         String type();
 
         Map<String, String> data();
+    }
+
+    /** Generic string-map snapshot for scenarios without a custom type. */
+    public static final class MapScenarioSnapshot implements ScenarioSnapshot {
+        private final String type;
+        private final Map<String, String> data;
+
+        public MapScenarioSnapshot(String type, Map<String, String> data) {
+            if (type == null || type.trim().isEmpty()) {
+                throw new IllegalArgumentException("snapshot type must not be empty");
+            }
+            this.type = type.trim();
+            this.data = data == null
+                    ? Collections.<String, String>emptyMap()
+                    : Collections.unmodifiableMap(
+                            new java.util.LinkedHashMap<String, String>(data));
+        }
+
+        @Override
+        public String type() {
+            return type;
+        }
+
+        @Override
+        public Map<String, String> data() {
+            return data;
+        }
     }
 
     public static final class TimerSnapshot {

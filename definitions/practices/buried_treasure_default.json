@@ -1,0 +1,20 @@
+{
+  "id": "buried_treasure_default",
+  "type": "buried_treasure",
+  "displayName": "Buried Treasure Practice",
+  "world": {
+    "dimension": "overworld"
+  },
+  "seed": {
+    "source": "random"
+  },
+  "spawn": {
+    "type": "structure",
+    "structure": "buried_treasure"
+  },
+  "loadout": "overworld_default",
+  "timer": {
+    "start": "player_move",
+    "stop": "manual"
+  }
+}

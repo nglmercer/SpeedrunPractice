@@ -20,6 +20,7 @@ import com.gregor0410.speedrunpractice.common.api.PracticePosition;
 import com.gregor0410.speedrunpractice.common.api.PracticePreset;
 import com.gregor0410.speedrunpractice.common.api.PracticeResult;
 import com.gregor0410.speedrunpractice.common.api.PracticeWorld;
+import com.gregor0410.speedrunpractice.common.checkpoint.PracticeCheckpoint;
 import com.gregor0410.speedrunpractice.common.commands.PracticeCommands;
 import com.gregor0410.speedrunpractice.common.loadout.Loadout;
 import com.gregor0410.speedrunpractice.common.seeds.SeedAnalyzer;
@@ -28,9 +29,11 @@ import com.gregor0410.speedrunpractice.common.seeds.SeedQuery;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -44,7 +47,15 @@ public final class ScenarioTestHarness implements MinecraftAdapter {
     private final Map<String, PracticePosition> positions = new HashMap<String, PracticePosition>();
     private final Map<String, Double> health = new HashMap<String, Double>();
     private final Map<String, Integer> food = new HashMap<String, Integer>();
+    private final Map<String, Float> saturation = new HashMap<String, Float>();
+    private final Map<String, Integer> xpLevels = new HashMap<String, Integer>();
+    private final Map<String, Integer> xpPoints = new HashMap<String, Integer>();
+    private final Map<String, List<String>> effects = new HashMap<String, List<String>>();
+    private final Map<String, Integer> selectedSlots = new HashMap<String, Integer>();
+    private final Map<String, PracticeDimension> playerDimensions = new HashMap<String, PracticeDimension>();
     private final Map<String, Loadout> inventories = new HashMap<String, Loadout>();
+    private final Set<String> missingItems = new HashSet<String>();
+    private final Map<String, Integer> stackSizes = new HashMap<String, Integer>();
     private final Map<String, StructureAdapter.StructureLocation> structures =
             new HashMap<String, StructureAdapter.StructureLocation>();
     private final Map<String, Boolean> dragons = new HashMap<String, Boolean>();
@@ -90,6 +101,67 @@ public final class ScenarioTestHarness implements MinecraftAdapter {
             throw new IllegalArgumentException("analyzer must not be null");
         }
         this.analyzer = analyzer;
+    }
+
+    /** Live practice-world count; for asserting failed starts create nothing. */
+    public int worldCount() {
+        return worlds.size();
+    }
+
+    /** Overrides the dimension reported by {@code getWorld} for one player. */
+    public void setPlayerDimension(String playerHandle, PracticeDimension dimension) {
+        if (dimension == null) {
+            playerDimensions.remove(playerHandle);
+        } else {
+            playerDimensions.put(playerHandle, dimension);
+        }
+    }
+
+    /** Makes {@code itemExists} return false for one id (compat tests). */
+    public void forbidItem(String itemId) {
+        missingItems.add(itemId);
+    }
+
+    /** Overrides {@code maxStackSize} for one id (compat tests). */
+    public void setMaxStackSize(String itemId, int size) {
+        stackSizes.put(itemId, size);
+    }
+
+    public void setSaturation(String playerHandle, float value) {
+        saturation.put(playerHandle, value);
+    }
+
+    public float saturationOf(String playerHandle) {
+        Float value = saturation.get(playerHandle);
+        return value == null ? 5.0f : value;
+    }
+
+    public void setXp(String playerHandle, int level, int points) {
+        xpLevels.put(playerHandle, level);
+        xpPoints.put(playerHandle, points);
+    }
+
+    public int xpLevelOf(String playerHandle) {
+        Integer value = xpLevels.get(playerHandle);
+        return value == null ? 0 : value;
+    }
+
+    public void setEffects(String playerHandle, List<String> effectIds) {
+        effects.put(playerHandle, new ArrayList<String>(effectIds));
+    }
+
+    public List<String> effectsOf(String playerHandle) {
+        List<String> value = effects.get(playerHandle);
+        return value == null ? Collections.<String>emptyList() : Collections.unmodifiableList(value);
+    }
+
+    public void setSelectedSlot(String playerHandle, int slot) {
+        selectedSlots.put(playerHandle, slot);
+    }
+
+    public int selectedSlotOf(String playerHandle) {
+        Integer value = selectedSlots.get(playerHandle);
+        return value == null ? 0 : value;
     }
 
     public Loadout appliedLoadout(String playerHandle) {
@@ -149,7 +221,13 @@ public final class ScenarioTestHarness implements MinecraftAdapter {
 
             @Override
             public void resetPracticeWorld(PracticeWorld world, long seed, PracticeWorldOptions options) {
-                worlds.put(world.handleId(), new FakeWorld(world.handleId(), seed, options.dimension(), version));
+                FakeWorld stored = worlds.get(world.handleId());
+                if (stored == null) {
+                    worlds.put(world.handleId(), new FakeWorld(world.handleId(), seed,
+                            options.dimension(), version));
+                } else {
+                    stored.reset(seed, options.dimension());
+                }
             }
 
             @Override
@@ -190,6 +268,11 @@ public final class ScenarioTestHarness implements MinecraftAdapter {
             public void resetPlayer(PracticePlayer player) {
                 health.put(player.handleId(), 20.0);
                 food.put(player.handleId(), 20);
+                saturation.put(player.handleId(), 5.0f);
+                xpLevels.put(player.handleId(), 0);
+                xpPoints.put(player.handleId(), 0);
+                effects.put(player.handleId(), new ArrayList<String>());
+                selectedSlots.put(player.handleId(), 0);
             }
 
             @Override
@@ -216,7 +299,48 @@ public final class ScenarioTestHarness implements MinecraftAdapter {
                     throw new PracticeException.AdapterException("Harness has no worlds yet",
                             "Test harness has no world yet.");
                 }
-                return worlds.values().iterator().next();
+                PracticeDimension override = playerDimensions.get(player.handleId());
+                PracticeWorld current = worlds.values().iterator().next();
+                if (override == null || override == current.dimension()) {
+                    return current;
+                }
+                return new FakeWorld(current.handleId(), current.seed(), override, current.version());
+            }
+
+            @Override
+            public PracticeCheckpoint.PlayerSnapshot capturePlayerState(PracticePlayer player) {
+                String handle = player.handleId();
+                PracticePosition position = positions.get(handle);
+                if (position == null) {
+                    position = new PracticePosition(0.0, 64.0, 0.0);
+                }
+                Double hp = health.get(handle);
+                Integer foodLevel = food.get(handle);
+                Loadout current = inventories.get(handle);
+                return new PracticeCheckpoint.PlayerSnapshot(position,
+                        hp == null ? 20.0 : hp, foodLevel == null ? 20 : foodLevel,
+                        saturationOf(handle), xpLevelOf(handle),
+                        xpPoints.get(handle) == null ? 0 : xpPoints.get(handle),
+                        current == null ? null : new Loadout("checkpoint", current.items()),
+                        new ArrayList<String>(effectsOf(handle)), selectedSlotOf(handle));
+            }
+
+            @Override
+            public void restorePlayerState(PracticePlayer player, PracticeCheckpoint.PlayerSnapshot snapshot) {
+                String handle = player.handleId();
+                positions.put(handle, snapshot.position());
+                health.put(handle, snapshot.health());
+                food.put(handle, snapshot.food());
+                saturation.put(handle, snapshot.saturation());
+                xpLevels.put(handle, snapshot.xpLevel());
+                xpPoints.put(handle, snapshot.xpPoints());
+                effects.put(handle, new ArrayList<String>(snapshot.effects()));
+                selectedSlots.put(handle, snapshot.selectedSlot());
+                if (snapshot.inventory() != null) {
+                    inventories.put(handle, snapshot.inventory());
+                } else {
+                    inventories.remove(handle);
+                }
             }
         };
     }
@@ -302,17 +426,25 @@ public final class ScenarioTestHarness implements MinecraftAdapter {
         return new RegistryAdapter() {
             @Override
             public String normalizeItemId(String id) {
+                if (id == null) {
+                    return null;
+                }
                 return id.contains(":") ? id : "minecraft:" + id;
             }
 
             @Override
             public boolean itemExists(String id) {
-                return true;
+                return id != null && !missingItems.contains(id)
+                        && !missingItems.contains(normalizeItemId(id));
             }
 
             @Override
             public int maxStackSize(String id) {
-                return 64;
+                Integer override = stackSizes.get(id);
+                if (override == null) {
+                    override = stackSizes.get(normalizeItemId(id));
+                }
+                return override == null ? 64 : override;
             }
         };
     }
@@ -385,8 +517,8 @@ public final class ScenarioTestHarness implements MinecraftAdapter {
 
     public static final class FakeWorld implements PracticeWorld {
         private final String handleId;
-        private final long seed;
-        private final PracticeDimension dimension;
+        private long seed;
+        private PracticeDimension dimension;
         private final GameVersion version;
 
         public FakeWorld(String handleId, long seed, PracticeDimension dimension, GameVersion version) {
@@ -394,6 +526,12 @@ public final class ScenarioTestHarness implements MinecraftAdapter {
             this.seed = seed;
             this.dimension = dimension;
             this.version = version;
+        }
+
+        /** In-place reset, mirroring version adapters (stable handle, new seed). */
+        void reset(long seed, PracticeDimension dimension) {
+            this.seed = seed;
+            this.dimension = dimension;
         }
 
         @Override

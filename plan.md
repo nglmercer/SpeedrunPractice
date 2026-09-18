@@ -1,1045 +1,631 @@
-# Speedrun Practice — LLM Implementation Workflow
+# SpeedrunPractice — Complete Implementation Plan
 
-## 0. Mission
+## Purpose
 
-Build a **single-player Minecraft speedrun practice suite** based on the existing `SpeedrunPractice` project.
-
-Base project:
+This document defines the required work to turn the current repository from:
 
 ```text
-https://github.com/nglmercer/SpeedrunPractice
+working legacy 1.16.1 mod
++
+shared architecture/model code
++
+stub version adapters
 ```
 
-The project must remain focused on **solo practice**.
+into:
+
+```text
+one functional shared practice engine
++
+fully implemented Minecraft adapters
++
+three real Fabric mod builds
+```
+
+Target versions:
+
+```text
+Minecraft 1.16.1
+Minecraft 1.21.1
+Minecraft 26.3
+```
+
+The project is strictly:
+
+```text
+single-player speedrun practice
+```
 
 Do NOT implement:
 
-* MCSR Ranked matchmaking
-* Elo/rating systems
-* multiplayer racing
-* opponent synchronization
-* remote match servers
-* account authentication
-* anti-cheat
-* spectator synchronization
-* seasons
-* queues
-* ranked APIs
-* result submission to Ranked
-* any dependency on MCSR Ranked servers
-
-The final mod should provide a local experience similar to the useful practice portions of speedrunning tools:
-
-* fast practice setup
-* filtered/searchable seeds
-* scenario presets
-* practice checkpoints
-* instant reset
-* split-specific practice
-* timing
-* statistics
-* configurable inventories
-* custom practice definitions
+```text
+MCSR Ranked
+matchmaking
+Elo
+multiplayer racing
+accounts
+remote servers
+anti-cheat
+online leaderboards
+race synchronization
+```
 
 ---
 
-# 1. Supported Minecraft Versions
+# 1. Current Repository Reality
 
-Maintain exactly three Minecraft version targets.
+Do not assume the current `versions/` modules are working Minecraft mods.
+
+Current state:
+
+```text
+root src/
+    real working legacy 1.16.1 Fabric mod
+
+common/
+    mostly implemented shared domain layer
+
+practices/
+    shared scenario setup logic
+
+seed-search/
+    search orchestration
+
+versions/fabric-1.16.1/
+    plain Java adapter skeleton
+
+versions/fabric-1.21.1/
+    plain Java adapter skeleton
+
+versions/fabric-26.3/
+    plain Java adapter skeleton
+```
+
+The new version adapters currently contain methods like:
+
+```java
+throw pending("createPracticeWorld");
+throw pending("teleport");
+throw pending("locate");
+throw pending("applyLoadout");
+```
+
+These must be replaced by actual Minecraft implementations.
+
+---
+
+# 2. Critical Development Rule
+
+Do NOT begin by implementing 1.21.1 or 26.3.
+
+First make the new architecture completely functional on:
+
+```text
+Minecraft 1.16.1
+```
+
+using the already-working legacy implementation as the behavioral reference.
+
+Required order:
+
+```text
+legacy 1.16.1
+↓
+functional AdapterSet116
+↓
+new shared runtime works completely on 1.16.1
+↓
+port same adapter contracts to 1.21.1
+↓
+port same adapter contracts to 26.3
+```
+
+---
+
+# 3. Required Architecture
+
+Final runtime architecture:
+
+```text
+Fabric entrypoint
+        ↓
+PracticeRuntime
+        ↓
+ScenarioEngine
+        ↓
+PracticeScenario
+        ↓
+MinecraftAdapter
+        ↓
+version-specific implementation
+```
+
+Example:
 
 ```text
 1.16.1
+Fabric116Entrypoint
+    ↓
+PracticeRuntime
+    ↓
+ScenarioEngine
+    ↓
+AdapterSet116
+
 1.21.1
+Fabric121Entrypoint
+    ↓
+PracticeRuntime
+    ↓
+ScenarioEngine
+    ↓
+AdapterSet121
+
 26.3
-```
-
-Version roles:
-
-```text
-1.16.1 = primary speedrunning build
-1.21.1 = modern compatibility/reference build
-26.3   = latest supported build
-```
-
-Do NOT create three unrelated forks.
-
-Use one repository containing:
-
-```text
-shared/common code
-+
-three Minecraft-specific adapters
-```
-
-The build should produce three separate jars.
-
-Example:
-
-```text
-speedrun-practice-1.16.1-x.y.z.jar
-speedrun-practice-1.21.1-x.y.z.jar
-speedrun-practice-26.3-x.y.z.jar
-```
-
----
-
-# 2. Core Architecture Rule
-
-The most important architecture constraint is:
-
-```text
-common/ MUST NOT import net.minecraft.*
-```
-
-Minecraft code belongs only in version-specific modules.
-
-Target architecture:
-
-```text
-speedrun-practice/
-│
-├── common/
-│   ├── api/
-│   ├── engine/
-│   ├── scenario/
-│   ├── seeds/
-│   ├── loadout/
-│   ├── checkpoint/
-│   ├── timer/
-│   ├── stats/
-│   └── config/
-│
-├── practices/
-│   ├── overworld/
-│   ├── buried-treasure/
-│   ├── nether/
-│   ├── bastion/
-│   ├── fortress/
-│   ├── blind/
-│   ├── postblind/
-│   ├── stronghold/
-│   ├── end/
-│   ├── onecycle/
-│   └── custom/
-│
-├── versions/
-│   ├── fabric-1.16.1/
-│   ├── fabric-1.21.1/
-│   └── fabric-26.3/
-│
-├── definitions/
-│   ├── practices/
-│   ├── loadouts/
-│   └── seed-filters/
-│
-├── docs/
-├── scripts/
-└── .github/
-```
-
-If necessary, adapt the directory names to Gradle conventions, but preserve the separation.
-
----
-
-# 3. Development Philosophy
-
-Always prefer:
-
-```text
-shared abstraction
-```
-
-over:
-
-```text
-version checks everywhere
-```
-
-Avoid:
-
-```java
-if (mcVersion == ...)
-```
-
-inside common practice logic.
-
-Instead use interfaces.
-
-Example:
-
-```java
-public interface MinecraftAdapter {
-    GameVersion version();
-
-    PracticeWorld createWorld(
-        long seed,
-        PracticeWorldOptions options
-    );
-
-    void destroyWorld(PracticeWorld world);
-
-    void teleport(
-        PracticePlayer player,
-        PracticePosition position
-    );
-
-    void applyLoadout(
-        PracticePlayer player,
-        Loadout loadout
-    );
-
-    StructureResult locateStructure(
-        PracticeWorld world,
-        StructureQuery query
-    );
-}
-```
-
-Implement separately:
-
-```text
-MinecraftAdapter116
-MinecraftAdapter121
-MinecraftAdapter263
-```
-
----
-
-# 4. Important Rules for Coding Agents
-
-Before changing code:
-
-1. Inspect the repository.
-2. Read existing implementation.
-3. Identify which module owns the behavior.
-4. Avoid duplicate systems.
-5. Preserve already-working behavior.
-6. Add tests where practical.
-7. Run relevant builds/tests.
-8. Do not rewrite unrelated code.
-9. Do not silently remove existing functionality.
-10. Document architectural decisions.
-
-Never make a massive rewrite in one commit.
-
-Implement features incrementally.
-
-Each phase must end in a buildable state.
-
----
-
-# 5. Existing Functionality To Preserve
-
-The original project already contains behavior for areas such as:
-
-```text
-Overworld practice
-Nether practice
-Post-blind practice
-Stronghold practice
-End practice
-Buried Treasure practice
-Inventory/loadout saving
-Seed lists
-Seed selection
-Practice worlds
-Revert/autosave functionality
-SpeedRunIGT integration
-Structure-generation settings
-```
-
-Do not remove these until equivalent functionality exists in the new architecture.
-
-When replacing existing code:
-
-```text
-old implementation
+Fabric263Entrypoint
     ↓
-adapter/interface
+PracticeRuntime
     ↓
-new implementation
-```
-
-Verify parity before deleting the old implementation.
-
----
-
-# 6. Phase 1 — Baseline Repository
-
-## Goal
-
-Get the existing 1.16.1 project reproducibly building.
-
-Tasks:
-
-```text
-[ ] Clone/fork project
-[ ] Confirm license
-[ ] Preserve MIT license
-[ ] Update project metadata
-[ ] Rename organization/package only if necessary
-[ ] Confirm Gradle wrapper works
-[ ] Build original 1.16.1 jar
-[ ] Record known compiler warnings
-[ ] Record current commands
-[ ] Record current mixins
-[ ] Record current config structure
-[ ] Record current practice types
-[ ] Add CONTRIBUTING.md
-[ ] Add ARCHITECTURE.md
-[ ] Add this AGENTS.md
-```
-
-Create:
-
-```text
-docs/original-feature-matrix.md
-```
-
-Containing:
-
-| Feature           | Existing | Migrated | Tested |
-| ----------------- | -------: | -------: | -----: |
-| End practice      |      Yes |       No |     No |
-| Nether            |      Yes |       No |     No |
-| Postblind         |      Yes |       No |     No |
-| Overworld         |      Yes |       No |     No |
-| Buried Treasure   |      Yes |       No |     No |
-| Stronghold        |      Yes |       No |     No |
-| Seed list         |      Yes |       No |     No |
-| Inventory presets |      Yes |       No |     No |
-| Revert            |      Yes |       No |     No |
-
-Acceptance criteria:
-
-```text
-./gradlew build
-```
-
-must pass for the original 1.16.1 implementation.
-
-Do not begin modern-version support before this succeeds.
-
----
-
-# 7. Phase 2 — Create Multi-Module Build
-
-Introduce a Gradle multi-project architecture.
-
-Suggested modules:
-
-```text
-:common
-:practices
-:versions:fabric-1.16.1
-:versions:fabric-1.21.1
-:versions:fabric-26.3
-```
-
-Optional modules:
-
-```text
-:seed-search
-:practice-api
-:test-support
-```
-
-The dependency direction must be:
-
-```text
-common
- ↑
-practices
- ↑
-version modules
-```
-
-Never:
-
-```text
-common -> Minecraft
-common -> Fabric
-common -> mixins
-```
-
-Acceptance criteria:
-
-```text
-common compiles independently
-1.16.1 module builds
-modern modules may initially contain skeletons
+ScenarioEngine
+    ↓
+AdapterSet263
 ```
 
 ---
 
-# 8. Phase 3 — Core Domain API
+# 4. Create `PracticeRuntime`
 
-Create stable non-Minecraft domain objects.
+Create a central shared runtime owner.
 
-Suggested types:
-
-```java
-GameVersion
-PracticeId
-PracticeType
-PracticeSession
-PracticeContext
-PracticeState
-PracticeResult
-PracticeResultStatus
-
-PracticeWorld
-PracticePlayer
-PracticePosition
-PracticeDimension
-
-PracticeScenario
-PracticeSettings
-PracticePreset
-
-Loadout
-LoadoutItem
-InventorySlot
-
-SeedSource
-SeedQuery
-SeedCandidate
-SeedResult
-
-Checkpoint
-CheckpointManager
-
-PracticeTimer
-PracticeStatistics
-```
-
-Avoid exposing Minecraft classes through these APIs.
-
-Bad:
+Suggested class:
 
 ```java
-ServerPlayerEntity getPlayer();
-```
+public final class PracticeRuntime {
+    private final MinecraftAdapter adapter;
+    private final ScenarioRegistry scenarios;
+    private final ScenarioEngine engine;
+    private final SeedStore seedStore;
+    private final LoadoutManager loadouts;
+    private final CheckpointManager checkpoints;
+    private final PracticeTimer timer;
+    private final PracticeStatistics statistics;
 
-Good:
-
-```java
-PracticePlayer player();
-```
-
----
-
-# 9. Phase 4 — Adapter API
-
-Create version interfaces.
-
-At minimum:
-
-```text
-MinecraftAdapter
-WorldAdapter
-PlayerAdapter
-InventoryAdapter
-StructureAdapter
-PortalAdapter
-DragonAdapter
-RegistryAdapter
-CommandAdapter
-GuiAdapter
-TimerAdapter
-```
-
-Potential API:
-
-```java
-public interface WorldAdapter {
-
-    PracticeWorld createPracticeWorld(
-        long seed,
-        PracticeWorldOptions options
-    ) throws PracticeException;
-
-    void deletePracticeWorld(
-        PracticeWorld world
-    );
-
-    void resetPracticeWorld(
-        PracticeWorld world,
-        long seed,
-        PracticeWorldOptions options
-    );
+    private SeedSource activeSeedSource;
+    private SeedSearchTask activeSearch;
 }
 ```
 
-Structure abstraction:
+Responsibilities:
+
+```text
+initialize shared systems
+load configuration
+load scenarios
+load loadouts
+own active scenario
+own active seed source
+start/stop/reset scenarios
+manage seed searches
+manage checkpoints
+manage statistics
+expose command actions
+expose GUI actions
+```
+
+Do not put Minecraft classes inside this shared class.
+
+---
+
+# 5. Runtime Bootstrap
+
+Each Minecraft version must create exactly one runtime.
+
+Example abstraction:
 
 ```java
-public interface StructureAdapter {
-
-    Optional<StructureLocation> locateNearest(
-        PracticeWorld world,
-        StructureQuery query
-    );
-
-    List<StructureLocation> locate(
-        PracticeWorld world,
-        StructureQuery query,
-        int limit
-    );
-}
-```
-
-Player abstraction:
-
-```java
-public interface PlayerAdapter {
-
-    void teleport(
-        PracticePlayer player,
-        PracticePosition position
-    );
-
-    void setHealth(
-        PracticePlayer player,
-        double health
-    );
-
-    void setFood(
-        PracticePlayer player,
-        int food
-    );
-
-    void clearEffects(
-        PracticePlayer player
-    );
-
-    void applyLoadout(
-        PracticePlayer player,
-        Loadout loadout
-    );
-}
-```
-
----
-
-# 10. Phase 5 — Migrate Existing 1.16.1 Behavior
-
-Do not add many new features yet.
-
-Move existing functionality behind adapters.
-
-Recommended migration order:
-
-```text
-1. Seed manager
-2. Configuration
-3. Inventories/loadouts
-4. Player teleportation
-5. Practice world creation
-6. Overworld practice
-7. Nether practice
-8. Stronghold
-9. Postblind
-10. End practice
-11. Buried Treasure
-12. Revert/checkpoints
-13. Dragon utilities
-```
-
-After each migration:
-
-```text
-build
-test
-manual sanity check
-commit
-```
-
-Do not migrate everything in one change.
-
----
-
-# 11. Phase 6 — Scenario Engine
-
-Every practice should use one lifecycle.
-
-Example:
-
-```java
-public interface PracticeScenario {
-
-    PracticeId id();
-
-    void prepare(
-        PracticeContext context
-    );
-
-    void start(
-        PracticeContext context
-    );
-
-    PracticeTickResult tick(
-        PracticeContext context
-    );
-
-    void reset(
-        PracticeContext context,
-        ResetMode mode
-    );
-
-    void stop(
-        PracticeContext context
-    );
-}
-```
-
-Reset modes:
-
-```java
-SAME_SEED
-NEW_SEED
-PREVIOUS_SEED
-CHECKPOINT
-FULL_RESET
-```
-
-A scenario must not directly manipulate Minecraft internals.
-
----
-
-# 12. Phase 7 — Practice Modules
-
-Implement these practice categories.
-
-## Overworld
-
-```text
-random spawn
-village
-shipwreck
-buried treasure
-lava pool
-portal entry
-custom structure start
-```
-
-## Nether
-
-```text
-portal exit
-navigation
-bastion locating
-fortress locating
-bastion → fortress
-fortress → bastion
-blaze practice
-pearl collection setups
-```
-
-## Bastion
-
-Support:
-
-```text
-Housing
-Stables
-Treasure
-Bridge
-Random
-```
-
-Possible start modes:
-
-```text
-outside bastion
-entrance
-known route start
-random valid exterior position
-portal exit nearby
-```
-
-Configuration:
-
-```text
-loadout
-armor
-blocks
-pickaxe
-food
-health
-difficulty
-piglin state
-randomized item quantities
-```
-
-## Fortress
-
-Support:
-
-```text
-find fortress
-enter fortress
-blaze collection
-navigation
-exit practice
-```
-
-## Blind Travel
-
-Support:
-
-```text
-random nether coordinate
-specified target distance
-portal construction setup
-blind conversion
-overworld stronghold distance
-```
-
-## Post-Blind
-
-Support:
-
-```text
-random post-blind position
-max/min stronghold distance
-eye count
-inventory presets
-stronghold triangulation
-```
-
-## Stronghold
-
-Support:
-
-```text
-stronghold entry
-navigation
-portal room search
-portal room start
-pre-eye setup
-custom eye counts
-```
-
-## End
-
-Support:
-
-```text
-end entry
-tower practice
-dragon fight
-bed cycle
-one-cycle
-instaperch
-custom inventory
-random tower states
-```
-
-## Custom
-
-User-defined scenario.
-
----
-
-# 13. Phase 8 — Data-Driven Practice Definitions
-
-Where possible, practice variants should be defined through JSON.
-
-Example:
-
-```json
-{
-  "id": "bastion_housing_default",
-  "type": "bastion",
-  "displayName": "Housing Bastion Practice",
-
-  "world": {
-    "dimension": "nether"
-  },
-
-  "seed": {
-    "source": "search",
-    "filters": [
-      {
-        "type": "bastion_type",
-        "value": "housing"
-      }
-    ]
-  },
-
-  "spawn": {
-    "type": "structure_exterior",
-    "distance": 40
-  },
-
-  "loadout": "bastion_default",
-
-  "timer": {
-    "start": "player_move",
-    "stop": "scenario_complete"
-  }
-}
-```
-
-Create schema validation.
-
-Bad JSON should produce a readable error.
-
-Never crash Minecraft because a user scenario has invalid JSON.
-
----
-
-# 14. Phase 9 — Loadout System
-
-Create named loadouts.
-
-Example:
-
-```json
-{
-  "id": "bastion_default",
-  "items": [
-    {
-      "item": "minecraft:iron_pickaxe",
-      "slot": 0,
-      "count": 1
-    },
-    {
-      "item": "minecraft:bread",
-      "slot": 1,
-      "count": 16
+public final class SpeedrunPracticeBootstrap {
+
+    public static PracticeRuntime create(
+        MinecraftAdapter adapter,
+        Path configDir
+    ) {
+        ...
     }
-  ]
 }
 ```
 
-Features:
+Version entrypoint does:
 
-```text
-[ ] named presets
-[ ] save current inventory
-[ ] duplicate preset
-[ ] rename preset
-[ ] delete preset
-[ ] export preset
-[ ] import preset
-[ ] version-aware item handling
+```java
+MinecraftAdapter adapter = new AdapterSet116(...);
+
+PracticeRuntime runtime =
+    SpeedrunPracticeBootstrap.create(
+        adapter,
+        configDirectory
+    );
 ```
 
-Do not store Minecraft NBT directly in shared domain models unless wrapped behind an adapter.
+Store runtime somewhere version code can safely reach.
+
+Do NOT use uncontrolled global static state for everything.
 
 ---
 
-# 15. Phase 10 — Seed Source System
+# 6. Phase A — Repair CI First
 
-Create:
+Before further feature work, make CI correctly represent what is actually supported.
+
+Current CI incorrectly treats plain Java adapter jars as Minecraft version jars.
+
+Change CI to have these categories:
+
+```text
+shared-tests
+legacy-116-runtime
+new-116-adapter
+121-runtime
+263-runtime
+```
+
+Until a version is actually ported:
+
+```text
+DO NOT upload its java-library jar as a playable mod
+```
+
+Temporary acceptable CI:
+
+```yaml
+1. shared engine tests
+2. legacy 1.16.1 Fabric build
+3. adapter compilation checks
+```
+
+Later replace adapter compilation with actual Loom builds.
+
+---
+
+# 7. Fix Capability Reporting
+
+Current adapters may return:
 
 ```java
-public interface SeedSource {
-
-    OptionalLong nextSeed(
-        SeedRequest request
-    );
-
-    OptionalLong previousSeed();
-
-    OptionalLong currentSeed();
-}
+supports(...) == true
 ```
+
+while the method itself throws:
+
+```java
+pending(...)
+```
+
+This is invalid.
+
+Rule:
+
+```text
+Capability may return true ONLY when:
+- implementation exists
+- it has been compiled
+- it has been tested in the target version
+```
+
+Until then:
+
+```java
+return false;
+```
+
+Apply immediately to:
+
+```text
+AdapterSet116
+AdapterSet121
+AdapterSet263
+```
+
+---
+
+# 8. Phase B — Complete AdapterSet116
+
+This is the highest-priority implementation task.
+
+Use the existing root 1.16.1 mod as the implementation source.
+
+Do NOT rewrite working Minecraft behavior unnecessarily.
+
+Replace every `pending()` implementation.
+
+---
+
+# 9. AdapterSet116 — WorldAdapter
 
 Implement:
 
+```java
+createPracticeWorld(...)
+deletePracticeWorld(...)
+resetPracticeWorld(...)
+spawnPosition(...)
+```
+
+Use existing legacy classes such as:
+
 ```text
-RandomSeedSource
-FixedSeedSource
-SeedListSource
-SearchSeedSource
-FavoriteSeedSource
-RecentSeedSource
-ImportedSeedSource
+MinecraftServerMixin
+IMinecraftServer
+PracticeWorld
+ServerWorldAccess
+existing world creation methods
+existing practice dimension logic
+```
+
+Required behavior:
+
+```text
+create isolated practice world
+support OVERWORLD
+support NETHER
+support END
+use requested seed
+honor structures enabled/disabled
+return actual spawn position
+delete world cleanly
+avoid leaking worlds/chunks
+```
+
+Reset behavior:
+
+```text
+SAME_SEED
+    destroy/reset practice world
+    recreate with same seed
+
+NEW_SEED
+    recreate with new seed
+
+PREVIOUS_SEED
+    recreate with previous seed
+```
+
+Acceptance:
+
+```text
+start Overworld practice
+reset same seed
+reset new seed
+start Nether
+start End
+no stale world remains
 ```
 
 ---
 
-# 16. Phase 11 — Seed Search Engine
+# 10. AdapterSet116 — PlayerAdapter
 
-This is a major feature.
-
-Create query objects such as:
+Implement:
 
 ```java
-SeedQuery.builder()
-    .version(GameVersion.MC_1_16_1)
-    .requireBiome(...)
-    .requireStructure(...)
-    .maxDistance(...)
-    .build();
+teleport
+setHealth
+setFood
+clearEffects
+applyLoadout
+resetPlayer
+getPosition
+getHealth
+getFood
+getWorld
 ```
 
-Do NOT put actual structure-generation implementation inside common.
+Use actual:
 
-Use:
-
-```java
-SeedAnalyzer
+```text
+ServerPlayerEntity
+PlayerInventory
+StatusEffectInstance
+ServerWorld
 ```
 
-with implementation per Minecraft target.
+`PracticePlayer` should wrap a version-neutral handle.
 
-Example:
+Do NOT store direct Minecraft classes in `common`.
+
+Possible version object:
 
 ```java
-public interface SeedAnalyzer {
-
-    SeedAnalysis analyze(
-        long seed,
-        SeedQuery query
-    );
-
-    boolean matches(
-        long seed,
-        SeedQuery query
-    );
+final class PlayerHandle116 implements PracticePlayer {
+    private final UUID playerId;
 }
 ```
 
+Resolve the actual player through server state.
+
 ---
 
-# 17. Seed Search Filters
+# 11. AdapterSet116 — InventoryAdapter
 
-Implement filters incrementally.
+Implement:
 
-## Overworld
-
-```text
-spawn biome
-spawn coordinates
-village distance
-shipwreck distance
-buried treasure distance
-ruined portal distance
-lava source availability
-ocean proximity
-desert proximity
+```java
+applyLoadout
+captureLoadout
+clear
 ```
 
-## Nether
+Support:
 
 ```text
-nether spawn coordinates
-bastion distance
-bastion type
-fortress distance
-bastion + fortress combination
-fortress after bastion distance
-terrain constraints
+hotbar
+main inventory
+armor
+offhand
+item count
+NBT where necessary
+selected slot
 ```
 
-## Stronghold
+Registry validation must be real.
+
+Replace:
+
+```java
+return id != null;
+```
+
+with actual 1.16.1 item registry lookup.
+
+Replace:
+
+```java
+return 64;
+```
+
+with the actual item's max stack size.
+
+---
+
+# 12. AdapterSet116 — StructureAdapter
+
+Implement:
+
+```java
+locateNearest
+locate
+```
+
+Required structures:
 
 ```text
-stronghold distance
-stronghold ring
-portal room characteristics
-eye count where deterministically available
+village
+shipwreck
+buried_treasure
+ruined_portal
+bastion_remnant
+fortress
+stronghold
 ```
 
-## Combined
+`StructureLocation.metadata()` must support relevant data.
 
 Examples:
 
 ```text
-good overworld + housing bastion
-close bastion + close fortress
-bad blind practice
-far blind practice
-stronghold navigation
-specific bastion type + fortress range
+bastion.type
+portal_room
+stronghold.ring
 ```
+
+Never fabricate metadata.
+
+If metadata is unavailable:
+
+```text
+omit it
+```
+
+and capability must reflect that.
 
 ---
 
-# 18. Two-Stage Seed Searching
+# 13. Bastion Type Detection
 
-Use two stages.
+Implement bastion type detection for 1.16.1.
 
-## Stage A — Fast Filter
-
-Avoid full world generation when possible.
+Required categories:
 
 ```text
-seed math
-structure-position calculations
-biome checks
-cheap rejection tests
+housing
+stables
+treasure
+bridge
 ```
 
-## Stage B — Verification
-
-For surviving seeds:
-
-```text
-create/generate required chunks
-inspect actual target structures
-verify assumptions
-return verified result
-```
-
-A seed search result must record:
+Store:
 
 ```java
-seed
-minecraftVersion
-matchedFilters
-structureLocations
-verificationState
-searchTimestamp
+metadata.put("bastion.type", type);
 ```
+
+Verify against real generated bastions.
+
+Do not classify from structure coordinates alone unless the algorithm is verified.
 
 ---
 
-# 19. Seed Search Persistence
+# 14. AdapterSet116 — PortalAdapter
 
-Store results locally.
+Implement:
 
-Suggested structure:
-
-```text
-config/speedrun-practice/
-└── seeds/
-    ├── favorites.json
-    ├── recent.json
-    ├── searches/
-    │   ├── housing.json
-    │   └── close-fortress.json
-    └── imports/
-        └── user-list.txt
+```java
+createNetherPortal
+linkPortals
 ```
 
-Support:
+Use existing portal logic where possible.
+
+Required:
 
 ```text
-favorites
-tags
-notes
-failed seeds
-recent seeds
-search history
-named collections
+create valid obsidian frame
+ignite portal
+support overworld/nether linking
+restore portal state during relevant practice
 ```
+
+Do not place fake portal positions without checking world state.
 
 ---
 
-# 20. Phase 12 — Commands
+# 15. AdapterSet116 — DragonAdapter
 
-Maintain a clear root command.
+Implement:
 
-```text
-/practice
+```java
+resetFight
+forcePerch
+hasLivingDragon
 ```
 
-Suggested commands:
+Reuse existing dragon mixin/accessor behavior where possible.
+
+Required End practice:
+
+```text
+dragon spawns/reset correctly
+crystals/fight state correct
+force perch works when enabled
+completion detects dragon death
+```
+
+Only report:
+
+```text
+DRAGON_FORCE_PERCH = true
+```
+
+after real testing.
+
+---
+
+# 16. AdapterSet116 — CommandAdapter
+
+The current implementation only logs the command tree.
+
+Replace with real Brigadier registration.
+
+Map:
+
+```text
+PracticeCommands.Node
+```
+
+to actual Fabric/Minecraft commands.
+
+Commands must execute runtime actions.
+
+Required:
 
 ```text
 /practice start <type>
@@ -1057,8 +643,6 @@ Suggested commands:
 /practice seeds search <preset>
 /practice seeds cancel
 /practice seeds results
-/practice seeds export
-/practice seeds import
 
 /practice loadout list
 /practice loadout save <name>
@@ -1070,555 +654,1307 @@ Suggested commands:
 /practice checkpoint clear
 
 /practice stats
-/practice stats <practice>
-/practice stats reset
-
 /practice config reload
 ```
 
-Keep legacy aliases where reasonable.
+Keep legacy commands as aliases.
 
 ---
 
-# 21. Phase 13 — Practice GUI
+# 17. Command Execution Layer
 
-Create a simple GUI.
+Do not place command behavior inside Brigadier callbacks.
 
-Main screen:
-
-```text
-Speedrun Practice
-
-[ Overworld ]
-[ Nether ]
-[ Bastion ]
-[ Fortress ]
-[ Blind Travel ]
-[ Post Blind ]
-[ Stronghold ]
-[ End ]
-[ One Cycle ]
-[ Custom ]
-```
-
-Scenario screen:
-
-```text
-Practice: Housing Bastion
-
-Seed Source:
-    Search
-
-Loadout:
-    Bastion Default
-
-Bastion Type:
-    Housing
-
-Fortress:
-    Required
-
-Fortress Distance:
-    200 - 500
-
-[ Start ]
-```
-
-After completion:
-
-```text
-Time: 01:42.317
-PB:   01:39.114
-
-[ Retry Same Seed ]
-[ New Seed ]
-[ Previous Seed ]
-[ Main Menu ]
-```
-
----
-
-# 22. Phase 14 — Keybinds
-
-Provide configurable keybinds.
-
-Suggested defaults:
-
-```text
-Restart same seed
-Restart new seed
-Previous seed
-Save checkpoint
-Load checkpoint
-Stop practice
-Open practice menu
-```
-
-Do not hardcode keys without user configuration.
-
----
-
-# 23. Phase 15 — Checkpoints
-
-Checkpoint state should include only necessary data.
-
-Possible fields:
+Create shared action dispatcher:
 
 ```java
-record PracticeCheckpoint(
-    PracticeId practice,
-    long seed,
-    PracticeDimension dimension,
-    PracticePosition position,
-    PlayerSnapshot player,
-    ScenarioSnapshot scenario,
-    TimerSnapshot timer
-) {}
+public final class PracticeActionExecutor {
+
+    public CommandResult execute(
+        String action,
+        CommandArguments args,
+        PracticePlayer player
+    );
+}
 ```
 
-Player snapshot:
+Example:
 
 ```text
+"restart.same"
+    ↓
+runtime.restart(SAME_SEED)
+
+"checkpoint.save"
+    ↓
+runtime.saveCheckpoint()
+
+"seed.favorite"
+    ↓
+runtime.favoriteCurrentSeed()
+```
+
+---
+
+# 18. AdapterSet116 — GuiAdapter
+
+Implement actual GUI screens.
+
+Required screens:
+
+```text
+PracticeMainScreen
+PracticeScenarioScreen
+PracticeResultsScreen
+SeedSearchScreen
+LoadoutScreen
+StatisticsScreen
+```
+
+Minimum v1:
+
+```text
+main practice selector
+scenario options
+Start button
+results
+same seed
+new seed
+previous seed
+```
+
+Do not block release waiting for fancy styling.
+
+Functional first.
+
+---
+
+# 19. Keybind Integration
+
+`PracticeKeybinds` is currently only a model.
+
+Register actual Fabric client keybindings.
+
+Required actions:
+
+```text
+restart same seed
+restart new seed
+previous seed
+save checkpoint
+load checkpoint
+stop practice
+open practice menu
+```
+
+Process key presses from client tick events.
+
+Ensure each key triggers once per press.
+
+---
+
+# 20. Phase C — Fix ScenarioEngine Timing
+
+Current engine always starts the timer immediately.
+
+This must be changed.
+
+Support actual start conditions:
+
+```text
+SCENARIO_LOAD
+PLAYER_MOVE
+DIMENSION_ENTRY
+PORTAL_EXIT
+MANUAL
+```
+
+Support stop conditions:
+
+```text
+SCENARIO_COMPLETE
+DIMENSION_ENTRY
+STRUCTURE_REACHED
+DRAGON_DEATH
+MANUAL
+```
+
+Do not call:
+
+```java
+startTimer();
+```
+
+unconditionally after `scenario.start()`.
+
+Instead:
+
+```java
+timer.reset();
+
+if (condition == SCENARIO_LOAD) {
+    startTimer();
+}
+```
+
+Other conditions start from events.
+
+---
+
+# 21. Add Practice Event System
+
+Create shared events.
+
+Example:
+
+```java
+public interface PracticeEvent {
+}
+```
+
+Events:
+
+```text
+PlayerMovedEvent
+DimensionChangedEvent
+PortalExitEvent
+StructureEnteredEvent
+DragonKilledEvent
+InventoryChangedEvent
+BlockPlacedEvent
+EntityKilledEvent
+ManualTimerStartEvent
+ManualTimerStopEvent
+```
+
+Add:
+
+```java
+PracticeScenario.onEvent(
+    PracticeContext context,
+    PracticeEvent event
+)
+```
+
+or equivalent event handler system.
+
+Version adapters translate actual Minecraft events into these shared events.
+
+---
+
+# 22. Scenario Completion Conditions
+
+Nine scenarios currently never finish.
+
+Implement completion logic for all.
+
+---
+
+# 23. Overworld Completion
+
+Configurable completion conditions may include:
+
+```text
+enter_nether
+reach_structure
+obtain_item
+manual
+```
+
+Default recommended:
+
+```text
+enter_nether
+```
+
+When player enters Nether:
+
+```java
+TickResult.finished();
+```
+
+or event equivalent.
+
+---
+
+# 24. Buried Treasure Completion
+
+Default completion:
+
+```text
+loot buried treasure chest
+```
+
+Possible simpler implementation:
+
+```text
+reach chest location
++
+open target chest
+```
+
+Prefer detecting interaction/opening of the actual target chest.
+
+Do not finish merely because player reaches the chunk.
+
+---
+
+# 25. Nether Practice Completion
+
+Possible modes:
+
+```text
+reach_bastion
+reach_fortress
+obtain_pearls
+obtain_blaze_rods
+exit_nether
+manual
+```
+
+Scenario setting:
+
+```text
+nether.goal
+```
+
+---
+
+# 26. Bastion Completion
+
+Support:
+
+```text
+manual
+leave_bastion
+obtain_target_pearls
+reach_exit
+```
+
+Recommended default:
+
+```text
+obtain_target_pearls
+```
+
+Track configured pearl threshold.
+
+Example:
+
+```text
+bastion.targetPearls=16
+```
+
+---
+
+# 27. Fortress Completion
+
+Modes:
+
+```text
+find
+enter
+blaze
+navigation
+exit
+```
+
+Each needs different completion behavior.
+
+Examples:
+
+```text
+find
+    player enters fortress bounding area
+
+blaze
+    player obtains configured blaze rods
+
+exit
+    player leaves fortress after entering
+```
+
+Do not treat all modes identically.
+
+---
+
+# 28. Blind Travel Completion
+
+Blind Travel needs actual route semantics.
+
+Required:
+
+```text
+start in Nether
+give portal materials/loadout
+player builds/uses portal
+detect Overworld exit
+calculate distance to nearest stronghold
+finish on portal exit
+```
+
+Record result data:
+
+```text
+exit coordinates
+stronghold coordinates
+distance/error
+```
+
+Do not simply teleport the player somewhere and call it blind travel.
+
+---
+
+# 29. Post-Blind Completion
+
+Possible default:
+
+```text
+reach stronghold
+```
+
+Optional:
+
+```text
+enter stronghold
+reach portal room
+manual
+```
+
+Track target stronghold used for this attempt.
+
+---
+
+# 30. Stronghold Completion
+
+Modes:
+
+```text
+entry
+navigation
+portal_search
+portal_room
+```
+
+Suggested completions:
+
+```text
+navigation
+    reach portal room
+
+portal_search
+    reach portal room
+
+portal_room
+    enter End portal
+
+entry
+    configurable/manual
+```
+
+Need real portal-room detection.
+
+---
+
+# 31. End Completion
+
+Already based on dragon death.
+
+Keep:
+
+```text
+dragon death
+```
+
+but ensure:
+
+```text
+dragon fight state reset
+target dragon belongs to practice world
+completion fires only once
+```
+
+---
+
+# 32. One Cycle Completion
+
+Dragon death is valid completion.
+
+Need additionally:
+
+```text
+real forced perch when enabled
+valid one-cycle loadout
+bed counts
+obsidian setup
+dragon fight reset
+```
+
+---
+
+# 33. Custom Scenario Completion
+
+Current custom scenario parser understands:
+
+```text
+timer.stop
+```
+
+but does not implement it.
+
+Implement:
+
+```text
+manual
+dimension_entry
+structure_reached
+dragon_death
+scenario_complete
+```
+
+Add custom settings such as:
+
+```json
+{
+  "completion": {
+    "type": "structure_reached",
+    "structure": "stronghold"
+  }
+}
+```
+
+or normalized equivalent.
+
+---
+
+# 34. Fix Practice Spawn Logic
+
+Current spawn logic contains placeholders.
+
+---
+
+# 35. Bastion Spawn Modes
+
+Implement real differences:
+
+```text
+outside
+entrance
+route
+random_exterior
+portal_exit
+```
+
+Do NOT make these all aliases.
+
+`random_exterior`:
+
+```text
+pick random safe point around structure
+ensure passable block
+ensure solid ground
+avoid lava
+```
+
+`entrance`:
+
+```text
+detect useful exterior approach point
+```
+
+`route`:
+
+```text
+allow route preset metadata
+```
+
+---
+
+# 36. Fortress Spawn Modes
+
+Implement real behavior:
+
+```text
+find
+    spawn outside view/range
+
+enter
+    spawn immediately outside entry
+
+blaze
+    spawn at valid blaze practice location
+
+navigation
+    spawn at configured internal point
+
+exit
+    spawn inside fortress
+```
+
+---
+
+# 37. Safe Teleporting
+
+Never blindly teleport to:
+
+```text
+structure Y coordinate
+```
+
+without safety checks.
+
+Implement:
+
+```java
+SafePosition findSafePosition(
+    world,
+    desiredPosition
+)
+```
+
+Check:
+
+```text
+solid floor
+two blocks of headroom
+not lava
+not fire
+inside world bounds
+```
+
+Version-specific implementation.
+
+---
+
+# 38. Phase D — Finish Checkpoints
+
+Current checkpoints are incomplete.
+
+Checkpoint must capture:
+
+```text
+seed
+dimension
 position
 rotation
 health
 food
 saturation
-experience
+XP
+level
 inventory
 armor
 offhand
-effects
-selected slot
+selected hotbar slot
+status effects
+timer state
+scenario state
 ```
 
-Scenario-specific state goes through:
+Add adapter snapshot APIs if needed.
 
-```text
-ScenarioSnapshot
+Example:
+
+```java
+PlayerSnapshot capturePlayerState(...);
+
+void restorePlayerState(...);
 ```
-
-Avoid serializing the entire Minecraft server.
 
 ---
 
-# 24. Phase 16 — Timer
+# 39. Scenario Snapshot
 
-Implement an internal timer abstraction.
+Every scenario may optionally persist internal state.
 
-Start conditions:
+Add:
 
-```text
-scenario load
-first player movement
-dimension entry
-portal exit
-manual start
-```
-
-Stop conditions:
-
-```text
-practice-specific completion
-dimension entry
-structure reached
-dragon death
-manual stop
-```
-
-Use monotonic timing where possible.
-
-Support optional SpeedRunIGT integration through an adapter.
-
-SpeedRunIGT must not be required for the basic practice system.
-
----
-
-# 25. Phase 17 — Statistics
-
-Store statistics locally.
-
-Track:
-
-```text
-attempts
-completed attempts
-completion percentage
-PB
-average
-median
-best segment
-recent attempts
-seed
-practice type
-scenario preset
-Minecraft version
-reset reason
-```
-
-Suggested data structure:
-
-```json
-{
-  "practice": "bastion_housing",
-  "version": "1.16.1",
-  "attempts": 42,
-  "completed": 31,
-  "pbMs": 87321
+```java
+interface ScenarioSnapshot {
 }
 ```
 
-Provide:
+and:
 
-```text
-JSON export
-CSV export
+```java
+ScenarioSnapshot captureState(
+    PracticeContext context
+);
+
+void restoreState(
+    PracticeContext context,
+    ScenarioSnapshot snapshot
+);
 ```
 
-No cloud account is required.
+Needed for:
+
+```text
+target structure
+target chest
+target stronghold
+entered-fortress state
+timer trigger state
+completion progress
+```
 
 ---
 
-# 26. Phase 18 — 1.21.1 Port
+# 40. Checkpoint World Consistency
 
-Do not begin until:
+If checkpoint seed/dimension differs from current practice world:
 
 ```text
-1.16.1 architecture is stable
+recreate correct world first
+then restore player
 ```
 
-Implement:
+Do not teleport a player into a world generated from the wrong seed.
+
+---
+
+# 41. Optional World Snapshot Layer
+
+For scenarios needing local block restoration:
 
 ```text
-MinecraftAdapter121
+portal frames
+beds
+obsidian
+dragon fight
+chests
+```
+
+implement a bounded world snapshot.
+
+Do NOT serialize the entire Minecraft world.
+
+Example:
+
+```java
+WorldRegionSnapshot captureRegion(
+    center,
+    radius
+);
+```
+
+Only use where required.
+
+---
+
+# 42. Phase E — Complete Statistics
+
+Current statistics are in-memory only.
+
+Implement persistent statistics.
+
+Path:
+
+```text
+config/speedrun-practice/stats.json
+```
+
+Persist:
+
+```text
+attempts
+completed
+PB
+recent times
+reset reason
+seed
+Minecraft version
+preset
+```
+
+Write safely:
+
+```text
+temporary file
+↓
+atomic replace
+```
+
+Do not corrupt existing stats on crash.
+
+---
+
+# 43. Statistics Per Version
+
+Do not mix incompatible world-generation results.
+
+Key statistics by:
+
+```text
+practice
+preset
+Minecraft version
+```
+
+Example:
+
+```text
+bastion/housing/1.16.1
+bastion/housing/1.21.1
+```
+
+---
+
+# 44. Phase F — Fix Seed Search Architecture
+
+Current search orchestration is useful.
+
+Actual analyzers are not implemented.
+
+---
+
+# 45. Analyze Each Seed Once
+
+Current filters may repeatedly call:
+
+```java
+analyzer.analyze(seed, query)
+```
+
+Change architecture.
+
+Preferred:
+
+```java
+SeedAnalysis analysis =
+    analyzer.analyze(seed, query);
+
+for (Filter filter : filters) {
+    filter.matches(seed, analysis, query);
+}
+```
+
+Change interface:
+
+```java
+boolean matches(
+    long seed,
+    SeedAnalysis analysis,
+    SeedQuery query
+);
+```
+
+Do not recalculate structure data for every filter.
+
+---
+
+# 46. SeedAnalyzer116
+
+Implement actual 1.16.1 analyzer first.
+
+Required findings:
+
+```text
+biome.spawn
+
+structure.village.distance
+structure.shipwreck.distance
+structure.buried_treasure.distance
+structure.ruined_portal.distance
+structure.bastion_remnant.distance
+structure.fortress.distance
+structure.stronghold.distance
+
+location.<structure>
+
+bastion.type
+stronghold.ring
+lava.available
+```
+
+Only expose findings that can be determined correctly.
+
+---
+
+# 47. Two-Stage Search
+
+Stage A:
+
+```text
+cheap deterministic calculations
+biome/structure start checks
+distance math
+```
+
+Stage B:
+
+```text
+verify surviving candidates against actual Minecraft
+```
+
+Never perform Stage B on arbitrary worker threads if it manipulates Minecraft worlds.
+
+Use:
+
+```text
+background math worker
+↓
+queue candidate
+↓
+server thread verification
+↓
+return result
+```
+
+---
+
+# 48. Seed Search Progress
+
+Expose:
+
+```text
+tested
+matched
+verified
+failed
+rate
+elapsed
+cancelled
+finished
+```
+
+UI and command:
+
+```text
+/practice seeds results
+```
+
+must show current status.
+
+---
+
+# 49. Seed Search Cancellation
+
+Cancellation must be checked:
+
+```text
+between candidates
+before verification
+after verification
+```
+
+Stopping a search must release its worker executor.
+
+Do not leak daemon threads across repeated searches.
+
+---
+
+# 50. Verified Seed Fixtures
+
+Delete the assumption that illustrative test data proves anything.
+
+For each version, collect actual verified seeds.
+
+Minimum:
+
+```text
+5 known seeds per version
+```
+
+Each should contain as many verified facts as possible.
+
+Example:
+
+```json
+{
+  "seed": 123456789,
+  "verified": true,
+  "structures": {
+    "fortress": {...},
+    "bastion_remnant": {...}
+  }
+}
+```
+
+Do not mark:
+
+```text
+verified:true
+```
+
+without checking against the actual target Minecraft version.
+
+---
+
+# 51. Remove Placeholder 26.3 Coordinates
+
+Values like:
+
+```text
+0,64,0
+```
+
+used as illustrative expected structures must not be treated as test expectations.
+
+Replace with:
+
+```text
+verified actual coordinates
+```
+
+or remove the row.
+
+---
+
+# 52. Phase G — Proper 1.16.1 New Runtime Integration
+
+Once adapters and shared engine work:
+
+```text
+root legacy command path
+```
+
+must be replaced gradually by:
+
+```text
+PracticeRuntime
+```
+
+Do not delete legacy code immediately.
+
+Use migration approach:
+
+```text
+legacy operation
+↓
+adapter delegates to it
+↓
+runtime calls adapter
+↓
+behavior verified
+↓
+legacy direct call removed
+```
+
+---
+
+# 53. 1.16.1 Migration Acceptance
+
+Before porting another version, all of these must work using the NEW engine:
+
+```text
+[ ] /practice start overworld
+[ ] /practice start nether
+[ ] /practice start bastion
+[ ] /practice start fortress
+[ ] /practice start blind_travel
+[ ] /practice start postblind
+[ ] /practice start stronghold
+[ ] /practice start end
+[ ] /practice start onecycle
+
+[ ] same seed reset
+[ ] new seed reset
+[ ] previous seed
+
+[ ] loadouts
+[ ] checkpoints
+[ ] timer
+[ ] completion
+[ ] stats
+[ ] seed list
+[ ] seed search
+[ ] favorites
+[ ] GUI
+[ ] keybinds
+```
+
+Do not begin 1.21.1 until this list is substantially green.
+
+---
+
+# 54. Phase H — Convert `fabric-1.16.1` Into Real Fabric Module
+
+After behavior migration, move the runtime build from root into:
+
+```text
+versions/fabric-1.16.1
+```
+
+It must contain:
+
+```text
+build.gradle
+src/main/java/
+src/main/resources/fabric.mod.json
+src/main/resources/*.mixins.json
+```
+
+Root project should eventually become aggregator-only.
+
+Target:
+
+```text
+root
+    no direct Minecraft implementation
+
+versions/fabric-1.16.1
+    complete Minecraft implementation
+```
+
+---
+
+# 55. Multi-Version Gradle Strategy
+
+Do not force one Loom generation onto all Minecraft versions if incompatible.
+
+Recommended:
+
+```text
+shared modules
+    standard Java projects
+
+version modules
+    independent Fabric/Loom configurations
+```
+
+If Gradle plugin incompatibility prevents one root build:
+
+```text
+use included builds/composite builds
+```
+
+Example:
+
+```text
+platforms/
+├── mc-1.16.1/
+├── mc-1.21.1/
+└── mc-26.3/
+```
+
+with shared modules consumed as project/artifact dependencies.
+
+Correctness is more important than forcing a single Gradle plugin version.
+
+---
+
+# 56. Phase I — 1.21.1 Port
+
+There is already useful work on:
+
+```text
+compat/1.21.1-11537535791694781714
+```
+
+Do NOT merge that branch wholesale.
+
+Recover only useful migration knowledge/code:
+
+```text
+Java 21 setup
+Fabric API changes
+Text API changes
+Registry changes
+screen API changes
+mixin target updates
+1.21.1 fabric.mod.json requirements
+```
+
+Then implement through:
+
+```text
+AdapterSet121
+```
+
+---
+
+# 57. AdapterSet121
+
+Must implement same contracts as 116.
+
+Required:
+
+```text
 WorldAdapter121
 PlayerAdapter121
+InventoryAdapter121
 StructureAdapter121
 PortalAdapter121
 DragonAdapter121
 RegistryAdapter121
+CommandAdapter121
 GuiAdapter121
+TimerAdapter121
+SeedAnalyzer121
 ```
 
-Rules:
+No shared scenario should need rewriting.
+
+If a scenario requires Minecraft 1.21 imports:
 
 ```text
-Do not modify common just to fix mapping names.
-Do not leak 1.21 classes into shared code.
-Do not copy complete practice implementations.
+architecture failure
 ```
 
-If practice code must be copied, stop and improve the abstraction.
+Move that logic into adapter.
 
 ---
 
-# 27. Phase 19 — 26.3 Port
+# 58. 1.21.1 Build Requirements
 
-Repeat the adapter implementation.
-
-Expect major changes around:
+Use:
 
 ```text
-registries
-world generation
-dimension creation
-structures
-commands
-screen APIs
-network internals
-server lifecycle
+Java 21
+modern Fabric Loader
+Fabric API
+appropriate Loom for 1.21.1
+correct Yarn mappings
+```
+
+Module must produce a real remapped Fabric jar.
+
+Verify jar contains:
+
+```text
+fabric.mod.json
+entrypoint
 mixins
-```
-
-Do not try to make mixin targets identical across all versions.
-
-Version-specific mixins are expected.
-
-Example:
-
-```text
-versions/fabric-1.16.1/src/main/resources/mixins.json
-versions/fabric-1.21.1/src/main/resources/mixins.json
-versions/fabric-26.3/src/main/resources/mixins.json
+shared engine classes or bundled shared jars
 ```
 
 ---
 
-# 28. Phase 20 — Version Capability System
+# 59. 1.21.1 Entrypoint
 
-Some functionality may differ between versions.
-
-Represent this explicitly.
+Create a real initializer.
 
 Example:
 
 ```java
-public enum Capability {
-    CUSTOM_DIMENSION_RUNTIME,
-    FAST_WORLD_RESET,
-    BASTION_TYPE_QUERY,
-    DRAGON_FORCE_PERCH,
-    PORTAL_STATE_CAPTURE,
-    STRUCTURE_METADATA_SEARCH
+public final class SpeedrunPractice121
+        implements ModInitializer {
+
+    @Override
+    public void onInitialize() {
+        AdapterSet121 adapter = ...;
+        PracticeRuntime runtime = ...;
+
+        registerCommands(runtime);
+        registerServerEvents(runtime);
+    }
 }
 ```
 
-Adapter exposes:
-
-```java
-boolean supports(Capability capability);
-```
-
-Avoid crashing if a feature is unavailable.
-
-GUI should disable unsupported options.
-
----
-
-# 29. Testing Strategy
-
-Create three test layers.
-
-## Unit Tests
-
-Test common code:
+Client initializer handles:
 
 ```text
-seed sources
-scenario state
-stats calculations
-configuration
-loadouts
-checkpoint serialization
-query builders
-```
-
-## Adapter Tests
-
-Test interfaces against target versions where practical.
-
-## Known Seed Integration Tests
-
-Maintain known seeds for each version.
-
-Example:
-
-```text
-test-data/
-├── 1.16.1/
-│   ├── structures.json
-│   └── scenarios.json
-├── 1.21.1/
-└── 26.3/
-```
-
-For each known seed verify:
-
-```text
-expected bastion
-expected fortress
-expected stronghold
-expected spawn
-scenario initializes
-player loadout correct
-reset works
+GUI
+keybinds
+client events
 ```
 
 ---
 
-# 30. CI
+# 60. Phase J — 26.3 Port
 
-Create GitHub Actions.
+Treat 26.3 as a separate generation.
 
-Run:
+Do not copy 1.21.1 build configuration blindly.
 
-```text
-common tests
-1.16.1 build
-1.21.1 build
-26.3 build
-format/lint
-```
+Use its required modern Java/Fabric toolchain.
 
-Release workflow should generate:
+Create:
 
 ```text
-3 jars
-checksums
-release notes
-```
-
-Do not publish a release if one supported version fails.
-
----
-
-# 31. Commit Workflow
-
-LLM agents should use small commits.
-
-Suggested commit prefixes:
-
-```text
-build:
-core:
-adapter:
-practice:
-seed:
-gui:
-config:
-test:
-docs:
-fix:
-refactor:
-```
-
-Examples:
-
-```text
-core: add practice scenario lifecycle
-
-adapter: migrate 1.16 world creation
-
-practice: add housing bastion scenario
-
-seed: add structure distance filters
-
-test: add known 1.16.1 fortress seeds
-```
-
-Do not combine unrelated work.
-
----
-
-# 32. Per-Task Agent Workflow
-
-For every implementation task, follow this exact workflow.
-
-## Step 1 — Inspect
-
-Identify:
-
-```text
-existing implementation
-relevant modules
-relevant interfaces
-existing tests
-version-specific dependencies
-```
-
-## Step 2 — State Intended Change
-
-Before coding, define:
-
-```text
-What is changing?
-Which module owns it?
-Does common API need changing?
-Which versions are affected?
-How will it be tested?
-```
-
-## Step 3 — Implement Minimum Complete Change
-
-Do not add speculative unrelated features.
-
-## Step 4 — Compile
-
-Run the smallest relevant build first.
-
-Example:
-
-```bash
-./gradlew :common:test
-```
-
-Then:
-
-```bash
-./gradlew :versions:fabric-1.16.1:build
-```
-
-## Step 5 — Tests
-
-Add or update tests.
-
-## Step 6 — Full Build
-
-Before considering work complete:
-
-```bash
-./gradlew build
-```
-
-or equivalent aggregate task.
-
-## Step 7 — Report
-
-Return:
-
-```text
-Changed files
-Implemented behavior
-Tests run
-Build results
-Known limitations
-Next recommended task
+AdapterSet263
+Fabric263Entrypoint
+Fabric263ClientEntrypoint
+version-local mixins
 ```
 
 ---
 
-# 33. Bug-Fix Workflow
+# 61. 26.3 Names/Mappings
 
-When fixing a bug:
+Do not assume old Yarn class names still apply.
+
+Keep all version-specific names inside:
 
 ```text
-1. Reproduce.
-2. Identify owning layer.
-3. Add regression test if practical.
-4. Fix smallest responsible component.
-5. Verify all three supported versions if shared code changed.
+versions/fabric-26.3
 ```
 
-Never patch symptoms in GUI code if the bug belongs to the scenario engine.
+Never modify `common` just because 26.3 renamed:
 
-Never patch version-specific code inside `common`.
+```text
+ServerPlayerEntity
+RegistryKey
+ServerWorld
+Structure
+```
+
+The adapter exists precisely to isolate these changes.
 
 ---
 
-# 34. Dependency Policy
+# 62. Phase K — GUI Parity
 
-Prefer minimal dependencies.
+Each target should expose equivalent user behavior.
 
-Dependencies must have:
+Exact visual code may differ.
 
-```text
-clear purpose
-compatible license
-active availability
-version support
-```
+Common GUI models remain shared.
 
-Avoid tying the core to libraries existing only for 1.16.1.
+Version-specific screen rendering belongs in adapter/client module.
 
-Wrap optional integrations behind interfaces.
-
-Example:
+Minimum parity:
 
 ```text
-SpeedRunIGTIntegration
+main menu
+practice type
+scenario options
+seed source
+loadout
+start
+results
+retry same
+new seed
+previous seed
 ```
-
-instead of directly importing SpeedRunIGT throughout the project.
 
 ---
 
-# 35. Configuration Migration
+# 63. Phase L — Actual Configuration
 
-Existing users should not lose settings without warning.
+Unify shared configuration.
 
-Create versioned configuration.
+Recommended root:
 
-Example:
+```text
+config/speedrun-practice/
+```
+
+Files:
+
+```text
+config.json
+loadouts/
+scenarios/
+seeds/
+stats.json
+```
+
+Support legacy migration:
+
+```text
+config/speedrun-practice.json
+config/speedrun-practice-seeds.txt
+```
+
+Never silently delete old config.
+
+---
+
+# 64. Configuration Versioning
+
+Use:
 
 ```json
 {
@@ -1626,658 +1962,990 @@ Example:
 }
 ```
 
-Provide migration:
+Migration system:
 
 ```text
-v1 -> v2
-v2 -> future versions
+legacy
+↓
+schema 1
+↓
+schema 2
 ```
 
-On failure:
-
-```text
-back up original config
-log readable error
-generate safe default
-```
-
-Never silently delete user configuration.
+Always back up before destructive migration.
 
 ---
 
-# 36. Logging
+# 65. Phase M — Loadout Persistence
 
-Use meaningful logging.
+Loadouts need disk persistence.
 
-Good:
+Directory:
 
 ```text
-[SpeedrunPractice] Searching seeds with preset housing-close-fortress
-[SpeedrunPractice] Seed 1234 rejected: fortress distance 812 > 500
-[SpeedrunPractice] Loaded scenario bastion_housing
+config/speedrun-practice/loadouts/
 ```
 
-Avoid logging every game tick.
+Example:
 
-Use debug mode for verbose seed-search diagnostics.
+```text
+bastion_default.json
+onecycle_default.json
+postblind_default.json
+```
+
+Support:
+
+```text
+save
+load
+delete
+rename
+import
+export
+```
 
 ---
 
-# 37. Performance Requirements
+# 66. Item Compatibility
 
-Practice reset should feel immediate where technically possible.
+Loadout parser must handle version differences.
 
-Avoid:
+If item exists:
 
 ```text
-unbounded chunk generation
-blocking UI indefinitely
-scanning millions of seeds on main game thread
-saving unnecessary worlds
-keeping old worlds loaded
+apply
 ```
 
-Heavy seed searches should use safe worker execution.
+If unavailable:
 
-All Minecraft state mutations must return to the correct game/server thread.
+```text
+warn clearly
+skip item
+```
+
+Do not crash entire practice.
 
 ---
 
-# 38. Seed Search Cancellation
+# 67. Phase N — Custom Scenario Runtime
 
-Search must support cancellation.
+Current JSON parser is not enough.
 
-Architecture:
+Implement full runtime interpretation for:
+
+```text
+seed source
+seed filters
+spawn mode
+loadout
+timer start
+timer stop
+completion
+dimension
+settings
+```
+
+Custom definitions should not require writing Java.
+
+---
+
+# 68. Custom Scenario Validation
+
+Validate:
+
+```text
+unknown structure
+unknown item
+unsupported spawn type
+unsupported timer condition
+missing custom coordinates
+invalid ranges
+unsupported capability
+```
+
+Display useful error.
+
+Bad config must not crash Minecraft.
+
+---
+
+# 69. Phase O — Threading
+
+Seed math may run off-thread.
+
+Minecraft world operations may not.
+
+Define:
 
 ```java
-interface SeedSearchTask {
-
-    SearchProgress progress();
-
-    boolean isFinished();
-
-    void cancel();
-
-    List<SeedResult> results();
+public interface GameThreadExecutor {
+    void server(Runnable runnable);
+    void client(Runnable runnable);
 }
 ```
 
-UI should expose:
+or version equivalent.
+
+Rules:
 
 ```text
-Cancel Search
-```
+pure math
+    worker thread
 
-Never lock the game indefinitely while searching.
+world generation
+player mutation
+registry access if unsafe
+GUI mutation
+    correct Minecraft thread
+```
 
 ---
 
-# 39. Thread Safety
+# 70. Avoid Main-Thread Search Freezes
 
-Do not manipulate Minecraft world/player objects from arbitrary worker threads.
-
-Background threads may perform:
+Never run:
 
 ```text
-pure seed math
-parsing
-statistics
-filter calculations
-disk serialization
+1,000,000 seed loop
 ```
 
-Minecraft interaction must use the appropriate client/server executor.
+on server tick thread.
+
+Search must be asynchronous.
+
+Verification must be batched.
+
+Example:
+
+```text
+worker:
+    find 100 cheap candidates
+
+server:
+    verify 1-5 candidates per tick/batch
+```
+
+Keep game responsive.
 
 ---
 
-# 40. Error Handling
+# 71. Phase P — Error Handling
 
-Expected failures should use domain exceptions.
+No user should see:
+
+```text
+NullPointerException
+UnsupportedOperationException
+pending the port
+```
+
+in normal supported-version gameplay.
+
+Convert failures to:
+
+```java
+PracticeException
+```
+
+with:
+
+```text
+technical message
+user-friendly message
+```
+
+Example:
+
+```text
+No fortress found within 10,000 blocks.
+Try another seed or increase search radius.
+```
+
+---
+
+# 72. Remove `pending()` Before Version Support
+
+Version cannot be marked supported if any normal practice path contains:
+
+```java
+throw pending(...)
+```
+
+CI should search for it.
+
+Example guard:
+
+```text
+grep -R "throw pending" versions/<supported-version>
+```
+
+Fail release if found.
+
+---
+
+# 73. Phase Q — Tests
+
+Shared unit tests:
+
+```text
+ScenarioEngine
+timer
+stats
+seed sources
+query builders
+scenario parser
+loadouts
+config migration
+checkpoint serialization
+```
+
+---
+
+# 74. Adapter Contract Tests
+
+Create common adapter test suite.
 
 Example:
 
 ```java
-PracticeException
-ScenarioLoadException
-SeedSearchException
-AdapterException
-CheckpointException
+abstract class MinecraftAdapterContractTest {
+    abstract MinecraftAdapter adapter();
+
+    testRegistry();
+    testLoadout();
+    testWorldLifecycle();
+    testTeleport();
+    testStructureLookup();
+}
 ```
 
-Show useful messages to the user.
+Run through version-specific integration environment where possible.
 
-Bad:
+---
+
+# 75. Runtime Smoke Tests
+
+Each supported version must verify:
 
 ```text
-NullPointerException
+Minecraft starts
+mod initializes
+commands register
+practice runtime initializes
+world can be created
+player can teleport
+world can be deleted
 ```
 
-Good:
+A jar compiling is not enough.
+
+---
+
+# 76. Jar Validation
+
+CI must inspect output jar.
+
+Required:
 
 ```text
-Unable to start Bastion Practice:
-No bastion satisfying the selected filter was found.
+fabric.mod.json exists
+entrypoint class exists
+mixin file exists when required
+shared runtime available
+version metadata correct
+Minecraft dependency correct
+Java dependency correct
 ```
 
 ---
 
-# 41. Documentation
+# 77. CI Matrix
 
-Maintain:
-
-```text
-README.md
-AGENTS.md
-ARCHITECTURE.md
-CONTRIBUTING.md
-
-docs/
-├── practices.md
-├── seed-search.md
-├── custom-scenarios.md
-├── loadouts.md
-├── commands.md
-├── compatibility.md
-└── development.md
-```
-
-README should focus on users.
-
-ARCHITECTURE should focus on developers.
-
-AGENTS should focus on coding agents.
-
----
-
-# 42. Definition of Done for a Feature
-
-A feature is complete only when:
+Final desired CI:
 
 ```text
-[ ] implementation exists
-[ ] configuration exists if necessary
-[ ] command/UI access exists
-[ ] errors are handled
-[ ] tests added where practical
-[ ] build succeeds
-[ ] no Minecraft imports leaked into common
-[ ] documentation updated
-[ ] version compatibility considered
+shared
+
+1.16.1
+    compile
+    test
+    remapJar
+    jar validation
+    smoke launch
+
+1.21.1
+    compile
+    test
+    remapJar
+    jar validation
+    smoke launch
+
+26.3
+    compile
+    test
+    jar/remap build
+    jar validation
+    smoke launch
 ```
 
 ---
 
-# 43. Definition of Done for a Version
+# 78. Release Criteria
 
-A Minecraft version is considered supported only when:
+Do not release a target jar unless:
 
 ```text
-[ ] project launches
-[ ] menu works
-[ ] commands register
-[ ] world creation works
-[ ] same-seed reset works
-[ ] new-seed reset works
-[ ] inventory/loadouts work
-[ ] seed list works
-[ ] seed search works
-[ ] Overworld practice works
-[ ] Nether practice works
-[ ] Bastion practice works
-[ ] Fortress practice works
-[ ] Blind practice works
-[ ] Postblind works
+[ ] loads in target Minecraft
+[ ] Fabric recognizes mod
+[ ] no missing mixin errors
+[ ] commands work
+[ ] GUI opens
+[ ] Overworld works
+[ ] Nether works
+[ ] Bastion works
+[ ] Fortress works
+[ ] Blind Travel works
+[ ] Post Blind works
 [ ] Stronghold works
 [ ] End works
 [ ] One Cycle works
+[ ] same seed reset works
+[ ] new seed works
+[ ] previous seed works
 [ ] checkpoints work
+[ ] loadouts work
+[ ] seed search works
 [ ] statistics work
 ```
 
 ---
 
-# 44. v1.0 Required Feature Matrix
+# 79. Required Version Status File
 
-| Feature              |   1.16.1 |   1.21.1 |     26.3 |
-| -------------------- | -------: | -------: | -------: |
-| Overworld Practice   | Required | Required | Required |
-| Buried Treasure      | Required | Required | Required |
-| Nether Practice      | Required | Required | Required |
-| Bastion Practice     | Required | Required | Required |
-| Fortress Practice    | Required | Required | Required |
-| Blind Travel         | Required | Required | Required |
-| Post Blind           | Required | Required | Required |
-| Stronghold           | Required | Required | Required |
-| End Practice         | Required | Required | Required |
-| One Cycle            | Required | Required | Required |
-| Seed Lists           | Required | Required | Required |
-| Seed Search          | Required | Required | Required |
-| Loadouts             | Required | Required | Required |
-| Same Seed Reset      | Required | Required | Required |
-| New Seed Reset       | Required | Required | Required |
-| Checkpoints          | Required | Required | Required |
-| Timer                | Required | Required | Required |
-| Statistics           | Required | Required | Required |
-| Custom Scenario JSON | Required | Required | Required |
-
----
-
-# 45. Explicit Non-Goals
-
-Never expand scope to include:
+Create:
 
 ```text
-MCSR Ranked clone
-public servers
-ranked matchmaking
-player-vs-player races
-rating algorithms
-leaderboard service
-online accounts
-OAuth
-remote seed distribution
-remote world hosting
-anti-cheat
-match arbitration
-season system
-spectator networking
-```
-
-A local leaderboard/statistics page is acceptable.
-
-A remote competitive platform is not.
-
----
-
-# 46. Recommended Implementation Order
-
-Follow approximately this order:
-
-```text
-01 baseline 1.16.1 build
-
-02 multi-module Gradle structure
-
-03 common domain API
-
-04 adapter interfaces
-
-05 migrate seed manager
-
-06 migrate configuration
-
-07 migrate loadouts
-
-08 migrate player operations
-
-09 migrate world creation
-
-10 migrate Overworld practice
-
-11 migrate Nether practice
-
-12 migrate Stronghold practice
-
-13 migrate Postblind
-
-14 migrate End practice
-
-15 migrate Buried Treasure
-
-16 checkpoint framework
-
-17 scenario engine
-
-18 timer
-
-19 statistics
-
-20 data-driven scenarios
-
-21 Bastion practice
-
-22 Fortress practice
-
-23 Blind Travel practice
-
-24 One Cycle practice
-
-25 seed source abstraction
-
-26 seed search engine
-
-27 seed search filters
-
-28 search cache
-
-29 seed collections
-
-30 GUI redesign
-
-31 keybinds
-
-32 custom scenario editor/loading
-
-33 known-seed test suite
-
-34 port 1.21.1
-
-35 stabilize 1.21.1
-
-36 port 26.3
-
-37 stabilize 26.3
-
-38 CI matrix
-
-39 documentation
-
-40 v1.0 release
-```
-
-Do not skip directly to modern versions before completing the shared architecture.
-
----
-
-# 47. Agent Task Template
-
-When starting a coding task, write an internal task specification in this form:
-
-```markdown
-## Task
-
-Implement:
-
-<feature>
-
-### Target module
-
-<module>
-
-### Existing behavior
-
-<what exists today>
-
-### Desired behavior
-
-<what should happen>
-
-### API changes
-
-<interfaces/classes changed>
-
-### Version impact
-
-- 1.16.1:
-- 1.21.1:
-- 26.3:
-
-### Tests
-
-<tests required>
-
-### Acceptance criteria
-
-- [ ]
-- [ ]
-- [ ]
-```
-
-Then implement it.
-
----
-
-# 48. Agent Completion Template
-
-After implementation report:
-
-```markdown
-## Completed
-
-### Changed
-
-- file
-- file
-- file
-
-### Behavior
-
-Describe what now works.
-
-### Tests
-
-- command
-- result
-
-### Builds
-
-- 1.16.1:
-- 1.21.1:
-- 26.3:
-
-### Limitations
-
-List remaining limitations.
-
-### Next Task
-
-State the single highest-priority next implementation step.
-```
-
----
-
-# 49. Architecture Guardrail
-
-Before creating a new class, ask:
-
-```text
-Is this Minecraft-independent?
-
-YES
-    -> common/practices
-
-NO
-    -> appropriate version adapter
-```
-
-Before adding an `if` for Minecraft version, ask:
-
-```text
-Can this behavior be represented by an adapter method?
-```
-
-Usually the answer should be yes.
-
----
-
-# 50. Final Product Goal
-
-The expected user flow is:
-
-```text
-Launch Minecraft
-↓
-Open Speedrun Practice
-↓
-Choose scenario
-↓
-Choose seed source
-↓
-Choose loadout
-↓
-Start
-↓
-Practice
-↓
-See timer/result
-↓
-Retry same seed
-or
-Generate another matching seed
+docs/version-status.md
 ```
 
 Example:
 
-```text
-Practice
-    Bastion
-
-Type
-    Housing
-
-Seed Source
-    Search
-
-Fortress Requirement
-    200-500 blocks
-
-Loadout
-    Ranked-like Bastion
-
-Timer Start
-    First Movement
-
-[ START ]
+```markdown
+| Feature | 1.16.1 | 1.21.1 | 26.3 |
+|---|---|---|---|
+| Launch | ✅ | ❌ | ❌ |
+| Commands | ✅ | ❌ | ❌ |
+| GUI | ✅ | ❌ | ❌ |
+| World creation | ✅ | ❌ | ❌ |
+...
 ```
 
-After completion:
+Only mark ✅ after actual runtime test.
 
-```text
-Housing Bastion
-
-Time
-    01:42.317
-
-PB
-    01:39.114
-
-Attempts
-    37
-
-[ Retry Same Seed ]
-[ New Matching Seed ]
-[ Previous Seed ]
-[ Save Seed ]
-```
-
-Everything must operate locally.
-
-No multiplayer infrastructure is required.
+Never mark based only on compilation.
 
 ---
 
-# 51. First LLM Task
+# 80. Remove Misleading Documentation
 
-The first coding agent working on this repository should NOT immediately implement Bastion practice or seed searching.
-
-Its first instruction is:
+Do not say:
 
 ```text
-Inspect the existing repository completely.
+supported
+implemented
+working
+```
 
-Document:
-- build system
-- dependencies
-- Java version
-- Fabric/Loom versions
-- package structure
-- entrypoints
-- commands
-- configurations
-- mixins
-- world-generation manipulation
-- seed handling
-- inventory handling
-- SpeedRunIGT integration
-- existing practice types
+when only an interface/model exists.
 
-Create:
+Use:
 
-docs/original-architecture.md
-docs/original-feature-matrix.md
+```text
+planned
+shared model implemented
+adapter pending
+runtime unverified
+```
 
-Then verify that the untouched 1.16.1 project builds.
+until actually tested.
 
-Only after the baseline build succeeds,
-begin the multi-module architecture migration.
+---
+
+# 81. Required Work Order
+
+Coding agents must follow this order:
+
+```text
+01 fix CI truthfulness
+
+02 fix capability reporting
+
+03 create PracticeRuntime
+
+04 connect shared runtime to 1.16.1
+
+05 implement WorldAdapter116
+
+06 implement PlayerAdapter116
+
+07 implement InventoryAdapter116
+
+08 implement StructureAdapter116
+
+09 implement PortalAdapter116
+
+10 implement DragonAdapter116
+
+11 implement RegistryAdapter116
+
+12 implement CommandAdapter116
+
+13 implement GuiAdapter116
+
+14 implement 1.16.1 keybinds
+
+15 add practice event system
+
+16 implement timer start/stop events
+
+17 finish Overworld completion
+
+18 finish Buried Treasure completion
+
+19 finish Nether completion
+
+20 finish Bastion setup + completion
+
+21 finish Fortress modes + completion
+
+22 finish Blind Travel
+
+23 finish Post Blind
+
+24 finish Stronghold
+
+25 finish End
+
+26 finish One Cycle
+
+27 finish custom scenario runtime
+
+28 complete checkpoints
+
+29 persist statistics
+
+30 implement SeedAnalyzer116
+
+31 optimize seed analysis caching
+
+32 add verified 1.16.1 fixtures
+
+33 migrate root legacy runtime fully into version module
+
+34 validate entire new engine on 1.16.1
+
+35 convert 1.21.1 module to real Fabric/Loom
+
+36 salvage useful compat branch changes
+
+37 implement AdapterSet121
+
+38 implement 1.21.1 GUI/commands/keybinds/events
+
+39 implement SeedAnalyzer121
+
+40 verify 1.21.1 fixtures
+
+41 full 1.21.1 runtime testing
+
+42 create modern 26.3 Fabric build
+
+43 implement AdapterSet263
+
+44 implement 26.3 GUI/commands/keybinds/events
+
+45 implement SeedAnalyzer263
+
+46 verify 26.3 fixtures
+
+47 full 26.3 testing
+
+48 final CI matrix
+
+49 release packaging
+
+50 documentation cleanup
+```
+
+Do not reorder this substantially without documenting why.
+
+---
+
+# 82. LLM Per-Task Workflow
+
+Before each task:
+
+```markdown
+## Current task
+
+### Goal
+Describe exactly one implementation objective.
+
+### Existing code
+List the files already responsible.
+
+### Missing behavior
+Describe what currently fails/stubs.
+
+### Target files
+List expected files to change.
+
+### Version impact
+- 1.16.1:
+- 1.21.1:
+- 26.3:
+
+### Acceptance criteria
+- [ ]
+- [ ]
+- [ ]
+
+### Tests
+List commands/tests.
+```
+
+Then inspect before editing.
+
+---
+
+# 83. Mandatory Inspection Rule
+
+Never assume an API from another Minecraft version.
+
+Before implementation:
+
+```text
+inspect actual mappings
+inspect existing version code
+inspect current dependency version
+inspect existing mixins
+```
+
+Do not invent Minecraft methods/classes.
+
+---
+
+# 84. No Fake Implementations in Production
+
+The following belong only in test-support:
+
+```text
+FakeAdapter
+FakeWorld
+FakePlayer
+synthetic structure locations
+illustrative structure positions
+```
+
+Production code may never silently use them.
+
+---
+
+# 85. No Silent Feature Fallback
+
+Bad:
+
+```text
+No buried treasure found.
+Starting at spawn instead.
+```
+
+For required-object scenarios, prefer:
+
+```text
+practice start fails
+new matching seed requested
+```
+
+If the user explicitly allows fallback, then fallback is acceptable.
+
+---
+
+# 86. Seed-Aware Scenario Creation
+
+Practice scenarios that require a structure must validate before world setup completes.
+
+Example:
+
+```text
+Bastion Practice
+↓
+seed selected
+↓
+verify bastion exists
+↓
+verify requested type
+↓
+create/start scenario
+```
+
+Do not start invalid practice and warn afterward.
+
+---
+
+# 87. Practice Preset Validation
+
+Before start:
+
+```text
+check capabilities
+check seed requirements
+check loadout validity
+check structure availability
+check version compatibility
+```
+
+Return readable errors before mutating game state.
+
+---
+
+# 88. Cleanup Guarantee
+
+Every practice must clean up after:
+
+```text
+completion
+manual stop
+reset
+exception
+world exit
+client disconnect
+server stop
+```
+
+No orphan worlds.
+
+No leaked worker threads.
+
+No stale static references.
+
+---
+
+# 89. Exception-Safe Scenario Start
+
+Current pattern must be strengthened.
+
+Use:
+
+```java
+try {
+    prepare();
+    start();
+} catch (...) {
+    cleanupPartialScenario();
+    throw ...;
+}
+```
+
+If `start()` fails after world creation:
+
+```text
+delete created world
+reset runtime state
+stop timer
 ```
 
 ---
 
-# 52. Autonomous Workflow Instruction
+# 90. Runtime State Machine
 
-If working autonomously across multiple tasks:
+Enforce:
 
 ```text
-Continue through IMPLEMENTATION ORDER sequentially.
+IDLE
+PREPARING
+RUNNING
+PAUSED
+COMPLETED
+STOPPING
+STOPPED
+FAILED
+```
 
-For each step:
+Avoid invalid transitions.
 
-1. inspect
-2. implement
-3. test
-4. build
-5. document
-6. commit
+Example:
 
-Do not ask for confirmation between normal implementation steps.
+```text
+COMPLETED -> reset
+```
 
-Stop only when:
+should be explicitly supported rather than accidentally rejected.
 
-- blocked by unavailable external dependency
-- a required design decision cannot be inferred
-- credentials/secrets are required
-- a destructive migration would affect user data
-- repository state makes safe continuation impossible
+---
 
-Otherwise continue with the next highest-priority task.
+# 91. Same Seed Reset Optimization
+
+After correctness:
+
+```text
+same seed reset
+```
+
+should avoid unnecessary expensive full regeneration when safe.
+
+Possible:
+
+```text
+world snapshot restoration
+chunk cleanup
+new temporary world instance
+```
+
+But correctness first.
+
+---
+
+# 92. Version-Specific Feature Degradation
+
+If 26.3 cannot initially support a niche feature:
+
+```text
+disable it explicitly
+```
+
+Do not fake behavior.
+
+Example:
+
+```text
+Force Perch unavailable on 26.3
+```
+
+is better than:
+
+```text
+supports=true
+→ exception
 ```
 
 ---
 
-# 53. Quality Priority
+# 93. Final Repository Layout
 
-Priorities are:
+Desired:
 
 ```text
-1. correctness
-2. reproducibility
-3. architecture
-4. practice-reset speed
-5. user experience
-6. feature count
+SpeedrunPractice/
+├── common/
+├── practices/
+├── seed-search/
+├── test-support/
+│
+├── versions/
+│   ├── fabric-1.16.1/
+│   │   ├── build.gradle
+│   │   └── src/main/
+│   │
+│   ├── fabric-1.21.1/
+│   │   ├── build.gradle
+│   │   └── src/main/
+│   │
+│   └── fabric-26.3/
+│       ├── build.gradle
+│       └── src/main/
+│
+├── definitions/
+├── test-data/
+├── docs/
+└── .github/
 ```
 
-Do not sacrifice architecture just to make one version work faster.
-
-The project should remain maintainable when a fourth Minecraft version is eventually added, even though v1.0 officially supports only three.
+Eventually remove the duplicated legacy root runtime after migration.
 
 ---
 
-# 54. Core Principle
+# 94. Definition of Fully Implemented
 
-The project is:
+The project is complete only when a user can install the appropriate jar for any of the three versions and perform:
 
 ```text
-one practice engine
-+
-one scenario system
-+
-one seed system
-+
-one statistics system
-+
-three Minecraft adapters
+Minecraft
+↓
+Speedrun Practice menu
+↓
+Bastion
+↓
+Housing
+↓
+Seed Search
+↓
+Start
+↓
+practice runs correctly
+↓
+timer starts at configured event
+↓
+completion detected
+↓
+result recorded
+↓
+Retry Same Seed
+↓
+New Matching Seed
 ```
 
-It is NOT:
+with no:
 
 ```text
-three separate mods
+pending()
+fake adapters
+manual developer setup
+external server
+multiplayer service
 ```
 
-and it is NOT:
+---
+
+# 95. First Task To Execute Now
+
+The next coding agent should start with:
 
 ```text
-a multiplayer Ranked clone
+TASK:
+Make the new architecture genuinely functional on Minecraft 1.16.1.
+
+DO NOT port 1.21.1 or 26.3 yet.
+
+1. Create PracticeRuntime.
+2. Connect it to the working root 1.16.1 Fabric initializer.
+3. Implement AdapterSet116 incrementally by delegating to existing
+   working legacy code.
+4. Replace false capability claims.
+5. Register one new shared command:
+      /practice start end
+6. Make EndScenario run through ScenarioEngine and AdapterSet116.
+7. Make timer + completion work.
+8. Test in Minecraft 1.16.1.
+9. Only then migrate the next scenario.
+
+The first milestone is successful when:
+    /practice start end
+runs entirely through the new architecture
+and the legacy direct EndPractice path is no longer required for that command.
+```
+
+---
+
+# 96. Autonomous Agent Instruction
+
+When operating autonomously:
+
+```text
+Continue through the implementation order.
+
+Do not ask for permission between ordinary implementation steps.
+
+Never declare a feature complete based only on compilation.
+
+For every completed feature:
+
+1. inspect existing code
+2. implement production behavior
+3. add/update tests
+4. compile
+5. run relevant runtime/smoke validation
+6. update docs/version-status.md
+7. commit
+
+If actual Minecraft runtime validation cannot be performed,
+mark the feature "compiled/unverified", not "working".
+```
+
+---
+
+# 97. Completion Report Format
+
+After each implementation task return:
+
+```markdown
+## Completed
+
+### Implemented
+- ...
+
+### Changed files
+- ...
+
+### Removed stubs
+- ...
+
+### Tests
+- command: result
+
+### Runtime validation
+- Minecraft version:
+- action tested:
+- result:
+
+### Still pending
+- ...
+
+### Next task
+- ...
+```
+
+---
+
+# 98. Absolute Guardrails
+
+Never:
+
+```text
+pretend plain Java jars are Fabric mods
+mark fake data verified
+claim runtime support from unit tests
+copy version-specific Minecraft code into common
+return true from unsupported capabilities
+leave throw pending() in supported runtime
+perform large seed search on Minecraft main thread
+silently fall back to unrelated practice setup
+```
+
+Always:
+
+```text
+implement one working reference version first
+keep Minecraft APIs inside version modules
+test actual gameplay behavior
+use verified seed fixtures
+maintain version-specific build tooling
+keep the project single-player
+```
+
+---
+
+# 99. Core Implementation Principle
+
+The target is:
+
+```text
+one real practice engine
++
+one real scenario system
++
+one real seed-search system
++
+one real statistics/checkpoint system
++
+three real Minecraft adapters
+```
+
+Not:
+
+```text
+one working mod
++
+two jars containing interface stubs
 ```

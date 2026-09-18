@@ -1,0 +1,19 @@
+{
+  "id": "nether_default",
+  "type": "nether",
+  "displayName": "Nether Practice",
+  "world": {
+    "dimension": "nether"
+  },
+  "seed": {
+    "source": "random"
+  },
+  "spawn": {
+    "type": "world_spawn"
+  },
+  "loadout": "nether_default",
+  "timer": {
+    "start": "player_move",
+    "stop": "manual"
+  }
+}

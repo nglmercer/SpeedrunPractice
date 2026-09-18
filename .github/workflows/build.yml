@@ -1,5 +1,10 @@
 name: CI Build and Release
 
+# Plan section 6: CI must show what is actually supported. The version modules
+# compile as plain Java (adapter skeletons whose live methods throw pending),
+# so their jars are NEVER playable mods and must never be uploaded or released
+# as such. Only the legacy 1.16.1 Loom runtime ships until a version adapter
+# is wired, tested in-game, and marked supported in docs/version-status.md.
 on:
   push:
     branches: [ main, master ]
@@ -9,8 +14,8 @@ on:
     branches: [ main, master ]
 
 jobs:
-  shared:
-    name: Shared modules + tests
+  shared-tests:
+    name: shared-tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -32,14 +37,23 @@ jobs:
       - name: Verify architecture guard (offline script)
         run: sh scripts/verify-architecture.sh
 
-  versions:
-    name: Adapter ${{ matrix.module }}
-    needs: shared
+  adapter-compilation:
+    # Temporary plan-section-6 category: proves the adapter skeletons compile
+    # against the shared engine. NOT a playable mod build; produces no release
+    # artifact. Replaced by real per-version Loom builds as each version ports.
+    name: ${{ matrix.category }} (compilation check, not a playable mod)
+    needs: shared-tests
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
       matrix:
-        module: [ fabric-1.16.1, fabric-1.21.1, fabric-26.3 ]
+        include:
+          - module: fabric-1.16.1
+            category: new-116-adapter
+          - module: fabric-1.21.1
+            category: 121-runtime
+          - module: fabric-26.3
+            category: 263-runtime
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -54,18 +68,21 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
-      - name: Build adapter module
-        run: ./gradlew :versions:${{ matrix.module }}:build
+      - name: Compile adapter module (no jar published)
+        run: ./gradlew :versions:${{ matrix.module }}:build -x jar
 
-      - name: Upload adapter jar
-        uses: actions/upload-artifact@v4
-        with:
-          name: adapter-${{ matrix.module }}
-          path: versions/${{ matrix.module }}/build/libs/*.jar
+      - name: Report pending adapter methods (informational)
+        run: |
+          count=$(grep -r "throw pending" versions/${{ matrix.module }}/src 2>/dev/null | wc -l)
+          echo "versions/${{ matrix.module }} has $count pending adapter call sites (expected until ported)"
 
-  legacy-1161:
-    name: Legacy 1.16.1 Loom runtime
-    needs: shared
+      - name: Guard supported versions (fail on support claims with pending code)
+        run: sh scripts/verify-supported-versions.sh
+
+  legacy-116-runtime:
+    # The only playable mod jar: the untouched legacy 1.16.1 Fabric runtime.
+    name: legacy-116-runtime
+    needs: shared-tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -87,19 +104,31 @@ jobs:
       - name: Upload legacy jar
         uses: actions/upload-artifact@v4
         with:
-          name: legacy-1.16.1
+          name: legacy-116-runtime
           path: build/libs/*.jar
 
   release:
-    needs: [ shared, versions, legacy-1161 ]
+    # Plan sections 6, 72, 98: a release ships only modules with no pending()
+    # on any normal practice path. The adapter skeletons always contain
+    # pending(), so this job depends only on shared-tests + legacy-116-runtime
+    # and downloads only the legacy jar.
+    needs: [ shared-tests, legacy-116-runtime ]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
-      - name: Download all artifacts
+      - name: Download legacy jar only
         uses: actions/download-artifact@v4
         with:
+          name: legacy-116-runtime
           path: artifacts
-          merge-multiple: true
+
+      - name: Guard against pending adapter code in the release
+        run: |
+          ls artifacts
+          if ls artifacts/*1.16.1*.jar artifacts/*1.21.1*.jar artifacts/*26.3*.jar >/dev/null 2>&1; then
+            echo "Refusing to release: adapter skeleton jars must never ship as mods" >&2
+            exit 1
+          fi
 
       - name: Checksums
         run: |

@@ -26,12 +26,12 @@ public final class CancellableSeedSearch implements SeedSearchTask {
         this.delegate = new TwoStageSeedSearch(query, analyzer, verifier, startSeed, maxResults, maxAttempts, filters);
     }
 
-    /** Starts the worker thread (call once). */
+    /** Starts the worker thread (call once; a cancelled search cannot restart). */
     public synchronized void start() {
         if (executor != null) {
             throw new IllegalStateException("search already started");
         }
-        executor = Executors.newSingleThreadExecutor(new ThreadFactory() {
+        ExecutorService fresh = Executors.newSingleThreadExecutor(new ThreadFactory() {
             @Override
             public Thread newThread(Runnable task) {
                 Thread thread = new Thread(task, "speedrun-practice-seed-search");
@@ -39,7 +39,13 @@ public final class CancellableSeedSearch implements SeedSearchTask {
                 return thread;
             }
         });
-        delegate.start(executor);
+        try {
+            delegate.start(fresh);
+        } catch (RuntimeException failure) {
+            fresh.shutdownNow();
+            throw failure;
+        }
+        executor = fresh;
     }
 
     @Override
@@ -52,9 +58,17 @@ public final class CancellableSeedSearch implements SeedSearchTask {
         return delegate.isFinished();
     }
 
+    /**
+     * Cancels the search and releases its worker thread (plan section 49).
+     * Results gathered so far stay readable; the search cannot restart.
+     */
     @Override
-    public void cancel() {
+    public synchronized void cancel() {
         delegate.cancel();
+        if (executor != null) {
+            executor.shutdownNow();
+            executor = null;
+        }
     }
 
     @Override
@@ -70,12 +84,13 @@ public final class CancellableSeedSearch implements SeedSearchTask {
         return delegate.awaitCompletion(timeoutMs);
     }
 
-    /** Cancels and releases the worker thread. */
+    /** Cancels and releases the worker thread; idempotent. */
     public synchronized void shutdown() {
-        delegate.cancel();
-        if (executor != null) {
-            executor.shutdownNow();
-            executor = null;
-        }
+        cancel();
+    }
+
+    /** True once the worker thread was released (or never started). */
+    public synchronized boolean isShutdown() {
+        return executor == null;
     }
 }

@@ -36,6 +36,9 @@ import java.util.Optional;
 public final class AdapterSet121 implements MinecraftAdapter {
     private static final String PENDING = "The 1.21.1 adapter is not ported yet.";
 
+    private PracticeCommands.Node registeredCommands;
+    private CommandAdapter.CommandExecutor commandExecutor;
+
     private final WorldAdapter worlds = new WorldAdapter() {
         @Override
         public PracticeWorld createPracticeWorld(long seed, PracticeWorldOptions options) throws PracticeException {
@@ -196,6 +199,13 @@ public final class AdapterSet121 implements MinecraftAdapter {
     private final CommandAdapter commands = new CommandAdapter() {
         @Override
         public void register(PracticeCommands.Node root, CommandExecutor executor) {
+            if (root == null || executor == null) {
+                throw new IllegalArgumentException("command root and executor must not be null");
+            }
+            // Retained for the porting step so the entrypoint can build
+            // Brigadier nodes from the shared tree once mappings land.
+            registeredCommands = root;
+            commandExecutor = executor;
             SpeedrunLogger.info("Registered /" + root.name() + " command model (" + root.children().size()
                     + " children) for 1.21.1");
         }
@@ -263,6 +273,20 @@ public final class AdapterSet121 implements MinecraftAdapter {
                 PENDING + " (" + operation + ")");
     }
 
+    /**
+     * Last command tree handed to {@link CommandAdapter#register}, or null
+     * when nothing was registered yet. The entrypoint reads this to build
+     * Brigadier nodes once the live game is reachable.
+     */
+    public PracticeCommands.Node registeredCommands() {
+        return registeredCommands;
+    }
+
+    /** Executor paired with {@link #registeredCommands()}, or null when idle. */
+    public CommandAdapter.CommandExecutor commandExecutor() {
+        return commandExecutor;
+    }
+
     @Override
     public GameVersion version() {
         return GameVersion.MC_1_21_1;
@@ -325,16 +349,10 @@ public final class AdapterSet121 implements MinecraftAdapter {
 
     @Override
     public boolean supports(Capability capability) {
-        switch (capability) {
-            case CUSTOM_DIMENSION_RUNTIME:
-            case BASTION_TYPE_QUERY:
-            case DRAGON_FORCE_PERCH:
-            case STRUCTURE_METADATA_SEARCH:
-                return true;
-            case FAST_WORLD_RESET:
-            case PORTAL_STATE_CAPTURE:
-            default:
-                return false;
-        }
+        // Plan sections 7 and 98: a capability may return true only when the
+        // implementation exists, compiles, and passed in-game testing on this
+        // version. Every live method below still throws pending(), so claiming
+        // support would crash GUI/command flows that trust this flag.
+        return false;
     }
 }

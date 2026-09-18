@@ -7,6 +7,7 @@ import com.gregor0410.speedrunpractice.common.api.PracticeException;
 import com.gregor0410.speedrunpractice.common.api.PracticeId;
 import com.gregor0410.speedrunpractice.common.api.PracticePosition;
 import com.gregor0410.speedrunpractice.common.api.PracticeType;
+import com.gregor0410.speedrunpractice.common.events.PracticeEvent;
 import com.gregor0410.speedrunpractice.common.loadout.Loadout;
 import com.gregor0410.speedrunpractice.common.util.SpeedrunLogger;
 
@@ -40,7 +41,7 @@ public class OneCycleScenario extends AbstractPracticeScenario {
     public void start(PracticeContext context) throws PracticeException {
         teleportStart(context, new PracticePosition(100.0, 49.0, 0.0, 90.0f, 0.0f));
         if (context.settings().loadoutId() == null) {
-            context.adapter().players().applyLoadout(context.player(), defaultCycleLoadout());
+            applyCompatibleLoadout(context, defaultCycleLoadout());
         } else {
             applyLoadoutSetting(context);
         }
@@ -55,7 +56,9 @@ public class OneCycleScenario extends AbstractPracticeScenario {
     private Loadout defaultCycleLoadout() {
         List<Loadout.Item> items = new ArrayList<Loadout.Item>();
         items.add(new Loadout.Item("minecraft:iron_axe", 0, 1));
-        for (int slot = 9; slot <= 15; slot++) {
+        // Bed layout matches the legacy End inventory (hotbar slot plus rows).
+        items.add(new Loadout.Item("minecraft:white_bed", 1, 1));
+        for (int slot = 9; slot <= 17; slot++) {
             items.add(new Loadout.Item("minecraft:white_bed", slot, 1));
         }
         items.add(new Loadout.Item("minecraft:iron_pickaxe", 2, 1));
@@ -73,6 +76,16 @@ public class OneCycleScenario extends AbstractPracticeScenario {
     @Override
     public TickResult tick(PracticeContext context) throws PracticeException {
         if (context.world() != null && !context.adapter().dragons().hasLivingDragon(context.world())) {
+            return TickResult.finished();
+        }
+        return TickResult.continueTick();
+    }
+
+    @Override
+    public TickResult onEvent(PracticeContext context, PracticeEvent event) {
+        if (event instanceof PracticeEvent.DragonKilledEvent && context.world() != null
+                && context.world().handleId()
+                        .equals(((PracticeEvent.DragonKilledEvent) event).worldHandle())) {
             return TickResult.finished();
         }
         return TickResult.continueTick();

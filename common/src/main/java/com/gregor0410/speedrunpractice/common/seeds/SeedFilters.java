@@ -25,7 +25,37 @@ public final class SeedFilters {
     public interface Filter {
         String id();
 
+        /** Evaluates the seed, analyzing it through {@code analyzer}. */
         boolean matches(long seed, SeedAnalyzer analyzer, SeedQuery query);
+
+        /**
+         * Evaluates one cached analysis (plan section 45). Searches analyze
+         * each seed once and call this; the default delegates to the legacy
+         * method with an analyzer replaying the cached analysis, so custom
+         * filters keep working unmodified.
+         */
+        default boolean matches(long seed, SeedAnalyzer.SeedAnalysis analysis, SeedQuery query) {
+            return matches(seed, new SingleAnalysisAnalyzer(analysis), query);
+        }
+    }
+
+    /** Replays one cached analysis instead of recomputing seed math. */
+    static final class SingleAnalysisAnalyzer implements SeedAnalyzer {
+        private final SeedAnalysis analysis;
+
+        SingleAnalysisAnalyzer(SeedAnalysis analysis) {
+            this.analysis = analysis == null ? SeedAnalysis.mismatch() : analysis;
+        }
+
+        @Override
+        public SeedAnalysis analyze(long seed, SeedQuery query) {
+            return analysis;
+        }
+
+        @Override
+        public boolean matches(long seed, SeedQuery query) {
+            return analysis.matches();
+        }
     }
 
     public static String findingString(Map<String, Object> findings, String key) {
@@ -66,7 +96,13 @@ public final class SeedFilters {
 
         @Override
         public boolean matches(long seed, SeedAnalyzer analyzer, SeedQuery query) {
-            return biome.equalsIgnoreCase(findingString(analyzer.analyze(seed, query).findings(), FIND_BIOME_SPAWN));
+            return matches(seed, analyzer.analyze(seed, query), query);
+        }
+
+        @Override
+        public boolean matches(long seed, SeedAnalyzer.SeedAnalysis analysis, SeedQuery query) {
+            return analysis != null
+                    && biome.equalsIgnoreCase(findingString(analysis.findings(), FIND_BIOME_SPAWN));
         }
     }
 
@@ -94,7 +130,15 @@ public final class SeedFilters {
 
         @Override
         public boolean matches(long seed, SeedAnalyzer analyzer, SeedQuery query) {
-            Long distance = findingNumber(analyzer.analyze(seed, query).findings(),
+            return matches(seed, analyzer.analyze(seed, query), query);
+        }
+
+        @Override
+        public boolean matches(long seed, SeedAnalyzer.SeedAnalysis analysis, SeedQuery query) {
+            if (analysis == null) {
+                return false;
+            }
+            Long distance = findingNumber(analysis.findings(),
                     FIND_STRUCTURE_PREFIX + structureId + FIND_STRUCTURE_SUFFIX);
             return distance != null && distance >= min && distance <= max;
         }
@@ -117,7 +161,13 @@ public final class SeedFilters {
 
         @Override
         public boolean matches(long seed, SeedAnalyzer analyzer, SeedQuery query) {
-            return type.equalsIgnoreCase(findingString(analyzer.analyze(seed, query).findings(), FIND_BASTION_TYPE));
+            return matches(seed, analyzer.analyze(seed, query), query);
+        }
+
+        @Override
+        public boolean matches(long seed, SeedAnalyzer.SeedAnalysis analysis, SeedQuery query) {
+            return analysis != null
+                    && type.equalsIgnoreCase(findingString(analysis.findings(), FIND_BASTION_TYPE));
         }
     }
 
@@ -138,7 +188,15 @@ public final class SeedFilters {
 
         @Override
         public boolean matches(long seed, SeedAnalyzer analyzer, SeedQuery query) {
-            Long actual = findingNumber(analyzer.analyze(seed, query).findings(), FIND_STRONGHOLD_RING);
+            return matches(seed, analyzer.analyze(seed, query), query);
+        }
+
+        @Override
+        public boolean matches(long seed, SeedAnalyzer.SeedAnalysis analysis, SeedQuery query) {
+            if (analysis == null) {
+                return false;
+            }
+            Long actual = findingNumber(analysis.findings(), FIND_STRONGHOLD_RING);
             return actual != null && actual.intValue() == ring;
         }
     }
@@ -151,7 +209,13 @@ public final class SeedFilters {
 
         @Override
         public boolean matches(long seed, SeedAnalyzer analyzer, SeedQuery query) {
-            return Boolean.TRUE.equals(findingBoolean(analyzer.analyze(seed, query).findings(), FIND_LAVA));
+            return matches(seed, analyzer.analyze(seed, query), query);
+        }
+
+        @Override
+        public boolean matches(long seed, SeedAnalyzer.SeedAnalysis analysis, SeedQuery query) {
+            return analysis != null
+                    && Boolean.TRUE.equals(findingBoolean(analysis.findings(), FIND_LAVA));
         }
     }
 
@@ -180,8 +244,13 @@ public final class SeedFilters {
 
         @Override
         public boolean matches(long seed, SeedAnalyzer analyzer, SeedQuery query) {
+            return matches(seed, analyzer.analyze(seed, query), query);
+        }
+
+        @Override
+        public boolean matches(long seed, SeedAnalyzer.SeedAnalysis analysis, SeedQuery query) {
             for (Filter filter : filters) {
-                if (!filter.matches(seed, analyzer, query)) {
+                if (!filter.matches(seed, analysis, query)) {
                     return false;
                 }
             }
@@ -214,8 +283,13 @@ public final class SeedFilters {
 
         @Override
         public boolean matches(long seed, SeedAnalyzer analyzer, SeedQuery query) {
+            return matches(seed, analyzer.analyze(seed, query), query);
+        }
+
+        @Override
+        public boolean matches(long seed, SeedAnalyzer.SeedAnalysis analysis, SeedQuery query) {
             for (Filter filter : filters) {
-                if (filter.matches(seed, analyzer, query)) {
+                if (filter.matches(seed, analysis, query)) {
                     return true;
                 }
             }
