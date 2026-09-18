@@ -89,6 +89,13 @@ public class AdapterInterimContractTest {
     }
 
     @Test
+    public void normalizeItemIdContract() {
+        assertEquals("minecraft:air", RegistryIds.normalizeItemId(null));
+        assertEquals("minecraft:stone", RegistryIds.normalizeItemId("Stone"));
+        assertEquals("minecraft:diamond", RegistryIds.normalizeItemId("minecraft:Diamond"));
+    }
+
+    @Test
     public void liveWorldCallStillPending() {
         AdapterSet121 adapter = new AdapterSet121();
         try {

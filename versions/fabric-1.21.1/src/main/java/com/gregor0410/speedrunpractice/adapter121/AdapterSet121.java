@@ -178,11 +178,7 @@ public final class AdapterSet121 implements MinecraftAdapter {
     private final RegistryAdapter registries = new RegistryAdapter() {
         @Override
         public String normalizeItemId(String id) {
-            if (id == null) {
-                return "minecraft:air";
-            }
-            String trimmed = id.trim().toLowerCase();
-            return trimmed.contains(":") ? trimmed : "minecraft:" + trimmed;
+            return RegistryIds.normalizeItemId(id);
         }
 
         @Override
