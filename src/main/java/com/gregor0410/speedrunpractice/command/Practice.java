@@ -81,6 +81,10 @@ public class Practice {
     }
 
 
+    /**
+     * Legacy inventory presets (NBT-backed). Reused read-only by the
+     * new-runtime live adapter for legacy loadout parity.
+     */
     public static void getInventory(ServerPlayerEntity player, String key) {
         player.inventory.clear();
         player.playerScreenHandler.sendContentUpdates();
@@ -109,7 +113,11 @@ public class Practice {
         }
     }
 
-    static void resetPlayer(ServerPlayerEntity player) {
+    /**
+     * Full player reset (health/XP/food/effects/velocity/air/spawn flags).
+     * Reused by the new-runtime live adapter; behavior unchanged.
+     */
+    public static void resetPlayer(ServerPlayerEntity player) {
         player.setHealth(20f);
         player.setExperienceLevel(0);
         player.setExperiencePoints(0);

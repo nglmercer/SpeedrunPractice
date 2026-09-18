@@ -13,4 +13,11 @@ public interface IMinecraftServer {
     ServerWorld createEndPracticeWorld(long seed) throws IOException;
     Map<RegistryKey<DimensionType>, PracticeWorld> createLinkedPracticeWorld(long seed) throws IOException;
     List<PracticeWorld> getEndPracticeWorlds();
+    /**
+     * Removes one practice world at runtime (teleports its players back to
+     * the overworld spawn, unregisters it, clears its dragon bar, and deletes
+     * its folder when the config says so). Shared by the legacy commands and
+     * the new-runtime live adapter; a no-op for null or unknown worlds.
+     */
+    void deletePracticeWorld(ServerWorld world);
 }

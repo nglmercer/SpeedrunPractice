@@ -12,6 +12,9 @@
   "entrypoints": {
     "main": [
       "com.gregor0410.speedrunpractice.SpeedrunPractice"
+    ],
+    "client": [
+      "com.gregor0410.speedrunpractice.adapter116.client.SpeedrunPracticeClient"
     ]
   },
   "mixins": [

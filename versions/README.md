@@ -34,10 +34,15 @@ in-game testing on that version.
 GUI/commands consult `supports()` and disable or explain unsupported options.
 Per-version runtime status lives in `docs/version-status.md`.
 
-## Loom wiring (follow-up)
+## Loom wiring
 
-The version modules currently compile as plain Java so shared code stays
-verifiable offline. Full in-game wiring per module:
+1.16.1 is live: `AdapterSet116` is a delegation shell (no `pending()`),
+and the implementation lives in root
+`src/main/java/.../adapter116/live/` (`LiveAdapter116` + sub-adapters +
+`Runtime116` bootstrap) until plan step 11 moves it into this module and
+converts the module to Loom. The 1.21.1 module still compiles as plain
+Java so shared code stays verifiable offline. Full in-game wiring per
+remaining module:
 
 ```text
 versions/fabric-<mc>/

@@ -15,10 +15,10 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 /**
- * Locks the documented interim contracts of the 1.16.1 skeleton: command
- * registration is retained for the Loom entrypoint, registry answers stay
- * optimistic until live registries are reachable, and the seed analyzer
- * matches only unconstrained queries until real seed math lands.
+ * Locks the delegation contracts of the 1.16.1 shell: construction requires
+ * a live delegate, every sub-adapter accessor forwards to it, command
+ * registration is retained and forwarded, and the shared pure helpers keep
+ * their interim behavior until the real ports land.
  */
 public class AdapterInterimContractTest {
     private static CommandAdapter.CommandExecutor executor() {
@@ -31,13 +31,38 @@ public class AdapterInterimContractTest {
     }
 
     @Test
+    public void constructorRejectsNullDelegate() {
+        try {
+            new AdapterSet116(null);
+            fail("expected IllegalArgumentException for a null delegate");
+        } catch (IllegalArgumentException expected) {
+        }
+    }
+
+    @Test
     public void versionIs116() {
-        assertEquals(GameVersion.MC_1_16_1, new AdapterSet116().version());
+        assertEquals(GameVersion.MC_1_16_1, new AdapterSet116(new FakeMinecraftAdapter()).version());
+    }
+
+    @Test
+    public void subAdaptersDelegateToLive() {
+        FakeMinecraftAdapter live = new FakeMinecraftAdapter();
+        AdapterSet116 adapter = new AdapterSet116(live);
+        assertSame(live.worlds(), adapter.worlds());
+        assertSame(live.players(), adapter.players());
+        assertSame(live.inventories(), adapter.inventories());
+        assertSame(live.structures(), adapter.structures());
+        assertSame(live.portals(), adapter.portals());
+        assertSame(live.dragons(), adapter.dragons());
+        assertSame(live.registries(), adapter.registries());
+        assertSame(live.gui(), adapter.gui());
+        assertSame(live.timer(), adapter.timer());
+        assertSame(live.seeds(), adapter.seeds());
     }
 
     @Test
     public void registerRetainsTreeAndExecutor() throws PracticeException {
-        AdapterSet116 adapter = new AdapterSet116();
+        AdapterSet116 adapter = new AdapterSet116(new FakeMinecraftAdapter());
         assertNull(adapter.registeredCommands());
         assertNull(adapter.commandExecutor());
         PracticeCommands.Node root = PracticeCommands.buildTree();
@@ -48,8 +73,19 @@ public class AdapterInterimContractTest {
     }
 
     @Test
+    public void registerForwardsToLive() throws PracticeException {
+        FakeMinecraftAdapter live = new FakeMinecraftAdapter();
+        AdapterSet116 adapter = new AdapterSet116(live);
+        PracticeCommands.Node root = PracticeCommands.buildTree();
+        CommandAdapter.CommandExecutor executor = executor();
+        adapter.commands().register(root, executor);
+        assertSame(root, live.registered());
+        assertSame(executor, live.executor());
+    }
+
+    @Test
     public void registerRejectsNull() throws PracticeException {
-        AdapterSet116 adapter = new AdapterSet116();
+        AdapterSet116 adapter = new AdapterSet116(new FakeMinecraftAdapter());
         try {
             adapter.commands().register(null, executor());
             fail("expected IllegalArgumentException for a null root");
@@ -63,39 +99,24 @@ public class AdapterInterimContractTest {
     }
 
     @Test
-    public void registryInterimContract() {
-        AdapterSet116 adapter = new AdapterSet116();
-        assertEquals("minecraft:air", adapter.registries().normalizeItemId(null));
-        assertEquals("minecraft:stone", adapter.registries().normalizeItemId("Stone"));
-        assertEquals("minecraft:diamond", adapter.registries().normalizeItemId("minecraft:Diamond"));
-        assertTrue(adapter.registries().itemExists("minecraft:stone"));
-        assertFalse(adapter.registries().itemExists(null));
-        assertFalse(adapter.registries().itemExists("   "));
-        assertEquals(64, adapter.registries().maxStackSize("minecraft:stone"));
+    public void normalizeItemIdContract() {
+        assertEquals("minecraft:air", RegistryIds.normalizeItemId(null));
+        assertEquals("minecraft:stone", RegistryIds.normalizeItemId("Stone"));
+        assertEquals("minecraft:diamond", RegistryIds.normalizeItemId("minecraft:Diamond"));
     }
 
     @Test
     public void analyzerMatchesOnlyUnconstrainedQueries() {
-        AdapterSet116 adapter = new AdapterSet116();
+        InterimSeedAnalyzer analyzer = new InterimSeedAnalyzer();
         SeedQuery open = SeedQuery.builder().version(GameVersion.MC_1_16_1).build();
-        assertTrue(adapter.seeds().matches(123L, open));
-        assertTrue(adapter.seeds().analyze(123L, open).matches());
+        assertTrue(analyzer.matches(123L, open));
+        assertTrue(analyzer.analyze(123L, open).matches());
         SeedQuery biome = SeedQuery.builder().version(GameVersion.MC_1_16_1).requireBiome("beach").build();
-        assertFalse(adapter.seeds().matches(123L, biome));
-        assertFalse(adapter.seeds().analyze(123L, biome).matches());
+        assertFalse(analyzer.matches(123L, biome));
+        assertFalse(analyzer.analyze(123L, biome).matches());
         SeedQuery structure = SeedQuery.builder().version(GameVersion.MC_1_16_1)
                 .requireStructure("fortress").build();
-        assertFalse(adapter.seeds().matches(123L, structure));
-    }
-
-    @Test
-    public void liveWorldCallStillPending() {
-        AdapterSet116 adapter = new AdapterSet116();
-        try {
-            adapter.worlds().createPracticeWorld(1L, null);
-            fail("expected the skeleton to stay pending until Loom wiring lands");
-        } catch (PracticeException expected) {
-            assertTrue(expected.getUserMessage().contains("not wired"));
-        }
+        assertFalse(analyzer.matches(123L, structure));
+        assertFalse(analyzer.matches(123L, null));
     }
 }

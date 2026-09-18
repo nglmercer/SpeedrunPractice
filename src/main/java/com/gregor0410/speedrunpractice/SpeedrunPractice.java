@@ -51,6 +51,7 @@ public class SpeedrunPractice implements ModInitializer {
         seedManager.reload();
         PTLib.setConfig(config.ptConfig);
         Command.registerCommands();
+        com.gregor0410.speedrunpractice.adapter116.live.Runtime116.initialize();
         updateChecker.checkUpdate();
     }
 

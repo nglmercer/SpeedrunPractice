@@ -230,7 +230,20 @@ public abstract class MinecraftServerMixin implements IMinecraftServer {
                 associatedEnd);
     }
 
-    private void removePracticeWorld(PracticeWorld world) throws IOException {
+    @Override
+    public void deletePracticeWorld(ServerWorld world) {
+        if (world == null || !this.worlds.containsKey(world.getRegistryKey())) {
+            return;
+        }
+        try {
+            removePracticeWorld(world);
+        } catch (IOException failure) {
+            throw new IllegalStateException("Could not delete practice world "
+                    + world.getRegistryKey().getValue() + ": " + failure.getMessage(), failure);
+        }
+    }
+
+    private void removePracticeWorld(ServerWorld world) throws IOException {
         EnderDragonFight enderDragonFight = world.getEnderDragonFight();
         List<ServerPlayerEntity> toRespawn = new ArrayList<>();
         this.getPlayerManager().getPlayerList().forEach(player->{
