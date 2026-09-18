@@ -76,14 +76,16 @@ public class BastionScenario extends AbstractPracticeScenario {
         StructureAdapter.StructureLocation choice = found.get(0);
         if (!"random".equals(wanted)) {
             for (StructureAdapter.StructureLocation candidate : found) {
-                if (wanted.equalsIgnoreCase(candidate.metadata().get("bastion.type"))) {
+                if (wanted.equalsIgnoreCase(candidate.metadata()
+                        .get(StructureAdapter.StructureLocation.BASTION_TYPE_KEY))) {
                     choice = candidate;
                     break;
                 }
             }
-            if (!wanted.equalsIgnoreCase(choice.metadata().get("bastion.type"))) {
+            if (!wanted.equalsIgnoreCase(choice.metadata()
+                    .get(StructureAdapter.StructureLocation.BASTION_TYPE_KEY))) {
                 SpeedrunLogger.warn("No " + wanted + " bastion nearby; using a "
-                        + choice.metadata().get("bastion.type"));
+                        + choice.metadata().get(StructureAdapter.StructureLocation.BASTION_TYPE_KEY));
             }
         }
         track(context, "target", choice.position());

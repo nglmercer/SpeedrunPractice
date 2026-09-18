@@ -13,6 +13,16 @@ public interface SeedAnalyzer {
 
     boolean matches(long seed, SeedQuery query);
 
+    /**
+     * Whether this analyzer really verifies lava-constrained queries
+     * (chunk-generating Stage-B). Versions without it mismatch lava
+     * queries, and preset startup fails fast with a readable error
+     * instead of running a doomed search.
+     */
+    default boolean supportsLava() {
+        return false;
+    }
+
     /** Analysis outcome plus a findings map read by {@code SeedFilters}. */
     final class SeedAnalysis {
         private final boolean matches;

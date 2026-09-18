@@ -41,7 +41,17 @@ public class EndScenario extends AbstractPracticeScenario {
 
     @Override
     public TickResult tick(PracticeContext context) throws PracticeException {
-        if (context.world() != null && !context.adapter().dragons().hasLivingDragon(context.world())) {
+        // The fresh fight spawns its dragon on a later tick, so "no living
+        // dragon" only finishes after one was actually seen alive; otherwise
+        // every attempt would complete before the dragon exists.
+        if (context.world() == null) {
+            return TickResult.continueTick();
+        }
+        if (context.adapter().dragons().hasLivingDragon(context.world())) {
+            track(context, "seenAlive", Boolean.TRUE);
+            return TickResult.continueTick();
+        }
+        if (Boolean.TRUE.equals(tracked(context, "seenAlive"))) {
             return TickResult.finished();
         }
         return TickResult.continueTick();

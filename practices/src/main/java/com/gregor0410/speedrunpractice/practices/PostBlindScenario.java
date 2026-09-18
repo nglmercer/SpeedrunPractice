@@ -61,7 +61,8 @@ public class PostBlindScenario extends AbstractPracticeScenario {
         PracticePosition target = spawn;
         if (stronghold.isPresent()) {
             track(context, "target", stronghold.get().position());
-            String portalRoom = stronghold.get().metadata().get("portal_room");
+            String portalRoom = stronghold.get().metadata()
+                    .get(StructureAdapter.StructureLocation.PORTAL_ROOM_KEY);
             if (portalRoom != null) {
                 track(context, "portalRoom", portalRoom);
             }

@@ -1,5 +1,6 @@
 package com.gregor0410.speedrunpractice.practices;
 
+import com.gregor0410.speedrunpractice.common.adapter.StructureAdapter;
 import com.gregor0410.speedrunpractice.common.api.PracticeContext;
 import com.gregor0410.speedrunpractice.common.api.PracticeId;
 import com.gregor0410.speedrunpractice.common.api.PracticePosition;
@@ -77,7 +78,7 @@ public class ScenarioEngineTest {
     public void bastionStartsOutsideMatchingType() throws Exception {
         ScenarioTestHarness harness = harness();
         Map<String, String> metadata = new HashMap<String, String>();
-        metadata.put("bastion.type", "housing");
+        metadata.put(StructureAdapter.StructureLocation.BASTION_TYPE_KEY, "housing");
         harness.scriptStructure("bastion_remnant", new PracticePosition(100.0, 70.0, 200.0), metadata);
         PracticeTimer timer = new MonotonicPracticeTimer();
         ScenarioEngine engine = engine(harness, timer, new InMemoryPracticeStatistics());
@@ -106,6 +107,25 @@ public class ScenarioEngineTest {
         assertTrue(engine.tickCurrent().isFinished());
         assertEquals(1, stats.completed(PracticeId.of("end")));
         assertTrue(stats.personalBest(PracticeId.of("end")).isPresent());
+        engine.stopCurrent();
+    }
+
+    @Test
+    public void endDoesNotFinishBeforeDragonSpawns() throws Exception {
+        ScenarioTestHarness harness = harness();
+        ScenarioEngine engine = engine(harness, new MonotonicPracticeTimer(),
+                new InMemoryPracticeStatistics());
+        engine.startScenario(new EndScenario(), new PracticeSettings(),
+                ScenarioTestHarness.player("p1"), 3L);
+        PracticeContext context = engine.currentContext();
+        // The fresh fight has no dragon yet: the attempt must not complete.
+        harness.setLivingDragon(context.world().handleId(), false);
+        assertFalse(engine.tickCurrent().isFinished());
+        // A dragon that lived and died finishes.
+        harness.setLivingDragon(context.world().handleId(), true);
+        assertFalse(engine.tickCurrent().isFinished());
+        harness.setLivingDragon(context.world().handleId(), false);
+        assertTrue(engine.tickCurrent().isFinished());
         engine.stopCurrent();
     }
 

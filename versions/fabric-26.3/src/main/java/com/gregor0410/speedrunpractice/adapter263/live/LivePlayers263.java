@@ -244,6 +244,13 @@ final class LivePlayers263 implements PlayerAdapter {
     }
 
     static PracticeDimension dimensionOf(ServerLevel level) {
+        // Practice levels use speedrun_practice keys; their mirrored vanilla
+        // dimension is the only correct answer (blind travel, nether exits
+        // and end entries all key off this).
+        if (level instanceof com.gregor0410.speedrunpractice.adapter263.world.PracticeLevel263) {
+            return ((com.gregor0410.speedrunpractice.adapter263.world.PracticeLevel263) level)
+                    .practiceDimension();
+        }
         ResourceKey<Level> key = level.dimension();
         if (Level.NETHER.equals(key)) {
             return PracticeDimension.NETHER;

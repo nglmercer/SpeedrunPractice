@@ -123,8 +123,16 @@ public class CustomScenario extends AbstractPracticeScenario {
             }
         } else if ("dragon_death".equals(completion)) {
             try {
-                if (context.world() != null
-                        && !context.adapter().dragons().hasLivingDragon(context.world())) {
+                if (context.world() == null) {
+                    return TickResult.continueTick();
+                }
+                // Seen-alive gate (same as End): the dragon spawns after
+                // setup, so only a dragon that lived and died finishes.
+                if (context.adapter().dragons().hasLivingDragon(context.world())) {
+                    track(context, "seenAlive", Boolean.TRUE);
+                    return TickResult.continueTick();
+                }
+                if (Boolean.TRUE.equals(tracked(context, "seenAlive"))) {
                     return TickResult.finished();
                 }
             } catch (PracticeException failure) {

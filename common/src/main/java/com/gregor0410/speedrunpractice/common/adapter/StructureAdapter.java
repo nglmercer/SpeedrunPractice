@@ -78,6 +78,14 @@ public interface StructureAdapter {
 
     /** One located structure plus optional version metadata (bastion type, portal room...). */
     final class StructureLocation {
+        /**
+         * Bastion subtype ({@code treasure}, {@code bridge},
+         * {@code housing}, {@code stables}) when the version can read it.
+         */
+        public static final String BASTION_TYPE_KEY = "bastion_type";
+        /** Stronghold portal-room center as {@code "x,y,z"}. */
+        public static final String PORTAL_ROOM_KEY = "portal_room";
+
         private final String structureId;
         private final PracticePosition position;
         private final Map<String, String> metadata;

@@ -107,6 +107,76 @@ public class SeedSearchExecutorTest {
     }
 
     @Test
+    public void startPresetSearchRunsWithoutCommands() throws Exception {
+        ScenarioTestHarness harness = new ScenarioTestHarness();
+        Map<String, Object> findings = new LinkedHashMap<String, Object>();
+        findings.put("structure.village.distance", 100L);
+        harness.setAnalyzer(matchingAnalyzer(findings));
+        PracticeRuntime runtime = SpeedrunPracticeBootstrap.create(harness, folder.getRoot().toPath());
+        runtime.seedStore().saveSearch("nearby",
+                "{\"structures\": {\"village\": 1500}, \"startSeed\": 100, "
+                        + "\"maxResults\": 1, \"maxAttempts\": 10}");
+        String message = runtime.startPresetSearch("nearby");
+        assertTrue(message.contains("nearby"));
+        assertNotNull(runtime.activeSearch());
+        assertTrue(((CancellableSeedSearch) runtime.activeSearch()).awaitCompletion(5000));
+        assertEquals(1, runtime.activeSearch().results().size());
+        runtime.shutdown();
+    }
+
+    @Test
+    public void startPresetSearchRejectsEmptyName() throws Exception {
+        PracticeRuntime runtime = runtime();
+        try {
+            runtime.startPresetSearch("  ");
+            fail("expected PracticeException");
+        } catch (PracticeException expected) {
+            assertTrue(expected.getUserMessage().contains("Pick a search preset"));
+        }
+        runtime.shutdown();
+    }
+
+    @Test
+    public void startPresetSearchLavaDependsOnAnalyzer() throws Exception {
+        PracticeRuntime runtime = runtime();
+        runtime.seedStore().saveSearch("lava", "{\"lava\": true}");
+        try {
+            runtime.startPresetSearch("lava");
+            fail("expected PracticeException");
+        } catch (PracticeException expected) {
+            assertTrue(expected.getUserMessage().contains("lava"));
+        }
+        assertNull(runtime.activeSearch());
+        runtime.shutdown();
+
+        ScenarioTestHarness lavaHarness = new ScenarioTestHarness();
+        lavaHarness.setAnalyzer(new SeedAnalyzer() {
+            @Override
+            public SeedAnalysis analyze(long seed, SeedQuery query) {
+                return SeedAnalysis.mismatch();
+            }
+
+            @Override
+            public boolean matches(long seed, SeedQuery query) {
+                return false;
+            }
+
+            @Override
+            public boolean supportsLava() {
+                return true;
+            }
+        });
+        PracticeRuntime lavaRuntime =
+                SpeedrunPracticeBootstrap.create(lavaHarness, folder.getRoot().toPath());
+        lavaRuntime.seedStore().saveSearch("lava", "{\"lava\": true}");
+        String message = lavaRuntime.startPresetSearch("lava");
+        assertTrue(message.contains("lava"));
+        assertNotNull(lavaRuntime.activeSearch());
+        assertTrue(((CancellableSeedSearch) lavaRuntime.activeSearch()).awaitCompletion(5000));
+        lavaRuntime.shutdown();
+    }
+
+    @Test
     public void exportWithoutSearchFailsReadably() throws Exception {
         PracticeRuntime runtime = runtime();
         try {

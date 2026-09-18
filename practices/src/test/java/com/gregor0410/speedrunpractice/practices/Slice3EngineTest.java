@@ -217,6 +217,8 @@ public class Slice3EngineTest {
         EngineBundle bundle = new EngineBundle();
         bundle.engine.startScenario(new EndScenario(), new PracticeSettings(),
                 ScenarioTestHarness.player("p1"), 1L);
+        // The fresh fight's dragon is alive first; only its death finishes.
+        assertFalse(bundle.engine.tickCurrent().isFinished());
         bundle.harness.setLivingDragon(bundle.engine.currentContext().world().handleId(), false);
         assertTrue(bundle.engine.tickCurrent().isFinished());
         assertFalse(bundle.engine.tickCurrent().isFinished());

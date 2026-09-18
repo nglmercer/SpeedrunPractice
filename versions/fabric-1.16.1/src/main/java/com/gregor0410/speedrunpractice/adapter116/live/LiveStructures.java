@@ -125,7 +125,7 @@ final class LiveStructures implements StructureAdapter {
         if (isStronghold(structureId)) {
             String portalRoom = findPortalRoom(backing, found);
             if (portalRoom != null) {
-                metadata = Collections.singletonMap("portal_room", portalRoom);
+                metadata = Collections.singletonMap(StructureLocation.PORTAL_ROOM_KEY, portalRoom);
             }
         }
         return new StructureLocation(structureId,

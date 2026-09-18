@@ -56,13 +56,15 @@ public class StrongholdScenario extends AbstractPracticeScenario {
                     "Unable to start Stronghold Practice: no stronghold was found on this seed. Try a new seed.");
         }
         track(context, "target", found.get().position());
-        String portalRoomMeta = found.get().metadata().get("portal_room");
+        String portalRoomMeta = found.get().metadata()
+                .get(StructureAdapter.StructureLocation.PORTAL_ROOM_KEY);
         if (portalRoomMeta != null) {
             track(context, "portalRoom", portalRoomMeta);
         }
         PracticePosition target = found.get().position();
         if ("portal_room".equals(mode)) {
-            PracticePosition portalRoom = parsePortalRoom(found.get().metadata().get("portal_room"));
+            PracticePosition portalRoom = parsePortalRoom(found.get().metadata()
+                    .get(StructureAdapter.StructureLocation.PORTAL_ROOM_KEY));
             if (portalRoom != null) {
                 target = portalRoom;
             } else {

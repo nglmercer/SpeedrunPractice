@@ -68,10 +68,12 @@ import java.util.function.Predicate;
  *       ring-growth rule.</li>
  * </ul>
  *
- * <p>Lava findings are omitted because lava needs generated chunks:
- * lava-constrained queries always mismatch here. Bastion subtypes land in a
- * follow-up (jigsaw start-pool selection); bastion-typed queries mismatch
- * until then.
+ * <p>Stage-B verification runs for lava-constrained queries after Stage-A
+ * passes: the game's own lava-spring placement pipeline executes for the
+ * candidate seed over noise-stage terrain columns
+ * ({@link StageBLava263}), so {@code lava.available} reflects real
+ * worldgen. Bastion subtypes come from the generated start's template,
+ * the same reading live lookups use.
  *
  * <p>Preset ids resolve tag-first: family ids like {@code village} name a
  * structure tag on modern versions (there is no {@code minecraft:village}
@@ -122,12 +124,14 @@ public final class SeedAnalyzer263 implements SeedAnalyzer {
         return analyze(seed, query).matches();
     }
 
+    @Override
+    public boolean supportsLava() {
+        return true;
+    }
+
     private SeedAnalysis analyzeLive(long seed, SeedQuery query) {
         MinecraftServer server = live.server();
         if (server == null) {
-            return SeedAnalysis.mismatch();
-        }
-        if (query.lavaRequired()) {
             return SeedAnalysis.mismatch();
         }
         ServerLevel overworld = server.getLevel(Level.OVERWORLD);
@@ -201,11 +205,10 @@ public final class SeedAnalyzer263 implements SeedAnalyzer {
                             placed, center, maxDistance, query.strongholdRing());
                 } else if (placed.placement instanceof RandomSpreadStructurePlacement) {
                     sawBastion |= isBastion(member);
-                    if (query.bastionType() != null && isBastion(member)) {
-                        continue;
-                    }
+                    String requiredType =
+                            isBastion(member) ? query.bastionType() : null;
                     found = findSpread(seed, server, registries, templates, holder, structure,
-                            placed, center, maxDistance);
+                            placed, center, maxDistance, requiredType);
                 } else {
                     placementSkipped = true;
                     continue;
@@ -236,6 +239,22 @@ public final class SeedAnalyzer263 implements SeedAnalyzer {
         }
         if (query.strongholdRing() > 0 && !sawStronghold) {
             return SeedAnalysis.mismatch();
+        }
+        if (query.lavaRequired()) {
+            // Stage-B runs only for Stage-A survivors: real spring-placement
+            // verification for the candidate seed.
+            boolean lava;
+            try {
+                lava = StageBLava263.verify(server, overworld, over.generator, over.randomState,
+                        over.resolver, spawn, seed);
+            } catch (RuntimeException failure) {
+                SpeedrunLogger.warn("Stage-B lava check failed for seed " + seed + ": " + failure);
+                return SeedAnalysis.mismatch();
+            }
+            if (!lava) {
+                return SeedAnalysis.mismatch();
+            }
+            findings.put(SeedFilters.FIND_LAVA, Boolean.TRUE);
         }
         return SeedAnalysis.of(ok, findings);
     }
@@ -344,7 +363,7 @@ public final class SeedAnalyzer263 implements SeedAnalyzer {
     /** Nearest region-structure start: lattice, restrictions, real generation. */
     private Found findSpread(long seed, MinecraftServer server, RegistryAccess registries,
             StructureTemplateManager templates, Holder<Structure> holder, Structure structure,
-            Placed placed, BlockPos center, int maxDistance) {
+            Placed placed, BlockPos center, int maxDistance, String requiredBastionType) {
         RandomSpreadStructurePlacement placement =
                 (RandomSpreadStructurePlacement) placed.placement;
         int spacing = placement.spacing();
@@ -376,6 +395,10 @@ public final class SeedAnalyzer263 implements SeedAnalyzer {
                     }
                     if (!selectedAndValid(seed, registries, templates, holder, structure, placed,
                             candidate)) {
+                        continue;
+                    }
+                    if (requiredBastionType != null && !bastionTypeMatches(seed, registries,
+                            templates, holder, structure, placed, candidate, requiredBastionType)) {
                         continue;
                     }
                     BlockPos pos = placement.getLocatePos(candidate);
@@ -441,13 +464,35 @@ public final class SeedAnalyzer263 implements SeedAnalyzer {
     private boolean generates(long seed, RegistryAccess registries,
             StructureTemplateManager templates, Holder<Structure> holder, Structure structure,
             Placed placed, ChunkPos candidate) {
+        StructureStart start =
+                generateStart(seed, registries, templates, holder, structure, placed, candidate);
+        return start != null && start.isValid();
+    }
+
+    /** Generates one structure start for type inspection (bastions). */
+    private StructureStart generateStart(long seed, RegistryAccess registries,
+            StructureTemplateManager templates, Holder<Structure> holder, Structure structure,
+            Placed placed, ChunkPos candidate) {
         Predicate<Holder<Biome>> validBiome =
                 biome -> structure.biomes().contains(biome);
-        StructureStart start = structure.generate(holder, placed.dim.level.dimension(), registries,
+        return structure.generate(holder, placed.dim.level.dimension(), registries,
                 placed.dim.generator, placed.dim.biomeSource, placed.dim.sampler,
                 placed.dim.randomState, templates, seed, candidate, 0, placed.dim.level,
                 validBiome);
-        return start != null && start.isValid();
+    }
+
+    /** Whether the bastion at a candidate chunk has the required subtype. */
+    private boolean bastionTypeMatches(long seed, RegistryAccess registries,
+            StructureTemplateManager templates, Holder<Structure> holder, Structure structure,
+            Placed placed, ChunkPos candidate, String requiredType) {
+        try {
+            StructureStart start =
+                    generateStart(seed, registries, templates, holder, structure, placed, candidate);
+            String type = BastionTypes263.typeOf(start);
+            return type != null && requiredType.trim().equalsIgnoreCase(type);
+        } catch (RuntimeException bad) {
+            return false;
+        }
     }
 
     /** Nearest valid stronghold from the exact ring positions. */

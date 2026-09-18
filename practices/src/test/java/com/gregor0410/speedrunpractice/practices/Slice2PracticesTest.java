@@ -1,5 +1,6 @@
 package com.gregor0410.speedrunpractice.practices;
 
+import com.gregor0410.speedrunpractice.common.adapter.StructureAdapter;
 import com.gregor0410.speedrunpractice.common.api.PracticeException;
 import com.gregor0410.speedrunpractice.common.api.PracticePosition;
 import com.gregor0410.speedrunpractice.common.api.PracticeSettings;
@@ -89,7 +90,7 @@ public class Slice2PracticesTest {
     public void bastionUnknownTypeFallsBackToRandom() throws Exception {
         ScenarioTestHarness harness = new ScenarioTestHarness();
         harness.scriptStructure("bastion_remnant", new PracticePosition(100.0, 70.0, 200.0),
-                metadata("bastion.type", "housing"));
+                metadata(StructureAdapter.StructureLocation.BASTION_TYPE_KEY, "housing"));
         ScenarioEngine engine = engine(harness, loadouts());
         PracticeSettings settings = new PracticeSettings();
         settings.set("bastion.type", "castle");
@@ -105,7 +106,7 @@ public class Slice2PracticesTest {
     public void bastionFoodAndHealthApplied() throws Exception {
         ScenarioTestHarness harness = new ScenarioTestHarness();
         harness.scriptStructure("bastion_remnant", new PracticePosition(100.0, 70.0, 200.0),
-                metadata("bastion.type", "housing"));
+                metadata(StructureAdapter.StructureLocation.BASTION_TYPE_KEY, "housing"));
         ScenarioEngine engine = engine(harness, loadouts());
         ScenarioTestHarness.FakePlayer player = ScenarioTestHarness.player("p1");
         PracticeSettings settings = new PracticeSettings();
@@ -121,7 +122,7 @@ public class Slice2PracticesTest {
     public void bastionBadFoodIgnored() throws Exception {
         ScenarioTestHarness harness = new ScenarioTestHarness();
         harness.scriptStructure("bastion_remnant", new PracticePosition(100.0, 70.0, 200.0),
-                metadata("bastion.type", "housing"));
+                metadata(StructureAdapter.StructureLocation.BASTION_TYPE_KEY, "housing"));
         ScenarioEngine engine = engine(harness, loadouts());
         ScenarioTestHarness.FakePlayer player = ScenarioTestHarness.player("p1");
         PracticeSettings settings = new PracticeSettings();
@@ -137,7 +138,7 @@ public class Slice2PracticesTest {
         List<PracticePosition> starts = new ArrayList<PracticePosition>();
         for (int i = 0; i < 2; i++) {
             ScenarioTestHarness harness = new ScenarioTestHarness();
-            harness.scriptStructure("bastion_remnant", structure, metadata("bastion.type", "housing"));
+            harness.scriptStructure("bastion_remnant", structure, metadata(StructureAdapter.StructureLocation.BASTION_TYPE_KEY, "housing"));
             ScenarioEngine engine = engine(harness, loadouts());
             PracticeSettings settings = new PracticeSettings();
             settings.set("spawn.mode", "random_exterior");
@@ -155,7 +156,7 @@ public class Slice2PracticesTest {
     public void bastionEntranceStartsAtStructure() throws Exception {
         ScenarioTestHarness harness = new ScenarioTestHarness();
         harness.scriptStructure("bastion_remnant", new PracticePosition(100.0, 70.0, 200.0),
-                metadata("bastion.type", "housing"));
+                metadata(StructureAdapter.StructureLocation.BASTION_TYPE_KEY, "housing"));
         ScenarioEngine engine = engine(harness, loadouts());
         PracticeSettings settings = new PracticeSettings();
         settings.set("spawn.mode", "entrance");

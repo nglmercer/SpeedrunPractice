@@ -248,6 +248,20 @@ final class LivePlayers implements PlayerAdapter {
     }
 
     static PracticeDimension dimensionOf(ServerWorld world) {
+        // Practice worlds use speedrun_practice keys; their mirrored vanilla
+        // dimension is the only correct answer (blind travel, nether exits
+        // and end entries all key off this).
+        if (world instanceof com.gregor0410.speedrunpractice.world.PracticeWorld) {
+            RegistryKey<World> vanilla =
+                    ((com.gregor0410.speedrunpractice.world.PracticeWorld) world).getVanillaWorldKey();
+            if (World.NETHER.equals(vanilla)) {
+                return PracticeDimension.NETHER;
+            }
+            if (World.END.equals(vanilla)) {
+                return PracticeDimension.END;
+            }
+            return PracticeDimension.OVERWORLD;
+        }
         RegistryKey<World> key = world.getRegistryKey();
         if (World.NETHER.equals(key)) {
             return PracticeDimension.NETHER;

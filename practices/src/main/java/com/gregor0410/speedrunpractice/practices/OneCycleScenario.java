@@ -75,7 +75,16 @@ public class OneCycleScenario extends AbstractPracticeScenario {
 
     @Override
     public TickResult tick(PracticeContext context) throws PracticeException {
-        if (context.world() != null && !context.adapter().dragons().hasLivingDragon(context.world())) {
+        // Same seen-alive gate as End: the dragon spawns after setup, so
+        // only a dragon that lived and died finishes the attempt.
+        if (context.world() == null) {
+            return TickResult.continueTick();
+        }
+        if (context.adapter().dragons().hasLivingDragon(context.world())) {
+            track(context, "seenAlive", Boolean.TRUE);
+            return TickResult.continueTick();
+        }
+        if (Boolean.TRUE.equals(tracked(context, "seenAlive"))) {
             return TickResult.finished();
         }
         return TickResult.continueTick();

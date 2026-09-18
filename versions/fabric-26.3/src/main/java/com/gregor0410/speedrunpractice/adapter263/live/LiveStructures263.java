@@ -1,13 +1,12 @@
 package com.gregor0410.speedrunpractice.adapter263.live;
 
-import com.gregor0410.speedrunpractice.adapter263.mixin.SinglePoolElementAccess263;
 import com.gregor0410.speedrunpractice.common.adapter.StructureAdapter;
+import com.gregor0410.speedrunpractice.common.adapter.StructureAdapter.StructureLocation;
 import com.gregor0410.speedrunpractice.common.api.PracticeDimension;
 import com.gregor0410.speedrunpractice.common.api.PracticeException;
 import com.gregor0410.speedrunpractice.common.api.PracticePosition;
 import com.gregor0410.speedrunpractice.common.api.PracticeWorld;
 import com.gregor0410.speedrunpractice.common.util.SpeedrunLogger;
-import com.mojang.datafixers.util.Either;
 import com.mojang.datafixers.util.Pair;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
@@ -16,16 +15,11 @@ import net.minecraft.core.HolderSet;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.Vec3i;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.levelgen.structure.BoundingBox;
-import net.minecraft.world.level.levelgen.structure.PoolElementStructurePiece;
 import net.minecraft.world.level.levelgen.structure.Structure;
 import net.minecraft.world.level.levelgen.structure.StructurePiece;
 import net.minecraft.world.level.levelgen.structure.StructureStart;
-import net.minecraft.world.level.levelgen.structure.pools.SinglePoolElement;
-import net.minecraft.world.level.levelgen.structure.pools.StructurePoolElement;
 import net.minecraft.world.level.levelgen.structure.structures.StrongholdPieces;
 
 import java.util.ArrayList;
@@ -189,12 +183,12 @@ final class LiveStructures263 implements StructureAdapter {
         if ("stronghold".equals(bare)) {
             String portalRoom = findPortalRoom(backing, best.structure, best.pos);
             if (portalRoom != null) {
-                metadata.put("portal_room", portalRoom);
+                metadata.put(StructureLocation.PORTAL_ROOM_KEY, portalRoom);
             }
         } else if ("bastion_remnant".equals(bare)) {
             String type = findBastionType(backing, best.structure, best.pos);
             if (type != null) {
-                metadata.put("bastion_type", type);
+                metadata.put(StructureLocation.BASTION_TYPE_KEY, type);
             }
         }
         return new StructureLocation(structureId,
@@ -287,40 +281,7 @@ final class LiveStructures263 implements StructureAdapter {
         try {
             backing.getChunk(found);
             StructureStart start = backing.structureManager().getStructureAt(found, structure);
-            if (start == null || !start.isValid() || start.getPieces().isEmpty()) {
-                return null;
-            }
-            StructurePiece first = start.getPieces().get(0);
-            if (!(first instanceof PoolElementStructurePiece)) {
-                return null;
-            }
-            StructurePoolElement element = ((PoolElementStructurePiece) first).getElement();
-            if (!(element instanceof SinglePoolElement)) {
-                return null;
-            }
-            Either<Identifier, ?> template =
-                    ((SinglePoolElementAccess263) (Object) element).getTemplateReference();
-            if (template == null) {
-                return null;
-            }
-            Optional<Identifier> left = template.left();
-            if (!left.isPresent()) {
-                return null;
-            }
-            String path = left.get().getPath();
-            if (!path.startsWith("bastion/")) {
-                return null;
-            }
-            String[] parts = path.split("/");
-            if (parts.length < 2) {
-                return null;
-            }
-            String type = parts[1];
-            if ("treasure".equals(type) || "bridge".equals(type) || "housing".equals(type)
-                    || "stables".equals(type) || "mobs".equals(type)) {
-                return "mobs".equals(type) ? null : type;
-            }
-            return null;
+            return BastionTypes263.typeOf(start);
         } catch (RuntimeException bad) {
             SpeedrunLogger.warn("Bastion-type scan failed: " + bad.getMessage());
             return null;

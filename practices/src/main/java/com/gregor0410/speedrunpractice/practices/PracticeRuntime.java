@@ -334,7 +334,7 @@ public final class PracticeRuntime {
                     + parsed.query().version().versionString() + ", not "
                     + adapter.version().versionString() + ".");
         }
-        if (parsed.query().lavaRequired()) {
+        if (parsed.query().lavaRequired() && !adapter.seeds().supportsLava()) {
             throw new PracticeException("Seed search preset \"" + preset + "\" needs lava verification",
                     "Preset \"" + preset + "\" needs lava, which requires chunk-by-chunk "
                             + "verification that is not available in this build yet.");
