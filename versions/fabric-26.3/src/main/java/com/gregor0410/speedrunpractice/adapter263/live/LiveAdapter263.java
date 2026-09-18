@@ -1,7 +1,6 @@
 package com.gregor0410.speedrunpractice.adapter263.live;
 
 import com.gregor0410.speedrunpractice.adapter263.AdapterSet263;
-import com.gregor0410.speedrunpractice.adapter263.RegistryIds;
 import com.gregor0410.speedrunpractice.common.adapter.Capability;
 import com.gregor0410.speedrunpractice.common.adapter.CommandAdapter;
 import com.gregor0410.speedrunpractice.common.adapter.DragonAdapter;
@@ -15,12 +14,7 @@ import com.gregor0410.speedrunpractice.common.adapter.StructureAdapter;
 import com.gregor0410.speedrunpractice.common.adapter.TimerAdapter;
 import com.gregor0410.speedrunpractice.common.adapter.WorldAdapter;
 import com.gregor0410.speedrunpractice.common.api.GameVersion;
-import com.gregor0410.speedrunpractice.common.api.PracticeException;
-import com.gregor0410.speedrunpractice.common.api.PracticePlayer;
-import com.gregor0410.speedrunpractice.common.api.PracticePosition;
-import com.gregor0410.speedrunpractice.common.api.PracticePreset;
-import com.gregor0410.speedrunpractice.common.api.PracticeResult;
-import com.gregor0410.speedrunpractice.common.api.PracticeWorld;
+import com.gregor0410.speedrunpractice.common.api.PracticeDimension;
 import com.gregor0410.speedrunpractice.common.seeds.SeedAnalyzer;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
@@ -28,136 +22,40 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 /**
- * Live 26.3 adapter behind the {@link AdapterSet263} shell. Commands,
- * seeds (real worldgen analysis), worlds, players, inventories and interim
- * registry are wired; structures, portals, dragons and GUI stay pending
- * until their slices land. Single-player scope: at most one server, one
- * practicing player, and one active practice at a time.
+ * Live 26.3 adapter behind the {@link AdapterSet263} shell: every call
+ * reaches the real game through the version-runtime machinery in this
+ * module. Single-player scope: at most one server, one practicing player,
+ * and one active practice at a time.
+ *
+ * <p>World tracking: linked overworld/nether/end triples are remembered by
+ * level key so deletion removes the whole triple, spawn lookup finds the
+ * sibling overworld, and structure queries resolve cross-dimension
+ * generators.
  */
 public final class LiveAdapter263 implements MinecraftAdapter {
-    private static final String PENDING = "The 26.3 adapter is not ported yet.";
-
-    private volatile MinecraftServer server;
     private final CommandAdapter commands = new LiveCommands263();
     private final SeedAnalyzer seeds = new SeedAnalyzer263(this);
     private final WorldAdapter worlds = new LiveWorlds263(this);
     private final PlayerAdapter players = new LivePlayers263(this);
     private final InventoryAdapter inventories = new LiveInventories263(this);
+    private final StructureAdapter structures = new LiveStructures263(this);
+    private final PortalAdapter portals = new LivePortals263(this);
+    private final DragonAdapter dragons = new LiveDragons263();
+    private final RegistryAdapter registries = new LiveRegistries263();
+    private final GuiAdapter gui = new LiveGui263();
+    private final TimerAdapter timer = new LiveTimer263();
 
-    private final RegistryAdapter registries = new RegistryAdapter() {
-        @Override
-        public String normalizeItemId(String id) {
-            return RegistryIds.normalizeItemId(id);
-        }
-
-        @Override
-        public boolean itemExists(String id) {
-            return id != null && !id.trim().isEmpty();
-        }
-
-        @Override
-        public int maxStackSize(String id) {
-            return 64;
-        }
-    };
-
-    private final StructureAdapter structures = new StructureAdapter() {
-        @Override
-        public Optional<StructureLocation> locateNearest(PracticeWorld world, StructureQuery query)
-                throws PracticeException {
-            throw pending("locateNearest");
-        }
-
-        @Override
-        public List<StructureLocation> locate(PracticeWorld world, StructureQuery query, int limit)
-                throws PracticeException {
-            throw pending("locate");
-        }
-    };
-
-    private final PortalAdapter portals = new PortalAdapter() {
-        @Override
-        public void createNetherPortal(PracticeWorld world, PracticePosition position) throws PracticeException {
-            throw pending("createNetherPortal");
-        }
-
-        @Override
-        public void linkPortals(PracticeWorld overworld, PracticeWorld nether, PracticePosition overworldPos)
-                throws PracticeException {
-            throw pending("linkPortals");
-        }
-    };
-
-    private final DragonAdapter dragons = new DragonAdapter() {
-        @Override
-        public void resetFight(PracticeWorld world) throws PracticeException {
-            throw pending("resetFight");
-        }
-
-        @Override
-        public void forcePerch(PracticeWorld world) throws PracticeException {
-            throw pending("forcePerch");
-        }
-
-        @Override
-        public boolean hasLivingDragon(PracticeWorld world) throws PracticeException {
-            throw pending("hasLivingDragon");
-        }
-    };
-
-    private final GuiAdapter gui = new GuiAdapter() {
-        @Override
-        public void openMainMenu(PracticePlayer player) throws PracticeException {
-            throw pending("openMainMenu");
-        }
-
-        @Override
-        public void openScenarioScreen(PracticePlayer player, PracticePreset preset) throws PracticeException {
-            throw pending("openScenarioScreen");
-        }
-
-        @Override
-        public void openResultsScreen(PracticePlayer player, PracticeResult result) throws PracticeException {
-            throw pending("openResultsScreen");
-        }
-
-        @Override
-        public boolean isAvailable() {
-            return false;
-        }
-    };
-
-    private final TimerAdapter timer = new TimerAdapter() {
-        @Override
-        public boolean isAvailable() {
-            return false;
-        }
-
-        @Override
-        public void resetTimer() {
-        }
-
-        @Override
-        public void startTimer() {
-        }
-
-        @Override
-        public void stopTimer() {
-        }
-
-        @Override
-        public void pauseTimer() {
-        }
-    };
-
+    private volatile MinecraftServer server;
     private final Map<ResourceKey<Level>, LiveWorld263> byKey =
             Collections.synchronizedMap(new HashMap<ResourceKey<Level>, LiveWorld263>());
+    private final Map<ResourceKey<Level>, Map<PracticeDimension, LiveWorld263>> triples =
+            Collections.synchronizedMap(
+                    new HashMap<ResourceKey<Level>, Map<PracticeDimension, LiveWorld263>>());
 
     /** The scenario's world: set on create/reset, cleared on delete. */
     private volatile LiveWorld263 currentWorld;
@@ -171,6 +69,7 @@ public final class LiveAdapter263 implements MinecraftAdapter {
         this.server = server;
         if (server == null) {
             byKey.clear();
+            triples.clear();
             currentWorld = null;
         }
     }
@@ -178,6 +77,16 @@ public final class LiveAdapter263 implements MinecraftAdapter {
     /** Remembers one created practice world for handle resolution. */
     void track(LiveWorld263 handle) {
         byKey.put(handle.level().dimension(), handle);
+    }
+
+    /** Remembers a linked overworld/nether/end triple under every member key. */
+    void trackTriple(Map<PracticeDimension, LiveWorld263> triple) {
+        Map<PracticeDimension, LiveWorld263> copy =
+                Collections.unmodifiableMap(new EnumMap<PracticeDimension, LiveWorld263>(triple));
+        for (LiveWorld263 member : copy.values()) {
+            track(member);
+            triples.put(member.level().dimension(), copy);
+        }
     }
 
     /** Handle for a live level key, or null when untracked. */
@@ -193,9 +102,24 @@ public final class LiveAdapter263 implements MinecraftAdapter {
         this.currentWorld = currentWorld;
     }
 
-    /** Forgets a tracked level key. */
-    void forget(ResourceKey<Level> key) {
+    /** Sibling triple for a member key, or null for single worlds. */
+    Map<PracticeDimension, LiveWorld263> triple(ResourceKey<Level> key) {
+        return triples.get(key);
+    }
+
+    /** Forgets a level and, for triple members, the whole triple. */
+    Map<PracticeDimension, LiveWorld263> forget(ResourceKey<Level> key) {
+        Map<PracticeDimension, LiveWorld263> triple = triples.remove(key);
+        if (triple != null) {
+            for (LiveWorld263 member : triple.values()) {
+                ResourceKey<Level> memberKey = member.level().dimension();
+                byKey.remove(memberKey);
+                triples.remove(memberKey);
+            }
+            return triple;
+        }
         byKey.remove(key);
+        return null;
     }
 
     @Override
@@ -260,27 +184,26 @@ public final class LiveAdapter263 implements MinecraftAdapter {
 
     @Override
     public boolean supports(Capability capability) {
-        // Nothing claimed until validated against 26.3 behaviour.
+        // Nothing claimed until validated against 26.3 behaviour: a
+        // capability may return true only after its implementation exists,
+        // compiles, and passes in-game testing on this version.
         return false;
-    }
-
-    private static PracticeException.AdapterException pending(String operation) {
-        return new PracticeException.AdapterException("26.3 adapter: " + operation + " is pending the port",
-                PENDING + " (" + operation + ")");
     }
 
     /** Resolves the backing level for a practice handle, failing readably. */
     static ServerLevel requireLevel(LiveAdapter263 adapter,
             com.gregor0410.speedrunpractice.common.api.PracticeWorld world, String operation)
-            throws PracticeException {
+            throws com.gregor0410.speedrunpractice.common.api.PracticeException {
         if (!(world instanceof LiveWorld263)) {
-            throw new PracticeException(operation + " got a foreign world handle",
+            throw new com.gregor0410.speedrunpractice.common.api.PracticeException(
+                    operation + " got a foreign world handle",
                     "That practice world belongs to another session. Stop and start it again.");
         }
         ServerLevel backing = ((LiveWorld263) world).level();
         MinecraftServer server = adapter.server();
         if (server == null || server.getLevel(backing.dimension()) == null) {
-            throw new PracticeException(operation + " found no live world",
+            throw new com.gregor0410.speedrunpractice.common.api.PracticeException(
+                    operation + " found no live world",
                     "That practice world is gone (the session ended?). Stop and start it again.");
         }
         return backing;

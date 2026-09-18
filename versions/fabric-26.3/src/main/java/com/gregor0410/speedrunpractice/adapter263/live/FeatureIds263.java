@@ -58,4 +58,18 @@ public final class FeatureIds263 {
     public static TagKey<Structure> tagKey(String id) throws PracticeException {
         return TagKey.create(Registries.STRUCTURE, identifier(id));
     }
+
+    /** Which dimension generates the structure (for generator resolution). */
+    public static com.gregor0410.speedrunpractice.common.api.PracticeDimension homeDimension(
+            String structureId) {
+        String id = bare(structureId == null ? "" : structureId).toLowerCase();
+        if ("bastion_remnant".equals(id) || "fortress".equals(id)
+                || "nether_fossil".equals(id)) {
+            return com.gregor0410.speedrunpractice.common.api.PracticeDimension.NETHER;
+        }
+        if ("end_city".equals(id)) {
+            return com.gregor0410.speedrunpractice.common.api.PracticeDimension.END;
+        }
+        return com.gregor0410.speedrunpractice.common.api.PracticeDimension.OVERWORLD;
+    }
 }

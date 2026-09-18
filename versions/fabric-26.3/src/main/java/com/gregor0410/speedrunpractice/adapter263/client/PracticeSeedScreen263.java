@@ -1,19 +1,21 @@
-package com.gregor0410.speedrunpractice.adapter116.client;
+package com.gregor0410.speedrunpractice.adapter263.client;
 
 import com.gregor0410.speedrunpractice.common.seeds.SeedResult;
 import com.gregor0410.speedrunpractice.common.seeds.SeedSearchTask;
 import com.gregor0410.speedrunpractice.practices.PracticeRuntime;
-import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * Seed-search screen: saved presets, live counters for the running search,
- * and matched seeds. Preset execution arrives with plan step 10; until
- * then Start explains honestly and Cancel/refresh work for real.
+ * and matched seeds. Start runs the selected preset through the same
+ * runtime path as {@code /practice seeds search}; Cancel and refresh work
+ * for real.
  */
-final class PracticeSeedScreen extends PracticeScreenBase {
+final class PracticeSeedScreen263 extends PracticeScreenBase263 {
     /** Server-thread snapshot backing the screen. */
     static final class Data {
         final List<String> presets;
@@ -56,7 +58,7 @@ final class PracticeSeedScreen extends PracticeScreenBase {
     private final Data data;
     private int ticks;
 
-    PracticeSeedScreen(Data data) {
+    PracticeSeedScreen263(Data data) {
         super("Seed Search");
         this.data = data;
     }
@@ -70,63 +72,58 @@ final class PracticeSeedScreen extends PracticeScreenBase {
             }
         });
         smallButton(width / 2 + 5, 150, 150, "Start search", button ->
-                ClientScreens.onServer((server, entity, runtime) -> {
+                ClientScreens263.onServer((server, entity, runtime) -> {
                     if (data.presets.isEmpty()) {
-                        entity.sendMessage(new net.minecraft.text.LiteralText(
-                                "No presets yet. Save searches to run them here."), false);
+                        entity.sendSystemMessage(Component.literal(
+                                "No presets yet. Save searches to run them here."));
                         return;
                     }
                     String started = runtime.startPresetSearch(data.presets.get(data.presetIdx));
-                    entity.sendMessage(new net.minecraft.text.LiteralText(started), false);
+                    entity.sendSystemMessage(Component.literal(started));
                     refreshOnClient(data.presetIdx, runtime);
                 }));
         smallButton(width / 2 - 155, 174, 150, "Cancel search", button ->
-                ClientScreens.onServer((server, entity, runtime) -> {
+                ClientScreens263.onServer((server, entity, runtime) -> {
                     boolean cancelled = runtime.cancelSearch();
-                    entity.sendMessage(new net.minecraft.text.LiteralText(
-                            cancelled ? "Seed search cancelled." : "No seed search is running."), false);
-                    refreshOnClient(data.presetIdx);
+                    entity.sendSystemMessage(Component.literal(
+                            cancelled ? "Seed search cancelled." : "No seed search is running."));
+                    refreshOnClient(data.presetIdx, runtime);
                 }));
-        smallButton(width / 2 + 5, 174, 150, "Back", button -> ClientScreens.openMain());
+        smallButton(width / 2 + 5, 174, 150, "Back", button -> ClientScreens263.openMain());
     }
 
     private void refresh(int presetIdx) {
-        ClientScreens.onServer((server, entity, runtime) ->
-                refreshOnClient(presetIdx, runtime));
-    }
-
-    private void refreshOnClient(int presetIdx) {
-        ClientScreens.onServer((server, entity, runtime) ->
+        ClientScreens263.onServer((server, entity, runtime) ->
                 refreshOnClient(presetIdx, runtime));
     }
 
     private static void refreshOnClient(int presetIdx, PracticeRuntime runtime) {
         Data fresh = Data.snapshot(runtime, presetIdx);
-        net.minecraft.client.MinecraftClient.getInstance()
-                .execute(() -> ClientScreens.open(new PracticeSeedScreen(fresh)));
+        net.minecraft.client.Minecraft.getInstance()
+                .execute(() -> ClientScreens263.open(new PracticeSeedScreen263(fresh)));
     }
 
     @Override
-    public void render(MatrixStack matrices, int mouseX, int mouseY, float delta) {
-        super.render(matrices, mouseX, mouseY, delta);
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
+        super.extractRenderState(graphics, mouseX, mouseY, delta);
         int y = 34;
         if (data.presets.isEmpty()) {
-            line(matrices, "No presets yet. Save searches to run them here.", y, 0xA0A0A0);
+            line(graphics, "No presets yet. Save searches to run them here.", y, 0xA0A0A0);
             y += 12;
         }
         if (data.progress == null) {
-            line(matrices, "No seed search has been started.", y, 0xA0A0A0);
+            line(graphics, "No seed search has been started.", y, 0xA0A0A0);
         } else {
-            line(matrices, "Tested: " + data.progress.seedsTested()
+            line(graphics, "Tested: " + data.progress.seedsTested()
                     + "  Matched: " + data.progress.seedsMatched()
                     + "  Verified: " + data.progress.seedsVerified(), y, 0xFFFFFF);
             y += 12;
             String state = data.progress.finished() ? "finished"
                     : data.progress.cancelled() ? "cancelled" : "running";
-            line(matrices, "State: " + state + "  Failed: " + data.progress.seedsFailed(), y, 0xA0A0A0);
+            line(graphics, "State: " + state + "  Failed: " + data.progress.seedsFailed(), y, 0xA0A0A0);
             y += 12;
             for (int i = 0; i < data.seeds.size(); i++) {
-                line(matrices, "Seed: " + data.seeds.get(i), y, 0x55FF55);
+                line(graphics, "Seed: " + data.seeds.get(i), y, 0x55FF55);
                 y += 10;
             }
         }

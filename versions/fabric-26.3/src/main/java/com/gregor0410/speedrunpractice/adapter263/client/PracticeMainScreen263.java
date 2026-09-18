@@ -1,0 +1,58 @@
+package com.gregor0410.speedrunpractice.adapter263.client;
+
+import com.gregor0410.speedrunpractice.common.api.PracticeId;
+import com.gregor0410.speedrunpractice.common.api.PracticePreset;
+import com.gregor0410.speedrunpractice.common.api.PracticeSettings;
+import com.gregor0410.speedrunpractice.common.api.PracticeType;
+import com.gregor0410.speedrunpractice.common.gui.PracticeMenuModel;
+import net.minecraft.network.chat.Component;
+
+import java.util.List;
+
+/** Main menu: one tile per practice plus loadouts/stats/seed-search. */
+final class PracticeMainScreen263 extends PracticeScreenBase263 {
+    PracticeMainScreen263() {
+        super("Speedrun Practice");
+    }
+
+    @Override
+    protected void init() {
+        List<PracticeMenuModel.MenuEntry> entries = PracticeMenuModel.defaultMenu();
+        int leftX = width / 2 - 155;
+        int rightX = width / 2 + 5;
+        for (int i = 0; i < entries.size(); i++) {
+            final PracticeMenuModel.MenuEntry entry = entries.get(i);
+            int x = (i % 2 == 0) ? leftX : rightX;
+            int y = 40 + (i / 2) * 24;
+            smallButton(x, y, 150, entry.displayName(), button -> openSetup(entry));
+        }
+        int baseY = 40 + ((entries.size() + 1) / 2) * 24 + 8;
+        smallButton(leftX, baseY, 150, "Loadouts", button -> ClientScreens263.openLoadouts());
+        smallButton(rightX, baseY, 150, "Statistics", button -> ClientScreens263.openStats());
+        smallButton(leftX, baseY + 24, 150, "Seed Search", button -> ClientScreens263.openSeeds());
+        smallButton(rightX, baseY + 24, 150, "Close", button -> ClientScreens263.open(null));
+    }
+
+    private void openSetup(PracticeMenuModel.MenuEntry entry) {
+        ClientScreens263.onServer((server, entity, runtime) -> {
+            if (entry.type() == PracticeType.CUSTOM) {
+                List<String> customs = ClientData263.customIds(runtime);
+                if (customs.isEmpty()) {
+                    entity.sendSystemMessage(Component.literal(
+                            "No custom scenarios. Add JSON files to config/speedrun-practice-new/scenarios/."));
+                    return;
+                }
+                String customId = customs.get(0);
+                PracticePreset preset = new PracticePreset(PracticeId.of(customId), customId,
+                        PracticeType.CUSTOM, runtime.customScenarios().get(customId).toSettings());
+                net.minecraft.client.Minecraft.getInstance()
+                        .execute(() -> ClientScreens263.openSetup(preset, customId));
+                return;
+            }
+            PracticePreset preset = new PracticePreset(PracticeId.of(entry.type().id()),
+                    entry.displayName(), entry.type(), new PracticeSettings());
+            net.minecraft.client.Minecraft.getInstance()
+                    .execute(() -> ClientScreens263.openSetup(preset, null));
+        });
+    }
+}

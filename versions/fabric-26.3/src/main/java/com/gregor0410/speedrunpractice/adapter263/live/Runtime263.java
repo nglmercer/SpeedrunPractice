@@ -58,7 +58,13 @@ public final class Runtime263 {
         } catch (PracticeException failure) {
             SpeedrunLogger.warn("New-runtime commands did not register: " + failure.getUserMessage());
         }
-        ServerLifecycleEvents.SERVER_STARTED.register(server -> live.setServer(server));
+        ServerLifecycleEvents.SERVER_STARTED.register(server -> {
+            live.setServer(server);
+            if (server instanceof com.gregor0410.speedrunpractice.adapter263.IPracticeServer263) {
+                ((com.gregor0410.speedrunpractice.adapter263.IPracticeServer263) server)
+                        .pruneLeftoverPracticeLevels();
+            }
+        });
         ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
             live.setServer(null);
             runtime.shutdown();

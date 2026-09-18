@@ -12,15 +12,12 @@ import com.gregor0410.speedrunpractice.common.gui.PracticeMenuModel;
 import com.gregor0410.speedrunpractice.common.loadout.Loadout;
 import com.gregor0410.speedrunpractice.common.loadout.LoadoutCompatibility;
 import com.gregor0410.speedrunpractice.common.seeds.SeedResult;
-import com.gregor0410.speedrunpractice.common.seeds.SeedSearchPreset;
 import com.gregor0410.speedrunpractice.common.seeds.SeedSearchTask;
-import com.gregor0410.speedrunpractice.seedsearch.CancellableSeedSearch;
 
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.OptionalLong;
-import java.util.Random;
 
 /**
  * Shared action dispatcher for the {@code /practice} command tree (plan
@@ -159,39 +156,7 @@ public final class PracticeActionExecutor implements CommandAdapter.CommandExecu
 
     private int seedSearch(CommandAdapter.CommandContextView context) throws PracticeException {
         String preset = stringArg(context, "seeds.search", "preset");
-        String saved;
-        try {
-            saved = runtime.seedStore().loadSearch(preset);
-        } catch (IOException failure) {
-            throw new PracticeException("Cannot read seed search preset \"" + preset + "\": " + failure.getMessage(),
-                    "Could not read search preset \"" + preset + "\": " + failure.getMessage());
-        }
-        if (saved == null) {
-            throw new PracticeException("Unknown seed search preset \"" + preset + "\"",
-                    "Unknown search preset \"" + preset + "\". Save one under seeds/searches first.");
-        }
-        SeedSearchPreset.ParsedPreset parsed =
-                SeedSearchPreset.parse(preset, saved, runtime.adapter().version());
-        if (!parsed.query().version().equals(runtime.adapter().version())) {
-            throw new PracticeException("Seed search preset \"" + preset + "\" targets "
-                    + parsed.query().version().versionString() + " but this game is "
-                    + runtime.adapter().version().versionString(),
-                    "Preset \"" + preset + "\" is for Minecraft "
-                    + parsed.query().version().versionString() + ", not "
-                    + runtime.adapter().version().versionString() + ".");
-        }
-        if (parsed.query().lavaRequired()) {
-            throw new PracticeException("Seed search preset \"" + preset + "\" needs lava verification",
-                    "Preset \"" + preset + "\" needs lava, which requires chunk-by-chunk "
-                            + "verification that is not available in this build yet.");
-        }
-        long startSeed = parsed.startSeed() == null ? new Random().nextLong() : parsed.startSeed();
-        CancellableSeedSearch search = new CancellableSeedSearch(parsed.query(), runtime.adapter().seeds(),
-                null, startSeed, parsed.maxResults(), parsed.maxAttempts(), parsed.filters());
-        search.start();
-        runtime.startSearch(search);
-        context.feedback("Seed search \"" + preset + "\" started (up to " + parsed.maxResults()
-                + " results). Check /practice seeds results.");
+        context.feedback(runtime.startPresetSearch(preset));
         return 1;
     }
 

@@ -27,6 +27,7 @@ import com.gregor0410.speedrunpractice.common.seeds.SeedStore;
 import com.gregor0410.speedrunpractice.common.stats.PracticeStatistics;
 import com.gregor0410.speedrunpractice.common.timer.PracticeTimer;
 import com.gregor0410.speedrunpractice.common.util.SpeedrunLogger;
+import com.gregor0410.speedrunpractice.seedsearch.CancellableSeedSearch;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -300,6 +301,51 @@ public final class PracticeRuntime {
                     "Could not save seed " + seed + " to favorites: " + failure.getMessage());
         }
         return seed;
+    }
+
+    /**
+     * Starts a saved seed-search preset: loads, parses, version-checks and
+     * launches it on a worker thread, tracking it for progress/cancel.
+     * Shared by the {@code seeds search} command and the seed screens so
+     * both run the same code. Returns a human-readable confirmation.
+     */
+    public String startPresetSearch(String preset) throws PracticeException {
+        if (preset == null || preset.trim().isEmpty()) {
+            throw new PracticeException("Empty seed search preset", "Pick a search preset first.");
+        }
+        String saved;
+        try {
+            saved = seedStore.loadSearch(preset);
+        } catch (IOException failure) {
+            throw new PracticeException("Cannot read seed search preset \"" + preset + "\": " + failure.getMessage(),
+                    "Could not read search preset \"" + preset + "\": " + failure.getMessage());
+        }
+        if (saved == null) {
+            throw new PracticeException("Unknown seed search preset \"" + preset + "\"",
+                    "Unknown search preset \"" + preset + "\". Save one under seeds/searches first.");
+        }
+        SeedSearchPreset.ParsedPreset parsed =
+                SeedSearchPreset.parse(preset, saved, adapter.version());
+        if (!parsed.query().version().equals(adapter.version())) {
+            throw new PracticeException("Seed search preset \"" + preset + "\" targets "
+                    + parsed.query().version().versionString() + " but this game is "
+                    + adapter.version().versionString(),
+                    "Preset \"" + preset + "\" is for Minecraft "
+                    + parsed.query().version().versionString() + ", not "
+                    + adapter.version().versionString() + ".");
+        }
+        if (parsed.query().lavaRequired()) {
+            throw new PracticeException("Seed search preset \"" + preset + "\" needs lava verification",
+                    "Preset \"" + preset + "\" needs lava, which requires chunk-by-chunk "
+                            + "verification that is not available in this build yet.");
+        }
+        long startSeed = parsed.startSeed() == null ? new java.util.Random().nextLong() : parsed.startSeed();
+        CancellableSeedSearch search = new CancellableSeedSearch(parsed.query(), adapter.seeds(), null,
+                startSeed, parsed.maxResults(), parsed.maxAttempts(), parsed.filters());
+        search.start();
+        startSearch(search);
+        return "Seed search \"" + preset + "\" started (up to " + parsed.maxResults()
+                + " results). Check /practice seeds results.";
     }
 
     /**

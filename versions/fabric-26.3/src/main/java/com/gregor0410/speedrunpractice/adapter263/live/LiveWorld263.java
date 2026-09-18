@@ -11,10 +11,8 @@ import net.minecraft.server.level.ServerLevel;
  * holding this handle, so the handle id stays fixed for its lifetime (event
  * correlation) and {@link #seed()} tracks the current practice seed.
  *
- * <p>26.3 reuses the server's live vanilla levels (one per dimension); there
- * is no per-seed world recreation yet. The handle seed is the requested
- * practice seed, which may differ from the backing level's worldgen seed
- * until that follow-up lands.
+ * <p>26.3 creates real per-seed practice levels through the server mixin,
+ * so the handle seed and the backing level's worldgen seed always match.
  */
 public final class LiveWorld263 implements PracticeWorld {
     private final String handleId;
