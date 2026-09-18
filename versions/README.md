@@ -58,5 +58,35 @@ versions/fabric-<mc>/
 can build Brigadier nodes from the last registration once mappings land
 instead of rebuilding that state.
 
+## 1.21.1 port state
+
+The 1.21.1 module already carries the mapping-free slices of the port:
+`adapter121/RegistryIds` (item-id normalization) and
+`adapter121/live/FeatureIds121` (preset-id vocabulary, aliases, dimension
+homes, bastion/stronghold predicates), both unit-tested. The Loom conversion
+itself is blocked offline: the Gradle cache holds Minecraft/intermediary/
+yarn artifacts only for 1.16.1 and 26.3, plus the 1.16.1-era and 26.3-era
+loader/fabric-api lines — no 1.21.1 artifacts. The online step is: add the
+loom plugin + `minecraft`/`mappings`/loader/fabric-api deps for 1.21.1 to
+`versions/fabric-1.21.1/build.gradle` (Java 21), then port the live slices
+(entrypoint, commands, events, worlds, players, inventories, structures,
+portals, dragon, GUI, keybinds, `SeedAnalyzer121`) against 1.21.1 mappings,
+mirroring `adapter116/live/` and `adapter263/live/`. Until then the module
+stays plain Java so `:versions:fabric-1.21.1:build --offline` keeps passing.
+
 Do not unify mixin targets across versions; per-version mixins are expected.
 Do not touch `common` just to fix mapping names.
+
+## 26.3 port state
+
+`LiveAdapter263` (behind the `AdapterSet263` shell) delegates to live
+slices for commands (`LiveCommands263`), seeds (`SeedAnalyzer263`, real
+worldgen analysis), worlds (`LiveWorlds263`/`LiveWorld263`), players
+(`LivePlayers263`/`LivePlayer263`), inventories (`LiveInventories263`),
+an interim `RegistryIds`-based registry, and event polling
+(`EventPoller263`). Structures, portals, dragon and GUI still
+`throw pending(...)` (`LiveAdapter263.java` lines 74-127), and `supports()`
+still claims nothing — verified by
+`scripts/verify-supported-versions.ps1` (exit 0, 2026-09-18). Runtime
+truth per feature lives in `docs/version-status.md`; anything needing a
+player is still unverified.

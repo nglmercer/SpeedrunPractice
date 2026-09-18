@@ -44,7 +44,7 @@ while everything needing a player is still unverified.
 | Completion detection | runtime unverified | ❌ adapter pending | ❌ adapter pending |
 | Statistics | runtime unverified | ❌ adapter pending | ❌ adapter pending |
 | Seed list | runtime unverified | ❌ adapter pending | ❌ adapter pending |
-| Seed search | runtime unverified (lava presets need a stage-B chunk verifier) | ❌ adapter pending | ✅ dispatch verified, interim analyzer only (step 18 pending) |
+| Seed search | runtime unverified (lava presets need a stage-B chunk verifier) | ❌ adapter pending | ✅ real analyzer verified on dedicated server 2026-09-18 (biome/village/stronghold searches + export + /locate cross-checks; bastion-type and lava presets mismatch by design) |
 | Favorites | runtime unverified | ❌ adapter pending | ❌ adapter pending |
 | GUI screens | runtime unverified | ❌ adapter pending | ❌ adapter pending |
 | Keybinds | runtime unverified | ❌ adapter pending | ❌ adapter pending |
@@ -85,6 +85,14 @@ needs version block APIs. No row flips to ✅ until exercised in-game.
 | Architecture guard (no `net.minecraft`/`net.fabricmc` imports in shared modules) | ✅ run in CI + Gradle `check` |
 
 These prove shared logic only. They never flip a runtime cell above to ✅.
+
+Stage-4 local verification (2026-09-18, offline, JDK 25): full
+`./gradlew build --offline` green (exit 0); forced `--rerun-tasks` run of
+`:common`, `:seed-search`, `:practices` plus the three version-module suites:
+39 suites / 283 tests / 0 failures / 0 errors / 0 skipped;
+`scripts/verify-architecture.ps1` exit 0 (no Minecraft/Fabric imports in
+shared modules); `scripts/verify-supported-versions.ps1` exit 0 (all three
+adapters still claim no capability — skeleton state).
 
 ## Legacy baseline (migrated into `:versions:fabric-1.16.1`, 1.16.1 only)
 
