@@ -13,14 +13,17 @@ or compilation alone (plan section 98). Until then the vocabulary is:
 1.16.1 runs the new runtime for real: `Runtime116` wires the shared engine
 to `LiveAdapter116` (worlds, players, inventories, structures, portals,
 dragon, registry, commands, timer) inside the 1.16.1 module jar, and
-`AdapterSet116` is a delegation shell with no `pending()` left. 1.21.1 and
-26.3 are still compilation-checked skeletons. Nothing below has run
-in-game yet on any version, so no cell is ✅.
+`AdapterSet116` is a delegation shell with no `pending()` left. 1.21.1 is
+still a compilation-checked skeleton. 26.3 wires the same runtime shape
+(`Runtime263` → `AdapterSet263` → `LiveAdapter263`); its entrypoint,
+command registration, search/export/reload dispatch and error paths are
+verified on a headless dedicated server (2026-09-18, `scripts/verify-server-263`),
+while everything needing a player is still unverified.
 
 | Feature | 1.16.1 | 1.21.1 | 26.3 |
 | ------- | ------ | ------ | ---- |
-| Mod loads (new adapter entrypoint) | runtime unverified | ❌ adapter pending | ❌ adapter pending |
-| `/practice` commands register | runtime unverified | ❌ adapter pending | ❌ adapter pending |
+| Mod loads (new adapter entrypoint) | runtime unverified | ❌ adapter pending | ✅ dedicated server 2026-09-18 |
+| `/practice` commands register | runtime unverified | ❌ adapter pending | ✅ dedicated server 2026-09-18 |
 | Practice world creation | runtime unverified | ❌ adapter pending | ❌ adapter pending |
 | Practice world deletion/reset | runtime unverified | ❌ adapter pending | ❌ adapter pending |
 | `/practice start overworld` | runtime unverified | ❌ adapter pending | ❌ adapter pending |
@@ -41,7 +44,7 @@ in-game yet on any version, so no cell is ✅.
 | Completion detection | runtime unverified | ❌ adapter pending | ❌ adapter pending |
 | Statistics | runtime unverified | ❌ adapter pending | ❌ adapter pending |
 | Seed list | runtime unverified | ❌ adapter pending | ❌ adapter pending |
-| Seed search | runtime unverified (lava presets need a stage-B chunk verifier) | ❌ adapter pending | ❌ adapter pending |
+| Seed search | runtime unverified (lava presets need a stage-B chunk verifier) | ❌ adapter pending | ✅ dispatch verified, interim analyzer only (step 18 pending) |
 | Favorites | runtime unverified | ❌ adapter pending | ❌ adapter pending |
 | GUI screens | runtime unverified | ❌ adapter pending | ❌ adapter pending |
 | Keybinds | runtime unverified | ❌ adapter pending | ❌ adapter pending |

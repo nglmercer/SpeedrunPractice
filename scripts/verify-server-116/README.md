@@ -32,12 +32,11 @@ Copy-Item scripts/verify-server-116/presets/*.json `
 $env:JAVA_HOME = '<jdk17>'
 ./gradlew :versions:fabric-1.16.1:runServer --console=plain
 # wait for "Done (...)" in the log, then from another shell:
-powershell -File scripts/verify-server-116/rcon116.ps1 `
-  -Command "practice seeds search village" `
-  -Command "practice seeds results"
+powershell -ExecutionPolicy Bypass -Command `
+  "& scripts/verify-server-116/rcon116.ps1 -Command 'practice seeds search village','practice seeds results'"
 # ...repeat results until finished, then:
-powershell -File scripts/verify-server-116/rcon116.ps1 `
-  -Command "practice seeds export"
+powershell -ExecutionPolicy Bypass -Command `
+  "& scripts/verify-server-116/rcon116.ps1 -Command 'practice seeds export'"
 ```
 
 ## Cross-checking predictions (correctness, not just execution)
