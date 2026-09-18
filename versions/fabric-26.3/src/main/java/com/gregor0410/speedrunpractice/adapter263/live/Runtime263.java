@@ -28,14 +28,15 @@ import java.nio.file.Path;
  * → real Minecraft 26.3
  * </pre>
  *
- * <p>Holds the one runtime and live adapter for this game instance, ticks
- * the engine from the server tick, and shuts the runtime down with the
- * server. Live event polling lands with the events slice; until then the
- * scenario poll alone drives completion.
+ * <p>Holds the one runtime and live adapter for this game instance, feeds
+ * the engine from the server tick (live events first, then the scenario
+ * poll; either path may finish the attempt), and shuts the runtime down
+ * with the server.
  */
 public final class Runtime263 {
     private static LiveAdapter263 live;
     private static PracticeRuntime runtime;
+    private static EventPoller263 poller;
     private static boolean running;
 
     private Runtime263() {
@@ -51,6 +52,7 @@ public final class Runtime263 {
         AdapterSet263 adapter = new AdapterSet263(live);
         Path configDir = FabricLoader.getInstance().getConfigDir().resolve("speedrun-practice-new");
         runtime = SpeedrunPracticeBootstrap.create(adapter, configDir);
+        poller = new EventPoller263(live);
         try {
             adapter.commands().register(PracticeCommands.buildTree(), runtime.asCommandExecutor());
         } catch (PracticeException failure) {
@@ -81,6 +83,9 @@ public final class Runtime263 {
         }
         try {
             PracticeState before = currentState();
+            // Live events first (timer triggers, event completion), then the
+            // scenario poll; either path may finish the attempt.
+            poller.poll(runtime);
             runtime.tick();
             PracticeState after = currentState();
             if (before == PracticeState.RUNNING && after == PracticeState.COMPLETED) {

@@ -2,7 +2,6 @@ package com.gregor0410.speedrunpractice.adapter263.live;
 
 import com.gregor0410.speedrunpractice.adapter263.AdapterSet263;
 import com.gregor0410.speedrunpractice.adapter263.RegistryIds;
-import com.gregor0410.speedrunpractice.adapter263.Seeds263;
 import com.gregor0410.speedrunpractice.common.adapter.Capability;
 import com.gregor0410.speedrunpractice.common.adapter.CommandAdapter;
 import com.gregor0410.speedrunpractice.common.adapter.DragonAdapter;
@@ -22,19 +21,23 @@ import com.gregor0410.speedrunpractice.common.api.PracticePosition;
 import com.gregor0410.speedrunpractice.common.api.PracticePreset;
 import com.gregor0410.speedrunpractice.common.api.PracticeResult;
 import com.gregor0410.speedrunpractice.common.api.PracticeWorld;
-import com.gregor0410.speedrunpractice.common.checkpoint.PracticeCheckpoint;
-import com.gregor0410.speedrunpractice.common.loadout.Loadout;
 import com.gregor0410.speedrunpractice.common.seeds.SeedAnalyzer;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.Level;
 
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
- * Live 26.3 adapter behind the {@link AdapterSet263} shell. Step 17a wires
- * commands (plus interim seeds/registry so searches run); worlds, players,
- * inventories, structures, portals, dragons and GUI stay pending until
- * their slices land. Single-player scope: at most one server, one
+ * Live 26.3 adapter behind the {@link AdapterSet263} shell. Commands,
+ * seeds (real worldgen analysis), worlds, players, inventories and interim
+ * registry are wired; structures, portals, dragons and GUI stay pending
+ * until their slices land. Single-player scope: at most one server, one
  * practicing player, and one active practice at a time.
  */
 public final class LiveAdapter263 implements MinecraftAdapter {
@@ -42,7 +45,10 @@ public final class LiveAdapter263 implements MinecraftAdapter {
 
     private volatile MinecraftServer server;
     private final CommandAdapter commands = new LiveCommands263();
-    private final SeedAnalyzer seeds = new Seeds263();
+    private final SeedAnalyzer seeds = new SeedAnalyzer263(this);
+    private final WorldAdapter worlds = new LiveWorlds263(this);
+    private final PlayerAdapter players = new LivePlayers263(this);
+    private final InventoryAdapter inventories = new LiveInventories263(this);
 
     private final RegistryAdapter registries = new RegistryAdapter() {
         @Override
@@ -58,109 +64,6 @@ public final class LiveAdapter263 implements MinecraftAdapter {
         @Override
         public int maxStackSize(String id) {
             return 64;
-        }
-    };
-
-    private final WorldAdapter worlds = new WorldAdapter() {
-        @Override
-        public PracticeWorld createPracticeWorld(long seed, PracticeWorldOptions options) throws PracticeException {
-            throw pending("createPracticeWorld");
-        }
-
-        @Override
-        public void deletePracticeWorld(PracticeWorld world) throws PracticeException {
-            throw pending("deletePracticeWorld");
-        }
-
-        @Override
-        public void resetPracticeWorld(PracticeWorld world, long seed, PracticeWorldOptions options)
-                throws PracticeException {
-            throw pending("resetPracticeWorld");
-        }
-
-        @Override
-        public PracticePosition spawnPosition(PracticeWorld world) throws PracticeException {
-            throw pending("spawnPosition");
-        }
-    };
-
-    private final PlayerAdapter players = new PlayerAdapter() {
-        @Override
-        public void teleport(PracticePlayer player, PracticePosition position) throws PracticeException {
-            throw pending("teleport");
-        }
-
-        @Override
-        public void setHealth(PracticePlayer player, double health) throws PracticeException {
-            throw pending("setHealth");
-        }
-
-        @Override
-        public void setFood(PracticePlayer player, int food) throws PracticeException {
-            throw pending("setFood");
-        }
-
-        @Override
-        public void clearEffects(PracticePlayer player) throws PracticeException {
-            throw pending("clearEffects");
-        }
-
-        @Override
-        public void applyLoadout(PracticePlayer player, Loadout loadout) throws PracticeException {
-            throw pending("applyLoadout");
-        }
-
-        @Override
-        public void resetPlayer(PracticePlayer player) throws PracticeException {
-            throw pending("resetPlayer");
-        }
-
-        @Override
-        public PracticePosition getPosition(PracticePlayer player) throws PracticeException {
-            throw pending("getPosition");
-        }
-
-        @Override
-        public double getHealth(PracticePlayer player) throws PracticeException {
-            throw pending("getHealth");
-        }
-
-        @Override
-        public int getFood(PracticePlayer player) throws PracticeException {
-            throw pending("getFood");
-        }
-
-        @Override
-        public PracticeWorld getWorld(PracticePlayer player) throws PracticeException {
-            throw pending("getWorld");
-        }
-
-        @Override
-        public PracticeCheckpoint.PlayerSnapshot capturePlayerState(PracticePlayer player) throws PracticeException {
-            throw pending("capturePlayerState");
-        }
-
-        @Override
-        public void restorePlayerState(PracticePlayer player, PracticeCheckpoint.PlayerSnapshot snapshot)
-                throws PracticeException {
-            throw pending("restorePlayerState");
-        }
-    };
-
-    private final InventoryAdapter inventories = new InventoryAdapter() {
-        @Override
-        public void applyLoadout(PracticePlayer player, Loadout loadout) throws PracticeException {
-            throw pending("inventory.applyLoadout");
-        }
-
-        @Override
-        public Loadout captureLoadout(PracticePlayer player, String id) throws PracticeException {
-            throw pending("inventory.captureLoadout");
-        }
-
-        @Override
-        public void clear(PracticePlayer player) throws PracticeException {
-            throw pending("inventory.clear");
         }
     };
 
@@ -253,6 +156,12 @@ public final class LiveAdapter263 implements MinecraftAdapter {
         }
     };
 
+    private final Map<ResourceKey<Level>, LiveWorld263> byKey =
+            Collections.synchronizedMap(new HashMap<ResourceKey<Level>, LiveWorld263>());
+
+    /** The scenario's world: set on create/reset, cleared on delete. */
+    private volatile LiveWorld263 currentWorld;
+
     /** The server currently running the game, or null outside a session. */
     public MinecraftServer server() {
         return server;
@@ -260,6 +169,33 @@ public final class LiveAdapter263 implements MinecraftAdapter {
 
     public void setServer(MinecraftServer server) {
         this.server = server;
+        if (server == null) {
+            byKey.clear();
+            currentWorld = null;
+        }
+    }
+
+    /** Remembers one created practice world for handle resolution. */
+    void track(LiveWorld263 handle) {
+        byKey.put(handle.level().dimension(), handle);
+    }
+
+    /** Handle for a live level key, or null when untracked. */
+    LiveWorld263 tracked(ResourceKey<Level> key) {
+        return byKey.get(key);
+    }
+
+    LiveWorld263 currentWorld() {
+        return currentWorld;
+    }
+
+    void setCurrentWorld(LiveWorld263 currentWorld) {
+        this.currentWorld = currentWorld;
+    }
+
+    /** Forgets a tracked level key. */
+    void forget(ResourceKey<Level> key) {
+        byKey.remove(key);
     }
 
     @Override
@@ -331,5 +267,22 @@ public final class LiveAdapter263 implements MinecraftAdapter {
     private static PracticeException.AdapterException pending(String operation) {
         return new PracticeException.AdapterException("26.3 adapter: " + operation + " is pending the port",
                 PENDING + " (" + operation + ")");
+    }
+
+    /** Resolves the backing level for a practice handle, failing readably. */
+    static ServerLevel requireLevel(LiveAdapter263 adapter,
+            com.gregor0410.speedrunpractice.common.api.PracticeWorld world, String operation)
+            throws PracticeException {
+        if (!(world instanceof LiveWorld263)) {
+            throw new PracticeException(operation + " got a foreign world handle",
+                    "That practice world belongs to another session. Stop and start it again.");
+        }
+        ServerLevel backing = ((LiveWorld263) world).level();
+        MinecraftServer server = adapter.server();
+        if (server == null || server.getLevel(backing.dimension()) == null) {
+            throw new PracticeException(operation + " found no live world",
+                    "That practice world is gone (the session ended?). Stop and start it again.");
+        }
+        return backing;
     }
 }

@@ -238,8 +238,8 @@ final class FakeMinecraftAdapter implements MinecraftAdapter {
     };
 
     // Like every other fake here, seeds never match: the shell tests only
-    // need an identity to check delegation; interim analysis belongs to
-    // Seeds263 until real 26.3 seed math lands.
+    // need an identity to check delegation; real analysis belongs to
+    // SeedAnalyzer263 (unrunnable without the game).
     private final SeedAnalyzer seeds = new SeedAnalyzer() {
         @Override
         public SeedAnalysis analyze(long seed, SeedQuery query) {
