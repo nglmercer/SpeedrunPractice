@@ -8,11 +8,11 @@
 ./gradlew :versions:fabric-1.16.1:build :versions:fabric-1.21.1:build :versions:fabric-26.3:build
 sh scripts/verify-architecture.sh                   # offline import guard (no JDK needed)
 # Windows: powershell -File scripts/verify-architecture.ps1
-./gradlew build                                       # everything incl. legacy Loom (needs network)
+./gradlew build                                       # everything incl. Loom mods (needs network)
 ```
 
-Shared modules have no dependencies and compile offline; only the root Loom
-project downloads Minecraft artifacts.
+Shared modules have no dependencies and compile offline; only the Loom
+version modules download Minecraft artifacts.
 
 ## Tests
 

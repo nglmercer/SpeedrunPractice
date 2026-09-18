@@ -9,9 +9,9 @@ pluginManagement {
 }
 rootProject.name="speedrun_practice"
 
-// Multi-module layout (plan section 7). The root project keeps the original
-// Fabric Loom 1.16.1 runtime in src/ so the baseline build is untouched;
-// :versions:fabric-1.16.1 is the migration target holding the 1.16.1 adapter set.
+// Multi-module layout (plan section 7). The root project is aggregator-only;
+// :versions:fabric-1.16.1 is the real 1.16.1 Fabric/Loom mod (runtime
+// migrated from root src/ in plan step 12).
 include ':common'
 include ':practices'
 include ':seed-search'

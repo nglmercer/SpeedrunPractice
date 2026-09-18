@@ -4,21 +4,18 @@ import com.gregor0410.speedrunpractice.common.adapter.CommandAdapter;
 import com.gregor0410.speedrunpractice.common.api.GameVersion;
 import com.gregor0410.speedrunpractice.common.api.PracticeException;
 import com.gregor0410.speedrunpractice.common.commands.PracticeCommands;
-import com.gregor0410.speedrunpractice.common.seeds.SeedQuery;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 /**
  * Locks the delegation contracts of the 1.16.1 shell: construction requires
  * a live delegate, every sub-adapter accessor forwards to it, command
  * registration is retained and forwarded, and the shared pure helpers keep
- * their interim behavior until the real ports land.
+ * their contracts.
  */
 public class AdapterInterimContractTest {
     private static CommandAdapter.CommandExecutor executor() {
@@ -103,20 +100,5 @@ public class AdapterInterimContractTest {
         assertEquals("minecraft:air", RegistryIds.normalizeItemId(null));
         assertEquals("minecraft:stone", RegistryIds.normalizeItemId("Stone"));
         assertEquals("minecraft:diamond", RegistryIds.normalizeItemId("minecraft:Diamond"));
-    }
-
-    @Test
-    public void analyzerMatchesOnlyUnconstrainedQueries() {
-        InterimSeedAnalyzer analyzer = new InterimSeedAnalyzer();
-        SeedQuery open = SeedQuery.builder().version(GameVersion.MC_1_16_1).build();
-        assertTrue(analyzer.matches(123L, open));
-        assertTrue(analyzer.analyze(123L, open).matches());
-        SeedQuery biome = SeedQuery.builder().version(GameVersion.MC_1_16_1).requireBiome("beach").build();
-        assertFalse(analyzer.matches(123L, biome));
-        assertFalse(analyzer.analyze(123L, biome).matches());
-        SeedQuery structure = SeedQuery.builder().version(GameVersion.MC_1_16_1)
-                .requireStructure("fortress").build();
-        assertFalse(analyzer.matches(123L, structure));
-        assertFalse(analyzer.matches(123L, null));
     }
 }

@@ -16,20 +16,21 @@ game: mod load, entrypoint wiring, Brigadier registration, and
 ## Setup
 
 ```powershell
-# from the repo root
-Copy-Item scripts/verify-server-116/server.properties run/server.properties
-"eula=true" | Out-File -Encoding ascii run/eula.txt
+# from the repo root ($run is the module run dir)
+$run = 'versions/fabric-1.16.1/run'
+Copy-Item scripts/verify-server-116/server.properties "$run/server.properties"
+"eula=true" | Out-File -Encoding ascii "$run/eula.txt"
 New-Item -ItemType Directory -Force `
-  -Path run/config/speedrun-practice-new/seeds/searches | Out-Null
+  -Path "$run/config/speedrun-practice-new/seeds/searches" | Out-Null
 Copy-Item scripts/verify-server-116/presets/*.json `
-  run/config/speedrun-practice-new/seeds/searches/
+  "$run/config/speedrun-practice-new/seeds/searches/"
 ```
 
 ## Run
 
 ```powershell
 $env:JAVA_HOME = '<jdk17>'
-./gradlew runServer --console=plain
+./gradlew :versions:fabric-1.16.1:runServer --console=plain
 # wait for "Done (...)" in the log, then from another shell:
 powershell -File scripts/verify-server-116/rcon116.ps1 `
   -Command "practice seeds search village" `
@@ -42,10 +43,11 @@ powershell -File scripts/verify-server-116/rcon116.ps1 `
 ## Cross-checking predictions (correctness, not just execution)
 
 1. Read the export at
-   `run/config/speedrun-practice-new/seeds/exports/search-*.json`: it holds
-   the found seed plus predicted structure XZ locations.
+   `versions/fabric-1.16.1/run/config/speedrun-practice-new/seeds/exports/search-*.json`:
+   it holds the found seed plus predicted structure XZ locations.
 2. Stop the server, set `level-seed=<found seed>` in
-   `run/server.properties`, delete `run/world*`, restart.
+   `versions/fabric-1.16.1/run/server.properties`, delete
+   `versions/fabric-1.16.1/run/world*`, restart.
 3. From the predicted village doorstep the game must agree:
    `execute positioned <X> 64 <Z> run locate Village` should report the
    same spot a few blocks away (prediction is the start-chunk center;

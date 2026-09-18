@@ -11,10 +11,10 @@ multiplayer Ranked clone (plan sections 45, 54).
 :practices               version-independent scenarios + shared PracticeRuntime, depends on :common
 :seed-search             cancellable search + cache, depends on :common
 :test-support            known seeds + fake adapters for tests
-:versions:fabric-1.16.1  1.16.1 adapter set (primary speedrunning build)
+:versions:fabric-1.16.1  1.16.1 Fabric/Loom mod (primary speedrunning build)
 :versions:fabric-1.21.1  1.21.1 adapter set (modern compatibility build)
 :versions/fabric-26.3    26.3 adapter set (latest supported build)
-(root project)           original Fabric Loom 1.16.1 runtime in src/ (untouched)
+(root project)           aggregator only (coordinates + shared-module repos); no sources
 ```
 
 Dependency direction is strictly `common <- practices <- version modules`.
@@ -62,6 +62,6 @@ that contract).
   can block a Minecraft target (plan section 34).
 - SpeedRunIGT stays optional behind `TimerAdapter`; the internal monotonic
   timer always works without it.
-- Legacy `src/` runtime is preserved untouched until each behavior reaches
-  parity behind an adapter (plan section 5); see
+- Legacy 1.16.1 runtime is preserved in `:versions:fabric-1.16.1` until each
+  behavior reaches parity behind an adapter (plan section 5); see
   `docs/original-feature-matrix.md`.

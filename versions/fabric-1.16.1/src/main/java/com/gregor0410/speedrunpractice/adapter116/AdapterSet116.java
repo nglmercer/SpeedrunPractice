@@ -21,10 +21,9 @@ import com.gregor0410.speedrunpractice.common.util.SpeedrunLogger;
 /**
  * 1.16.1 adapter set (primary speedrunning build). Pure delegation shell:
  * every live call forwards to the version-runtime delegate injected by the
- * entrypoint (root Loom project until the section 11 migration moves the
- * live code into this module). This module stays Minecraft-free so the
- * offline build keeps proving the seam; it contains no {@code pending()}
- * fallback — a missing delegate is a wiring bug, not a runtime state.
+ * entrypoint ({@code LiveAdapter116} in this module since the step 12
+ * migration). It contains no {@code pending()} fallback — a missing
+ * delegate is a wiring bug, not a runtime state.
  */
 public final class AdapterSet116 implements MinecraftAdapter {
     private final MinecraftAdapter live;

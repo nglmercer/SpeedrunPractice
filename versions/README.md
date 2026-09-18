@@ -10,9 +10,9 @@
 
 Each module implements `MinecraftAdapter` (`AdapterSet116/121/263`) with the
 eleven sub-adapters plus `SeedAnalyzer`, and reports gaps via
-`supports(Capability)`. The legacy 1.16.1 Loom runtime in root `src/` stays
-authoritative in-game until each adapter method reaches parity; adapter
-methods that still need live Minecraft calls fail with a domain
+`supports(Capability)`. The 1.16.1 module is a real Fabric/Loom mod (legacy
+runtime + new live adapter, migrated from root `src/` in plan step 12);
+adapter methods that still need live Minecraft calls fail with a domain
 `AdapterException` carrying a user-facing message, never an NPE.
 
 ## Capability matrix (initial)
@@ -36,13 +36,12 @@ Per-version runtime status lives in `docs/version-status.md`.
 
 ## Loom wiring
 
-1.16.1 is live: `AdapterSet116` is a delegation shell (no `pending()`),
-and the implementation lives in root
-`src/main/java/.../adapter116/live/` (`LiveAdapter116` + sub-adapters +
-`Runtime116` bootstrap) until plan step 11 moves it into this module and
-converts the module to Loom. The 1.21.1 module still compiles as plain
-Java so shared code stays verifiable offline. Full in-game wiring per
-remaining module:
+1.16.1 is a full Loom module: `AdapterSet116` delegates to the live
+`adapter116/live/` implementation (`LiveAdapter116` + sub-adapters +
+`Runtime116` bootstrap) in this module's `src/`, and the module builds the
+remapped playable jar. The 1.21.1 module still compiles as plain Java so
+shared code stays verifiable offline. Full in-game wiring per remaining
+module:
 
 ```text
 versions/fabric-<mc>/

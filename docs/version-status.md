@@ -12,7 +12,7 @@ or compilation alone (plan section 98). Until then the vocabulary is:
 
 1.16.1 runs the new runtime for real: `Runtime116` wires the shared engine
 to `LiveAdapter116` (worlds, players, inventories, structures, portals,
-dragon, registry, commands, timer) inside the root Loom jar, and
+dragon, registry, commands, timer) inside the 1.16.1 module jar, and
 `AdapterSet116` is a delegation shell with no `pending()` left. 1.21.1 and
 26.3 are still compilation-checked skeletons. Nothing below has run
 in-game yet on any version, so no cell is ✅.
@@ -83,10 +83,11 @@ needs version block APIs. No row flips to ✅ until exercised in-game.
 
 These prove shared logic only. They never flip a runtime cell above to ✅.
 
-## Legacy baseline (untouched root `src/` runtime, 1.16.1 only)
+## Legacy baseline (migrated into `:versions:fabric-1.16.1`, 1.16.1 only)
 
-The pre-existing 1.16.1 Fabric mod remains the only playable jar until the
-new 1.16.1 adapter reaches parity practice by practice (plan section 5).
+The pre-existing 1.16.1 Fabric mod code now lives in the version module next
+to the new live adapter and remains the only playable jar until the new
+1.16.1 adapter reaches parity practice by practice (plan section 5).
 Baseline capabilities live in `docs/original-feature-matrix.md`; nothing was
 re-verified as part of the new-architecture work.
 

@@ -1,164 +1,18 @@
-buildscript {
-    repositories {
-        maven {
-            name = 'Fabric'
-            url = 'https://maven.fabricmc.net/'
-        }
-        mavenCentral()
-    }
-    dependencies {
-        // Applied by class below: this build also uses LoomNoRemapGradlePlugin
-        // from the same artifact, and Gradle cannot resolve both plugin
-        // markers at once.
-        classpath 'net.fabricmc:fabric-loom:1.18.2'
-    }
-}
-
-plugins {
-    id 'maven-publish'
-}
-
-apply plugin: net.fabricmc.loom.LoomGradlePlugin
+// Aggregator-only root (plan step 12): the 1.16.1 Fabric/Loom runtime lives
+// in :versions:fabric-1.16.1. This file only pins shared coordinates and
+// repositories for the plain-Java modules; each Loom module carries its own
+// buildscript + plugin wiring (see versions/fabric-1.16.1/build.gradle and
+// versions/fabric-26.3/build.gradle).
 
 version = project.mod_version
 group = project.maven_group
 
 // Shared modules resolve JUnit and other plain-Java deps from Maven Central.
-// (Root Loom repositories below apply to the root project only.)
 // All modules share the mod version so Jar-in-Jar nested jars report a real
 // version instead of "unspecified" in the loader log.
 subprojects {
     version = rootProject.property('mod_version')
     repositories {
         mavenCentral()
-    }
-}
-
-repositories {
-    // Add repositories to retrieve artifacts from in here.
-    // You should only use this when depending on other mods because
-    // Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
-    // See https://docs.gradle.org/current/userguide/declaring_repositories.html
-    // for more information about repositories.
-    maven{url "https://maven.shedaniel.me/"}
-    maven{url "https://jitpack.io"}
-    mavenLocal()
-}
-
-configurations {
-    modIncludeImplementation
-
-    include.extendsFrom modIncludeImplementation
-    modImplementation.extendsFrom modIncludeImplementation
-
-    // Resolvable view of the new-runtime modules for fat-jar bundling below.
-    bundleLibs {
-        canBeConsumed = false
-        canBeResolved = true
-    }
-}
-
-dependencies {
-    // To change the versions see the gradle.properties file
-    minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
-    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-    // Fabric API. This is technically optional, but you probably want it anyway.
-    modIncludeImplementation(fabricApi.module("fabric-api-base",project.fabric_version))
-    modIncludeImplementation(fabricApi.module("fabric-commands-v0",project.fabric_version))
-    modIncludeImplementation(fabricApi.module("fabric-command-api-v1",project.fabric_command_api_version))
-    modIncludeImplementation(fabricApi.module("fabric-resource-loader-v0",project.fabric_version))
-    modIncludeImplementation(fabricApi.module("fabric-lifecycle-events-v1",project.fabric_version))
-    modIncludeImplementation(fabricApi.module("fabric-key-binding-api-v1",project.fabric_version))
-    // New runtime (plan step 02): shared engine + 1.16.1 adapter shell.
-    // Plain `implementation` (not `modIncludeImplementation`): the full Loom
-    // plugin reads `mod*` project jars eagerly at configuration time, which
-    // breaks clean builds; the classes are bundled into the mod jar by the
-    // `jar` task below instead of Jar-in-Jar (shared modules carry no
-    // fabric.mod.json, so nesting would only add loader noise).
-    implementation project(':common')
-    implementation project(':practices')
-    implementation project(':seed-search')
-    implementation project(':versions:fabric-1.16.1')
-    bundleLibs project(':common')
-    bundleLibs project(':practices')
-    bundleLibs project(':seed-search')
-    bundleLibs project(':versions:fabric-1.16.1')
-    modIncludeImplementation("com.github.Gregor0410:PTLib:906f01fdb7")
-    modIncludeImplementation("me.shedaniel.cloth:config-2:4.6.0"){
-        exclude(group: "net.fabricmc.fabric-api")
-    }
-    compileOnlyApi "com.github.RedLime:SpeedRunIGT:f742cbaf81"
-}
-
-processResources {
-    inputs.property "version", project.version
-    filteringCharset "UTF-8"
-
-    filesMatching("fabric.mod.json") {
-        expand "version": project.version
-    }
-}
-
-def targetJavaVersion = 8
-tasks.withType(JavaCompile).configureEach {
-    // ensure that the encoding is set to UTF-8, no matter what the system default is
-    // this fixes some edge cases with special characters not displaying correctly
-    // see http://yodaconditions.net/blog/fix-for-java-file-encoding-problems-with-gradle.html
-    // If Javadoc is generated, this must be specified in that task too.
-    it.options.encoding = "UTF-8"
-    if (targetJavaVersion >= 10 || JavaVersion.current().isJava10Compatible()) {
-        it.options.release = targetJavaVersion
-    }
-}
-
-java {
-    def javaVersion = JavaVersion.toVersion(targetJavaVersion)
-    if (JavaVersion.current() < javaVersion) {
-        toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
-    }
-    // Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
-    // if it is present.
-    // If you remove this line, sources will not be generated.
-    withSourcesJar()
-}
-
-base {
-    archivesName = project.archives_base_name
-}
-
-jar {
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    from("LICENSE") {
-        rename { "${it}_${project.archives_base_name}" }
-    }
-    // Bundle the new-runtime modules' classes. The closure defers artifact
-    // resolution to execution time so Loom never reads the module jars
-    // during configuration (which breaks clean builds).
-    from { configurations.bundleLibs.collect { zipTree(it) } }
-}
-
-// configure the maven publication
-publishing {
-    publications {
-        mavenJava(MavenPublication) {
-            from components.java
-        }
-    }
-
-    // See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
-    repositories {
-        // Add repositories to publish to here.
-        // Notice: This block does NOT have the same function as the block in the top level.
-        // The repositories here will be used for publishing your artifact, not for
-        // retrieving dependencies.
-        maven{
-            name="GitHubPackages"
-            url="https://maven.pkg.github.com/gregor0410/SpeedrunPractice"
-            credentials{
-                username = System.getenv("GITHUB_ACTOR")
-                password = System.getenv("GITHUB_TOKEN")
-            }
-        }
     }
 }

@@ -1,10 +1,10 @@
 name: CI Build and Release
 
-# Plan section 6: CI must show what is actually supported. The version modules
-# compile as plain Java (adapter skeletons whose live methods throw pending),
-# so their jars are NEVER playable mods and must never be uploaded or released
-# as such. Only the legacy 1.16.1 Loom runtime ships until a version adapter
-# is wired, tested in-game, and marked supported in docs/version-status.md.
+# Plan section 6: CI must show what is actually supported. 1.16.1 builds a
+# real Fabric mod jar (the migrated runtime). The 1.21.1/26.3 modules are
+# still compilation-checked skeletons, so their jars are NEVER playable mods
+# and must never be uploaded or released as such until each version is wired,
+# tested in-game, and marked supported in docs/version-status.md.
 on:
   push:
     branches: [ main, master ]
@@ -38,9 +38,10 @@ jobs:
         run: sh scripts/verify-architecture.sh
 
   adapter-compilation:
-    # Temporary plan-section-6 category: proves the adapter skeletons compile
-    # against the shared engine. NOT a playable mod build; produces no release
-    # artifact. Replaced by real per-version Loom builds as each version ports.
+    # Temporary plan-section-6 category: proves the remaining adapter
+    # skeletons compile against the shared engine. NOT a playable mod build;
+    # produces no release artifact. Replaced by real per-version Loom builds
+    # as each version ports (1.16.1 already has one: mod-116 below).
     name: ${{ matrix.category }} (compilation check, not a playable mod)
     needs: shared-tests
     runs-on: ubuntu-latest
@@ -48,9 +49,6 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - module: fabric-1.16.1
-            category: new-116-adapter
-            java-version: '17'
           - module: fabric-1.21.1
             category: 121-runtime
             java-version: '21'
@@ -82,9 +80,10 @@ jobs:
       - name: Guard supported versions (fail on support claims with pending code)
         run: sh scripts/verify-supported-versions.sh
 
-  legacy-116-runtime:
-    # The only playable mod jar: the untouched legacy 1.16.1 Fabric runtime.
-    name: legacy-116-runtime
+  mod-116:
+    # The only playable mod jar: the migrated 1.16.1 Fabric runtime
+    # (legacy + new live adapter), remapped by Loom.
+    name: mod-116
     needs: shared-tests
     runs-on: ubuntu-latest
     steps:
@@ -101,34 +100,46 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
-      - name: Build legacy runtime
-        run: ./gradlew :build -x :common:build -x :practices:build -x :seed-search:build -x :test-support:build
+      - name: Build 1.16.1 mod
+        run: ./gradlew :versions:fabric-1.16.1:build
 
-      - name: Upload legacy jar
+      - name: Validate mod jar contents
+        run: |
+          jar=$(ls versions/fabric-1.16.1/build/libs/speedrun-practice-1.16.1-*.jar | grep -v '\-dev\.jar' | grep -v '\-sources' | head -n 1)
+          echo "Validating $jar"
+          unzip -l "$jar" | grep -q fabric.mod.json
+          unzip -l "$jar" | grep -q SpeedrunPractice.mixins.json
+          unzip -l "$jar" | grep -q 'com/gregor0410/speedrunpractice/SpeedrunPractice.class'
+          unzip -l "$jar" | grep -q 'com/gregor0410/speedrunpractice/practices/PracticeRuntime.class'
+
+      - name: Upload 1.16.1 mod jar
         uses: actions/upload-artifact@v4
         with:
-          name: legacy-116-runtime
-          path: build/libs/*.jar
+          name: mod-116
+          path: |
+            versions/fabric-1.16.1/build/libs/speedrun-practice-1.16.1-*.jar
+            !versions/fabric-1.16.1/build/libs/*-dev.jar
+            !versions/fabric-1.16.1/build/libs/*-sources*.jar
 
   release:
     # Plan sections 6, 72, 98: a release ships only modules with no pending()
-    # on any normal practice path. The adapter skeletons always contain
-    # pending(), so this job depends only on shared-tests + legacy-116-runtime
-    # and downloads only the legacy jar.
-    needs: [ shared-tests, legacy-116-runtime ]
+    # on any normal practice path. The 1.21.1/26.3 skeletons always contain
+    # pending(), so this job depends only on shared-tests + mod-116 and
+    # refuses any skeleton jar that slips into the artifacts.
+    needs: [ shared-tests, mod-116 ]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
-      - name: Download legacy jar only
+      - name: Download 1.16.1 jar only
         uses: actions/download-artifact@v4
         with:
-          name: legacy-116-runtime
+          name: mod-116
           path: artifacts
 
       - name: Guard against pending adapter code in the release
         run: |
           ls artifacts
-          if ls artifacts/*1.16.1*.jar artifacts/*1.21.1*.jar artifacts/*26.3*.jar >/dev/null 2>&1; then
+          if ls artifacts/*1.21.1*.jar artifacts/*26.3*.jar >/dev/null 2>&1; then
             echo "Refusing to release: adapter skeleton jars must never ship as mods" >&2
             exit 1
           fi

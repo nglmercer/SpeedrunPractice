@@ -237,7 +237,20 @@ final class FakeMinecraftAdapter implements MinecraftAdapter {
         }
     };
 
-    private final SeedAnalyzer seeds = new InterimSeedAnalyzer();
+    // Like every other fake here, seeds never match: the shell tests only
+    // need an identity to check delegation, and real analysis belongs to
+    // SeedAnalyzer116 (unrunnable without the game).
+    private final SeedAnalyzer seeds = new SeedAnalyzer() {
+        @Override
+        public SeedAnalysis analyze(long seed, SeedQuery query) {
+            return SeedAnalysis.mismatch();
+        }
+
+        @Override
+        public boolean matches(long seed, SeedQuery query) {
+            return false;
+        }
+    };
 
     void claim(Capability capability) {
         supported.add(capability);

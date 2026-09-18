@@ -77,12 +77,12 @@ To use a specific list of seeds:
 
 ## Building from source
 
-Requires JDK 17. Shared modules compile offline; only the legacy Loom build downloads Minecraft artifacts (needs network).
+Requires JDK 17. Shared modules compile offline; only the Loom version modules download Minecraft artifacts (needs network).
 
 ```bash
 ./gradlew :common:build :practices:build :seed-search:build :test-support:build
 ./gradlew :versions:fabric-1.16.1:build :versions:fabric-1.21.1:build :versions:fabric-26.3:build
-./gradlew build   # everything, incl. the legacy 1.16.1 runtime
+./gradlew build   # everything, incl. the 1.16.1 Fabric mod (build/libs of its module)
 ```
 
 On Windows use `.\gradlew.bat` instead of `./gradlew`. The offline architecture guard (no JDK needed) is `sh scripts/verify-architecture.sh`, or `powershell -File scripts/verify-architecture.ps1` on Windows.
