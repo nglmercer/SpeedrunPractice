@@ -19,6 +19,7 @@ import com.gregor0410.speedrunpractice.common.scenario.ScenarioDefinition;
 import com.gregor0410.speedrunpractice.common.scenario.ScenarioLoader;
 import com.gregor0410.speedrunpractice.common.seeds.SeedQuery;
 import com.gregor0410.speedrunpractice.common.seeds.SeedRequest;
+import com.gregor0410.speedrunpractice.common.seeds.SeedSearchPreset;
 import com.gregor0410.speedrunpractice.common.seeds.SeedSearchTask;
 import com.gregor0410.speedrunpractice.common.seeds.SeedSource;
 import com.gregor0410.speedrunpractice.common.seeds.SeedSources;
@@ -502,7 +503,14 @@ public final class PracticeRuntime {
         }
     }
 
-    private SeedQuery queryFromSettings(PracticeSettings settings) {
+    /**
+     * Builds the analyzer query from run settings (plan section 5):
+     * {@code seed.value}/{@code seed.list} become constraints for the fixed
+     * and imported sources, and {@code seed.filters} (comma-separated
+     * {@code type=value} pairs from the scenario definition) becomes
+     * biome/structure/bastion/ring/lava requirements for the search source.
+     */
+    private SeedQuery queryFromSettings(PracticeSettings settings) throws PracticeException {
         SeedQuery.Builder builder = SeedQuery.builder().version(adapter.version());
         if (settings.get("seed.value") != null) {
             builder.constraint("seed.value", settings.get("seed.value"));
@@ -510,7 +518,87 @@ public final class PracticeRuntime {
         if (settings.get("seed.list") != null) {
             builder.constraint("seed.list", settings.get("seed.list"));
         }
+        String filters = settings.get("seed.filters");
+        if (filters != null && !filters.trim().isEmpty()) {
+            for (String entry : filters.split(",")) {
+                applySeedFilter(builder, entry);
+            }
+        }
         return builder.build();
+    }
+
+    private static void applySeedFilter(SeedQuery.Builder builder, String entry) throws PracticeException {
+        String clean = entry == null ? "" : entry.trim();
+        int equals = clean.indexOf('=');
+        if (equals <= 0 || equals == clean.length() - 1) {
+            throw filterFailure(entry, "must look like \"type=value\"");
+        }
+        String type = clean.substring(0, equals).trim();
+        String value = clean.substring(equals + 1).trim();
+        if ("biome".equalsIgnoreCase(type)) {
+            builder.requireBiome(value);
+        } else if ("structure".equalsIgnoreCase(type)) {
+            builder.requireStructure(structureFilterId(value), structureFilterDistance(entry, value));
+        } else if ("bastionType".equalsIgnoreCase(type)) {
+            if (!SeedSearchPreset.isBastionType(value)) {
+                throw filterFailure(entry, "unknown bastion type (housing, stables, treasure or bridge)");
+            }
+            builder.bastionType(value.toLowerCase());
+        } else if ("strongholdRing".equalsIgnoreCase(type)) {
+            builder.strongholdRing(positiveFilterNumber(entry, value, "strongholdRing"));
+        } else if ("lava".equalsIgnoreCase(type)) {
+            if ("true".equalsIgnoreCase(value)) {
+                builder.requireLava();
+            } else if (!"false".equalsIgnoreCase(value)) {
+                throw filterFailure(entry, "\"lava\" must be true or false");
+            }
+        } else {
+            throw filterFailure(entry, "unknown filter type \"" + type
+                    + "\" (biome, structure, bastionType, strongholdRing or lava)");
+        }
+    }
+
+    /**
+     * Splits a {@code structure} filter value ({@code <id>[:<maxDistance>]});
+     * the id itself may be namespaced, so only a numeric last segment counts
+     * as a distance.
+     */
+    private static String structureFilterId(String value) {
+        int lastColon = value.lastIndexOf(':');
+        if (lastColon <= 0 || lastColon == value.length() - 1) {
+            return value;
+        }
+        try {
+            Integer.parseInt(value.substring(lastColon + 1));
+            return value.substring(0, lastColon);
+        } catch (NumberFormatException notDistance) {
+            return value;
+        }
+    }
+
+    private static int structureFilterDistance(String entry, String value) throws PracticeException {
+        String id = structureFilterId(value);
+        if (id.length() == value.length()) {
+            return Integer.MAX_VALUE;
+        }
+        return positiveFilterNumber(entry, value.substring(id.length() + 1), "structure distance");
+    }
+
+    private static int positiveFilterNumber(String entry, String value, String label) throws PracticeException {
+        try {
+            int parsed = Integer.parseInt(value.trim());
+            if (parsed >= 1) {
+                return parsed;
+            }
+        } catch (NumberFormatException bad) {
+            // Falls through to the readable failure below.
+        }
+        throw filterFailure(entry, "\"" + label + "\" must be a number >= 1");
+    }
+
+    private static PracticeException filterFailure(String entry, String detail) {
+        return new PracticeException("Bad seed filter \"" + entry + "\": " + detail,
+                "Bad seed filter \"" + entry + "\": " + detail + ".");
     }
 
     private long drawSeed(SeedSource source, String sourceName) throws PracticeException {

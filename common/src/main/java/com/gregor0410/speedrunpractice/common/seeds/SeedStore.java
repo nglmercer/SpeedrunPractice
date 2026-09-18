@@ -38,6 +38,7 @@ public final class SeedStore {
         Files.createDirectories(dir);
         Files.createDirectories(dir.resolve("searches"));
         Files.createDirectories(dir.resolve("imports"));
+        Files.createDirectories(dir.resolve("exports"));
     }
 
     private static String safeName(String name) {
@@ -255,6 +256,49 @@ public final class SeedStore {
             return names;
         }
         DirectoryStream<Path> stream = Files.newDirectoryStream(searches, "*.json");
+        try {
+            for (Path file : stream) {
+                String name = file.getFileName().toString();
+                names.add(name.substring(0, name.length() - ".json".length()));
+            }
+        } finally {
+            stream.close();
+        }
+        Collections.sort(names);
+        return names;
+    }
+
+    // -- result exports -------------------------------------------------------------
+
+    /**
+     * Writes search results to {@code exports/<name>.json} (pretty JSON array
+     * of {@link SeedResult} maps) and returns the file. Verification states
+     * are stored as-is; nothing here ever marks a seed verified.
+     */
+    public synchronized Path exportResults(String name, List<SeedResult> results) throws IOException {
+        if (name == null || name.trim().isEmpty()) {
+            throw new IllegalArgumentException("export name must not be empty");
+        }
+        ensureDirs();
+        List<Object> rows = new ArrayList<Object>();
+        if (results != null) {
+            for (SeedResult result : results) {
+                rows.add(result.toMap());
+            }
+        }
+        Path file = dir.resolve("exports").resolve(safeName(name.trim()) + ".json");
+        write(file, SimpleJson.toJson(rows, true));
+        return file;
+    }
+
+    /** Names (without {@code .json}) of previous result exports. */
+    public synchronized List<String> listExports() throws IOException {
+        List<String> names = new ArrayList<String>();
+        Path exports = dir.resolve("exports");
+        if (!Files.isDirectory(exports)) {
+            return names;
+        }
+        DirectoryStream<Path> stream = Files.newDirectoryStream(exports, "*.json");
         try {
             for (Path file : stream) {
                 String name = file.getFileName().toString();

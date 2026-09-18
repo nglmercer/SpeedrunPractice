@@ -16,6 +16,9 @@ public final class SeedQuery {
     private final Map<String, Integer> requiredStructures;
     private final int maxDistance;
     private final Map<String, String> constraints;
+    private final String bastionType;
+    private final int strongholdRing;
+    private final boolean lavaRequired;
 
     private SeedQuery(Builder builder) {
         this.version = builder.version;
@@ -23,6 +26,9 @@ public final class SeedQuery {
         this.requiredStructures = Collections.unmodifiableMap(new LinkedHashMap<String, Integer>(builder.requiredStructures));
         this.maxDistance = builder.maxDistance;
         this.constraints = Collections.unmodifiableMap(new LinkedHashMap<String, String>(builder.constraints));
+        this.bastionType = builder.bastionType;
+        this.strongholdRing = builder.strongholdRing;
+        this.lavaRequired = builder.lavaRequired;
     }
 
     public static Builder builder() {
@@ -52,12 +58,38 @@ public final class SeedQuery {
         return constraints;
     }
 
+    /**
+     * Required bastion subtype ({@code housing}, {@code stables},
+     * {@code treasure} or {@code bridge}); null means any type. Only
+     * meaningful together with a required bastion structure.
+     */
+    public String bastionType() {
+        return bastionType;
+    }
+
+    /** Required 1-based stronghold ring; 0 means any ring. */
+    public int strongholdRing() {
+        return strongholdRing;
+    }
+
+    /**
+     * Whether surface lava near the search origin is required. Lava needs
+     * generated chunks, so stage-A analyzers cannot verify it: they report a
+     * mismatch and lava searches must run with a chunk-generating verifier.
+     */
+    public boolean lavaRequired() {
+        return lavaRequired;
+    }
+
     public static final class Builder {
         private GameVersion version = GameVersion.MC_1_16_1;
         private String requiredBiome;
         private final Map<String, Integer> requiredStructures = new LinkedHashMap<String, Integer>();
         private int maxDistance = Integer.MAX_VALUE;
         private final Map<String, String> constraints = new LinkedHashMap<String, String>();
+        private String bastionType;
+        private int strongholdRing;
+        private boolean lavaRequired;
 
         private Builder() {
         }
@@ -103,6 +135,27 @@ public final class SeedQuery {
                 throw new IllegalArgumentException("constraint key/value must not be null");
             }
             constraints.put(key, value);
+            return this;
+        }
+
+        public Builder bastionType(String bastionType) {
+            if (bastionType != null && !SeedSearchPreset.isBastionType(bastionType)) {
+                throw new IllegalArgumentException("unknown bastion type: " + bastionType);
+            }
+            this.bastionType = bastionType == null ? null : bastionType.trim().toLowerCase();
+            return this;
+        }
+
+        public Builder strongholdRing(int ring) {
+            if (ring < 0) {
+                throw new IllegalArgumentException("stronghold ring must be >= 0");
+            }
+            this.strongholdRing = ring;
+            return this;
+        }
+
+        public Builder requireLava() {
+            this.lavaRequired = true;
             return this;
         }
 

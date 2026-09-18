@@ -12,11 +12,15 @@ import com.gregor0410.speedrunpractice.common.gui.PracticeMenuModel;
 import com.gregor0410.speedrunpractice.common.loadout.Loadout;
 import com.gregor0410.speedrunpractice.common.loadout.LoadoutCompatibility;
 import com.gregor0410.speedrunpractice.common.seeds.SeedResult;
+import com.gregor0410.speedrunpractice.common.seeds.SeedSearchPreset;
 import com.gregor0410.speedrunpractice.common.seeds.SeedSearchTask;
+import com.gregor0410.speedrunpractice.seedsearch.CancellableSeedSearch;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.OptionalLong;
+import java.util.Random;
 
 /**
  * Shared action dispatcher for the {@code /practice} command tree (plan
@@ -92,8 +96,7 @@ public final class PracticeActionExecutor implements CommandAdapter.CommandExecu
             context.feedback(searchSummary());
             return 1;
         } else if ("seeds.export".equals(action)) {
-            throw new PracticeException("Seed result export is not implemented",
-                    "Exporting search results is not available in this build yet.");
+            return seedsExport(context);
         } else if ("seeds.import".equals(action)) {
             context.feedback("Drop a seed list into " + runtime.seedStore().dir().resolve("imports")
                     + "/<name>.txt (one seed per line, '#' comments allowed), then start with "
@@ -165,10 +168,54 @@ public final class PracticeActionExecutor implements CommandAdapter.CommandExecu
         }
         if (saved == null) {
             throw new PracticeException("Unknown seed search preset \"" + preset + "\"",
-                    "Unknown search preset \"" + preset + "\". Save one first.");
+                    "Unknown search preset \"" + preset + "\". Save one under seeds/searches first.");
         }
-        throw new PracticeException("Seed search preset \"" + preset + "\" cannot run yet",
-                "Seed search presets are not runnable in this build yet.");
+        SeedSearchPreset.ParsedPreset parsed =
+                SeedSearchPreset.parse(preset, saved, runtime.adapter().version());
+        if (!parsed.query().version().equals(runtime.adapter().version())) {
+            throw new PracticeException("Seed search preset \"" + preset + "\" targets "
+                    + parsed.query().version().versionString() + " but this game is "
+                    + runtime.adapter().version().versionString(),
+                    "Preset \"" + preset + "\" is for Minecraft "
+                    + parsed.query().version().versionString() + ", not "
+                    + runtime.adapter().version().versionString() + ".");
+        }
+        if (parsed.query().lavaRequired()) {
+            throw new PracticeException("Seed search preset \"" + preset + "\" needs lava verification",
+                    "Preset \"" + preset + "\" needs lava, which requires chunk-by-chunk "
+                            + "verification that is not available in this build yet.");
+        }
+        long startSeed = parsed.startSeed() == null ? new Random().nextLong() : parsed.startSeed();
+        CancellableSeedSearch search = new CancellableSeedSearch(parsed.query(), runtime.adapter().seeds(),
+                null, startSeed, parsed.maxResults(), parsed.maxAttempts(), parsed.filters());
+        search.start();
+        runtime.startSearch(search);
+        context.feedback("Seed search \"" + preset + "\" started (up to " + parsed.maxResults()
+                + " results). Check /practice seeds results.");
+        return 1;
+    }
+
+    private int seedsExport(CommandAdapter.CommandContextView context) throws PracticeException {
+        SeedSearchTask task = runtime.activeSearch();
+        if (task == null) {
+            throw new PracticeException("seeds.export without a search",
+                    "No seed search has been started. Run /practice seeds search <preset> first.");
+        }
+        List<SeedResult> results = task.results();
+        if (results.isEmpty()) {
+            throw new PracticeException("seeds.export without results",
+                    "The search has no results yet. Check /practice seeds results and retry.");
+        }
+        String name = "search-" + System.currentTimeMillis();
+        Path file;
+        try {
+            file = runtime.seedStore().exportResults(name, results);
+        } catch (IOException failure) {
+            throw new PracticeException("Cannot export " + results.size() + " seeds: " + failure.getMessage(),
+                    "Could not export results: " + failure.getMessage());
+        }
+        context.feedback("Exported " + results.size() + " seeds to " + file.getFileName() + ".");
+        return 1;
     }
 
     private String searchSummary() {

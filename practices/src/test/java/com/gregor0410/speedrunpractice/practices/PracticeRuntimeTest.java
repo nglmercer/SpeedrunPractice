@@ -512,23 +512,22 @@ public class PracticeRuntimeTest {
         runtime.seedStore().saveSearch("saved", "{}");
         FakeCommandContext saved = new FakeCommandContext("seeds.search", player);
         saved.stringArgs.put("preset", "saved");
-        try {
-            executor.execute(saved);
-            fail("expected PracticeException");
-        } catch (PracticeException failure) {
-            assertTrue(failure.getUserMessage().contains("not runnable"));
-        }
+        assertEquals(1, executor.execute(saved));
+        assertTrue(saved.feedback.get(0).contains("saved"));
+        assertNotNull(runtime.activeSearch());
 
         FakeCommandContext importHelp = new FakeCommandContext("seeds.import", player);
         assertEquals(1, executor.execute(importHelp));
         assertTrue(importHelp.feedback.get(0).contains("seed.list"));
 
+        assertEquals(1, executor.execute(new FakeCommandContext("seeds.cancel", player)));
         try {
             executor.execute(new FakeCommandContext("seeds.export", player));
             fail("expected PracticeException");
         } catch (PracticeException failure) {
-            assertTrue(failure.getUserMessage().contains("not available"));
+            assertTrue(failure.getUserMessage().contains("No seed search"));
         }
+        runtime.shutdown();
     }
 
     @Test

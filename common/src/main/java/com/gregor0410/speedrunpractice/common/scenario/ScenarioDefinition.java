@@ -88,7 +88,12 @@ public final class ScenarioDefinition {
         this.settings = Collections.unmodifiableMap(settings);
     }
 
-    /** One {@code seed.filters[]} entry. */
+    /**
+     * One {@code seed.filters[]} entry, used with {@code seed.source=search}.
+     * Valid types: {@code biome=<id>}, {@code structure=<id>[:<maxDistance>]},
+     * {@code bastionType=<housing|stables|treasure|bridge>},
+     * {@code strongholdRing=<n>=1>} and {@code lava=<true|false>}.
+     */
     public static final class SeedFilterSpec {
         private final String type;
         private final String value;

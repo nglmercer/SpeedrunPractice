@@ -66,4 +66,28 @@ public class SeedStoreTest {
         store.clearFailures();
         assertTrue(store.getFailed().isEmpty());
     }
+
+    @Test
+    public void exportsRoundTripResults() throws Exception {
+        SeedStore store = new SeedStore(folder.getRoot().toPath());
+        assertTrue(store.listExports().isEmpty());
+        java.util.List<SeedResult> results = Arrays.asList(
+                new SeedResult(11L, com.gregor0410.speedrunpractice.common.api.GameVersion.MC_1_16_1,
+                        Arrays.asList("structure:village:0-1500"), null,
+                        SeedResult.VerificationState.UNVERIFIED, 123L),
+                new SeedResult(22L, com.gregor0410.speedrunpractice.common.api.GameVersion.MC_1_16_1,
+                        null, null, SeedResult.VerificationState.UNVERIFIED, 456L));
+        java.nio.file.Path file = store.exportResults("run-1", results);
+        assertTrue(java.nio.file.Files.exists(file));
+        assertEquals(Arrays.asList("run-1"), store.listExports());
+        Object parsed = com.gregor0410.speedrunpractice.common.util.SimpleJson.parse(
+                new String(java.nio.file.Files.readAllBytes(file), java.nio.charset.StandardCharsets.UTF_8));
+        assertTrue(parsed instanceof java.util.List);
+        assertEquals(2, ((java.util.List<?>) parsed).size());
+        @SuppressWarnings("unchecked")
+        SeedResult first = SeedResult.fromMap((java.util.Map<String, Object>) ((java.util.List<?>) parsed).get(0));
+        assertEquals(11L, first.seed());
+        assertEquals(Arrays.asList("structure:village:0-1500"), first.matchedFilters());
+        assertEquals(SeedResult.VerificationState.UNVERIFIED, first.verificationState());
+    }
 }

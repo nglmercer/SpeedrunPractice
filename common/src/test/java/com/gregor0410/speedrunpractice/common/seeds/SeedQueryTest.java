@@ -4,6 +4,7 @@ import com.gregor0410.speedrunpractice.common.api.GameVersion;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
@@ -16,6 +17,21 @@ public class SeedQueryTest {
         assertTrue(query.requiredStructures().isEmpty());
         assertEquals(Integer.MAX_VALUE, query.maxDistance());
         assertTrue(query.constraints().isEmpty());
+        assertNull(query.bastionType());
+        assertEquals(0, query.strongholdRing());
+        assertFalse(query.lavaRequired());
+    }
+
+    @Test
+    public void subtypeRingAndLava() {
+        SeedQuery query = SeedQuery.builder()
+                .bastionType("Treasure")
+                .strongholdRing(2)
+                .requireLava()
+                .build();
+        assertEquals("treasure", query.bastionType());
+        assertEquals(2, query.strongholdRing());
+        assertTrue(query.lavaRequired());
     }
 
     @Test
