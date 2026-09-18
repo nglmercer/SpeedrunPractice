@@ -25,7 +25,10 @@ group = project.maven_group
 
 // Shared modules resolve JUnit and other plain-Java deps from Maven Central.
 // (Root Loom repositories below apply to the root project only.)
+// All modules share the mod version so Jar-in-Jar nested jars report a real
+// version instead of "unspecified" in the loader log.
 subprojects {
+    version = rootProject.property('mod_version')
     repositories {
         mavenCentral()
     }
@@ -47,6 +50,12 @@ configurations {
 
     include.extendsFrom modIncludeImplementation
     modImplementation.extendsFrom modIncludeImplementation
+
+    // Resolvable view of the new-runtime modules for fat-jar bundling below.
+    bundleLibs {
+        canBeConsumed = false
+        canBeResolved = true
+    }
 }
 
 dependencies {
@@ -59,6 +68,22 @@ dependencies {
     modIncludeImplementation(fabricApi.module("fabric-commands-v0",project.fabric_version))
     modIncludeImplementation(fabricApi.module("fabric-command-api-v1",project.fabric_command_api_version))
     modIncludeImplementation(fabricApi.module("fabric-resource-loader-v0",project.fabric_version))
+    modIncludeImplementation(fabricApi.module("fabric-lifecycle-events-v1",project.fabric_version))
+    modIncludeImplementation(fabricApi.module("fabric-key-binding-api-v1",project.fabric_version))
+    // New runtime (plan step 02): shared engine + 1.16.1 adapter shell.
+    // Plain `implementation` (not `modIncludeImplementation`): the full Loom
+    // plugin reads `mod*` project jars eagerly at configuration time, which
+    // breaks clean builds; the classes are bundled into the mod jar by the
+    // `jar` task below instead of Jar-in-Jar (shared modules carry no
+    // fabric.mod.json, so nesting would only add loader noise).
+    implementation project(':common')
+    implementation project(':practices')
+    implementation project(':seed-search')
+    implementation project(':versions:fabric-1.16.1')
+    bundleLibs project(':common')
+    bundleLibs project(':practices')
+    bundleLibs project(':seed-search')
+    bundleLibs project(':versions:fabric-1.16.1')
     modIncludeImplementation("com.github.Gregor0410:PTLib:906f01fdb7")
     modIncludeImplementation("me.shedaniel.cloth:config-2:4.6.0"){
         exclude(group: "net.fabricmc.fabric-api")
@@ -103,9 +128,14 @@ base {
 }
 
 jar {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     from("LICENSE") {
         rename { "${it}_${project.archives_base_name}" }
     }
+    // Bundle the new-runtime modules' classes. The closure defers artifact
+    // resolution to execution time so Loom never reads the module jars
+    // during configuration (which breaks clean builds).
+    from { configurations.bundleLibs.collect { zipTree(it) } }
 }
 
 // configure the maven publication
