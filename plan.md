@@ -1,246 +1,219 @@
-# SpeedrunPractice — Remaining Implementation Tasks
+# SpeedrunPractice — Fix All Remaining Issues
 
 ## Goal
 
-Finish the project so these are real, playable Fabric mods:
+Deliver fully working Fabric mods for:
 
 ```text
-1.16.1
-1.21.1
-26.3
+Minecraft 1.16.1
+Minecraft 1.21.1
+Minecraft 26.3
 ```
 
-Current truth:
+Single-player practice only.
+
+Do not add multiplayer, Ranked, matchmaking, accounts, or online services.
+
+## Important
+
+GitHub Actions failures are currently caused by account/billing infrastructure and are **not an implementation blocker**.
+
+Do not spend time debugging hosted Actions.
+
+Validate with:
 
 ```text
-Legacy 1.16.1 = playable
-Shared engine = mostly implemented
-New adapters = still stubbed
-1.21.1 = not playable
-26.3 = Fabric skeleton only
-CI = failing
-```
-
-Do not claim support until tested in-game.
-
----
-
-# 1. Fix CI First
-
-Latest CI is failing.
-
-Required:
-
-* make `shared-tests` pass
-* keep adapter skeleton jars out of releases
-* build real Fabric jars only for actually supported versions
-* fail CI if a supported adapter still contains `throw pending(...)`
-
-Definition of done:
-
-```text
-GitHub Actions = green
+local Gradle builds
+unit tests
+architecture guards
+jar inspection
+real Minecraft testing
+dedicated-server testing where applicable
 ```
 
 ---
 
-# 2. Finish 1.16.1 New Runtime Before Other Ports
+# 1. Finish and Verify 1.16.1
 
-Do not port 1.21.1/26.3 first.
-
-Wire:
+The new 1.16.1 runtime already exists:
 
 ```text
-SpeedrunPractice initializer
-→ PracticeRuntime
-→ ScenarioEngine
-→ AdapterSet116
-→ real Minecraft 1.16.1
+Runtime116
+AdapterSet116
+LiveAdapter116
+LiveWorlds
+LivePlayers
+LiveInventories
+LiveStructures
+LivePortals
+LiveDragons
+LiveCommands
+LiveGui
+LiveTimer
+SeedAnalyzer116
+EventPoller116
+client screens/keybinds
 ```
 
-Use existing working legacy code instead of rewriting working behavior.
-
-First milestone:
+Tasks:
 
 ```text
-/practice start end
+[ ] run real Minecraft 1.16.1 client with compatible JDK
+[ ] test every /practice command
+[ ] test every practice
+[ ] test GUI
+[ ] test keybinds
+[ ] test timer triggers
+[ ] test completion events
+[ ] test checkpoints
+[ ] test same/new/previous seed reset
+[ ] test seed search
+[ ] test loadouts
+[ ] test statistics persistence
 ```
 
-must run entirely through the new architecture.
+Fix every runtime bug discovered.
 
----
-
-# 3. Implement All AdapterSet116 Stubs
-
-Remove every production:
+After verification, enable only capabilities proven to work:
 
 ```java
-throw pending(...)
+supports(Capability.X) == true
+```
+
+Do not enable capabilities merely because code compiles.
+
+---
+
+# 2. Remove 1.16.1 Legacy Duplication
+
+Once new-runtime parity is verified:
+
+```text
+remove unnecessary legacy direct practice execution
+keep only reusable legacy internals needed by LiveAdapter116
+route user-facing practice operations through PracticeRuntime
+```
+
+Avoid two competing practice engines.
+
+---
+
+# 3. Finish 26.3 World Handling
+
+Current `LiveWorlds263` only binds to the existing vanilla world.
+
+This is incorrect for requested practice seeds.
+
+Fix:
+
+```text
+Practice seed
+→ actual generated practice world using that seed
 ```
 
 Implement:
 
 ```text
-WorldAdapter
-- createPracticeWorld
-- deletePracticeWorld
-- resetPracticeWorld
-- spawnPosition
+createPracticeWorld(seed)
+deletePracticeWorld(world)
+resetPracticeWorld(world, seed)
+```
 
-PlayerAdapter
-- teleport
-- health
-- food
-- effects
-- reset
-- position
-- world
-- full checkpoint capture/restore
+Requirements:
 
-InventoryAdapter
-- apply
-- capture
-- clear
+```text
+requested seed matches actual world seed
+isolated practice state
+Overworld/Nether/End linkage
+safe cleanup
+same-seed reset
+new-seed reset
+previous-seed reset
+no stale worlds
+```
 
+Do not merely store a different seed in the handle.
+
+---
+
+# 4. Finish AdapterSet263
+
+Implement all remaining production `pending()` paths.
+
+Required:
+
+```text
 StructureAdapter
 - locateNearest
 - locate
 - structure metadata
 
 PortalAdapter
-- create portal
-- link portals
+- createNetherPortal
+- linkPortals
 
 DragonAdapter
-- reset fight
-- force perch
-- detect living dragon
-
-RegistryAdapter
-- real item lookup
-- real stack limits
-
-CommandAdapter
-- real Brigadier commands
+- resetFight
+- forcePerch
+- hasLivingDragon
 
 GuiAdapter
-- real screens
+- main menu
+- scenario setup
+- results
 
-SeedAnalyzer
-- actual Minecraft seed analysis
+TimerAdapter
+- real integration if external timer support exists
 ```
 
-Only return `supports(capability) == true` after real runtime validation.
+Replace interim registry behavior with real registry access:
+
+```text
+itemExists
+maxStackSize
+```
+
+After completion:
+
+```bash
+grep -R "throw pending" versions/fabric-26.3/src/main
+```
+
+must return nothing on supported practice paths.
 
 ---
 
-# 4. Register Real Commands
+# 5. Finish 26.3 Client Features
 
-Replace command-model logging with actual Brigadier registration.
-
-Required:
+Add real:
 
 ```text
-/practice start <type>
-/practice restart
-/practice restart same
-/practice restart new
-/practice stop
-
-/practice seed
-/practice seed <seed>
-/practice seed next
-/practice seed previous
-/practice seed favorite
-
-/practice seeds search <preset>
-/practice seeds cancel
-/practice seeds results
-/practice seeds export
-
-/practice loadout list
-/practice loadout save <name>
-/practice loadout apply <name>
-/practice loadout delete <name>
-
-/practice checkpoint save
-/practice checkpoint load
-/practice checkpoint clear
-
-/practice stats
-/practice config reload
+GUI screens
+keybindings
+client initializer
+results UI
+seed search UI
+loadout UI
+stats UI
 ```
 
-Keep legacy aliases.
+Keybinds:
+
+```text
+open practice menu
+restart same seed
+restart new seed
+previous seed
+save checkpoint
+load checkpoint
+stop practice
+```
 
 ---
 
-# 5. Finish Seed Search
+# 6. Verify 26.3 Practices
 
-Current missing pieces:
-
-```text
-search preset execution
-result export
-scenario seed.filters wiring
-real per-version analyzers
-verified seed fixtures
-```
-
-Implement:
-
-```text
-ScenarioDefinition
-→ PracticeSettings
-→ SeedQuery
-→ filters
-→ SeedAnalyzer
-→ search result
-```
-
-Parse:
-
-```text
-biome
-structure distances
-bastion type
-stronghold
-lava
-custom constraints
-```
-
-Do not re-analyze a seed multiple times.
-
----
-
-# 6. Implement SeedAnalyzer116
-
-Required findings:
-
-```text
-spawn biome
-village
-shipwreck
-buried treasure
-ruined portal
-bastion
-bastion type
-fortress
-stronghold
-stronghold ring
-lava availability
-structure positions/distances
-```
-
-Use actual 1.16.1 worldgen logic.
-
----
-
-# 7. Finish Practice Behavior
-
-All practices must have real setup + completion.
-
-Required:
+Test all:
 
 ```text
 Overworld
@@ -256,60 +229,194 @@ One Cycle
 Custom
 ```
 
-Do not use fake placeholder behavior.
+Verify actual setup and completion behavior.
 
-Examples:
+Do not mark a practice supported because commands register.
+
+---
+
+# 7. Finish 26.3 Seed Search
+
+Current real analyzer covers useful worldgen data.
+
+Complete missing filters:
 
 ```text
-Bastion random_exterior
-→ real safe randomized exterior position
+bastion type
+lava availability
+any remaining structure metadata
+```
 
-Fortress blaze mode
-→ real blaze-practice location
+Implement Stage-B verification where chunk generation is required.
 
-Blind Travel
-→ Nether start → portal exit → stronghold error result
+Remove the current rejection for:
 
-Stronghold
-→ real portal-room targeting
+```text
+lava=true
+```
 
-End / One Cycle
-→ real dragon reset and completion
+once real verification exists.
+
+Reuse one `SeedAnalysis` per seed.
+
+Do not repeat expensive analysis per filter.
+
+---
+
+# 8. Fully Port 1.21.1
+
+Current 1.21.1 is still a plain Java skeleton.
+
+Convert it into a real Fabric module.
+
+Required build:
+
+```text
+Java 21
+Fabric Loom
+Minecraft 1.21.1
+correct mappings
+Fabric Loader
+Fabric API
+fabric.mod.json
+version-local mixins
+```
+
+Use the existing compatibility branch only as reference.
+
+Do not merge incomplete/stub implementations wholesale.
+
+---
+
+# 9. Implement LiveAdapter121
+
+Mirror the completed architecture used by 1.16.1/26.3.
+
+Create:
+
+```text
+Runtime121
+LiveAdapter121
+LiveWorlds121
+LivePlayers121
+LiveInventories121
+LiveStructures121
+LivePortals121
+LiveDragons121
+LiveRegistries121
+LiveCommands121
+LiveGui121
+LiveTimer121
+EventPoller121
+SeedAnalyzer121
+client initializer
+screens
+keybinds
+```
+
+Then make `AdapterSet121` a delegation shell like 116/263.
+
+Remove every:
+
+```java
+throw pending(...)
+```
+
+from normal supported paths.
+
+---
+
+# 10. Verify Scenario Semantics
+
+Review every scenario against actual gameplay.
+
+### Bastion
+
+Implement distinct:
+
+```text
+outside
+entrance
+route
+random_exterior
+portal_exit
+```
+
+with safe positions and real bastion subtype handling.
+
+### Fortress
+
+Implement distinct:
+
+```text
+find
+enter
+blaze
+navigation
+exit
+```
+
+### Blind Travel
+
+Must actually perform:
+
+```text
+Nether start
+→ portal creation/use
+→ Overworld exit
+→ nearest stronghold comparison
+→ distance/error result
+```
+
+### Post Blind
+
+Finish based on configured target:
+
+```text
+stronghold
+portal room
+manual
+```
+
+### Stronghold
+
+Use real portal-room detection.
+
+### End / One Cycle
+
+Verify:
+
+```text
+dragon reset
+fight state
+force perch
+completion once
+correct loadout
 ```
 
 ---
 
-# 8. Complete Event/Timer Wiring
+# 11. Safe Spawn Logic
 
-Shared event model exists.
+All versions must avoid unsafe teleports.
 
-Connect real Minecraft events:
-
-```text
-player movement
-dimension change
-portal exit
-structure reached
-dragon killed
-inventory changed
-manual timer start/stop
-```
-
-Respect:
+Implement/version-test:
 
 ```text
-timer.start
-timer.stop
-completion
+solid floor
+two-block headroom
+no lava
+no fire
+inside world bounds
 ```
 
-Do not always start timer immediately.
+Never blindly teleport to structure Y values.
 
 ---
 
-# 9. Finish Checkpoints
+# 12. Complete Checkpoints
 
-Implement real full snapshots:
+Verify real capture/restore of:
 
 ```text
 seed
@@ -330,337 +437,291 @@ timer
 scenario state
 ```
 
-If checkpoint world differs:
+If seed/dimension differs:
 
 ```text
-recreate correct world first
-then restore player
+recreate correct world
+→ restore player
+```
+
+Add bounded block-region restoration where required for:
+
+```text
+beds
+portals
+obsidian
+dragon setup
 ```
 
 ---
 
-# 10. Finish GUI + Keybinds
+# 13. Complete Seed Search UX
 
-Implement real Fabric screens:
+Already implemented:
 
 ```text
-main menu
-scenario setup
+search preset execution
 results
-seed search
-loadouts
-stats
+export
+seed.filters parsing
 ```
 
-Implement real keybindings:
+Now ensure all versions support them correctly.
+
+Test:
 
 ```text
-open menu
-restart same
-restart new
-previous seed
-save checkpoint
-load checkpoint
-stop practice
+/practice seeds search <preset>
+/practice seeds results
+/practice seeds cancel
+/practice seeds export
+```
+
+No game-thread blocking.
+
+No leaked worker threads.
+
+---
+
+# 14. Add Verified Seed Fixtures
+
+Current known-seed data is not sufficient.
+
+Add at least:
+
+```text
+5 verified seeds for 1.16.1
+5 verified seeds for 1.21.1
+5 verified seeds for 26.3
+```
+
+Verify in the actual target Minecraft version.
+
+Include:
+
+```text
+structure positions
+bastion type where possible
+stronghold data
+biome data
+```
+
+Only use:
+
+```json
+"verified": true
+```
+
+after real checking.
+
+---
+
+# 15. Capability Flags
+
+After runtime tests, update:
+
+```java
+supports(Capability capability)
+```
+
+Capability may be `true` only when:
+
+```text
+implemented
+compiled
+runtime-tested
+```
+
+Examples:
+
+```text
+CUSTOM_DIMENSION_RUNTIME
+FAST_WORLD_RESET
+BASTION_TYPE_QUERY
+DRAGON_FORCE_PERCH
+PORTAL_STATE_CAPTURE
+STRUCTURE_METADATA_SEARCH
 ```
 
 ---
 
-# 11. Finish 1.16.1 Migration
+# 16. Documentation Cleanup
 
-Before moving on, verify all of this in Minecraft:
+Keep:
 
 ```text
-[ ] all practices start
-[ ] all practices complete
-[ ] same seed reset
-[ ] new seed reset
+docs/version-status.md
+versions/README.md
+README.md
+```
+
+aligned with reality.
+
+Use:
+
+```text
+✅ verified
+runtime unverified
+adapter pending
+```
+
+Do not call partial versions fully supported.
+
+Fix stale statements whenever implementation changes.
+
+---
+
+# 17. Local Validation
+
+Ignore hosted GitHub Actions billing failures.
+
+Run locally:
+
+```bash
+./gradlew build
+```
+
+plus version-specific builds.
+
+Also run:
+
+```bash
+scripts/verify-architecture.sh
+scripts/verify-supported-versions.sh
+```
+
+or PowerShell equivalents.
+
+Validate built jars contain:
+
+```text
+fabric.mod.json
+correct entrypoint
+mixins
+PracticeRuntime
+version adapter
+shared engine
+```
+
+---
+
+# 18. Runtime Verification Matrix
+
+For each Minecraft version verify:
+
+```text
+[ ] mod launches
+[ ] /practice registers
+[ ] Overworld
+[ ] Buried Treasure
+[ ] Nether
+[ ] Bastion
+[ ] Fortress
+[ ] Blind Travel
+[ ] Post Blind
+[ ] Stronghold
+[ ] End
+[ ] One Cycle
+[ ] custom scenario
+[ ] same seed
+[ ] new seed
 [ ] previous seed
-[ ] loadouts
 [ ] checkpoints
+[ ] loadouts
 [ ] timer
+[ ] completion
 [ ] stats
-[ ] seed list
 [ ] seed search
 [ ] favorites
 [ ] GUI
 [ ] keybinds
 ```
 
-Then move root legacy code into:
-
-```text
-versions/fabric-1.16.1
-```
-
-Root becomes aggregator-only.
-
 ---
 
-# 12. Port 1.21.1
+# 19. Implementation Order
 
-Convert module from:
-
-```text
-java-library
-```
-
-to real Fabric/Loom.
-
-Use:
+Follow:
 
 ```text
-Java 21
-correct Loom
-Fabric Loader
-Fabric API
-1.21.1 mappings
-fabric.mod.json
-version-local mixins
-```
-
-Implement:
-
-```text
-AdapterSet121
-real entrypoint
-commands
-events
-GUI
-keybinds
-SeedAnalyzer121
-```
-
-Reuse useful API migration work from the old compatibility branch, but do not merge its incomplete runtime wholesale.
-
----
-
-# 13. Finish 26.3
-
-26.3 already has Fabric/Loom skeleton.
-
-Now wire:
-
-```text
-SpeedrunPractice263
-→ PracticeRuntime
-→ real AdapterSet263
-```
-
-Implement:
-
-```text
-worlds
-players
-inventory
-structures
-portals
-dragon
-registry
-commands
-GUI
-events
-keybinds
-SeedAnalyzer263
-```
-
-Do not leave the entrypoint as logging-only.
-
----
-
-# 14. Verified Seed Tests
-
-Current fixtures are unverified.
-
-Add at least:
-
-```text
-5 verified seeds per Minecraft version
-```
-
-Never mark:
-
-```json
-"verified": true
-```
-
-without checking in the actual target version.
-
----
-
-# 15. Runtime Tests
-
-A version is not supported because it compiles.
-
-For every version verify:
-
-```text
-Minecraft starts
-mod loads
-commands register
-world creates
-player teleports
-structures locate
-practice completes
-reset works
-checkpoint works
-seed search works
-GUI opens
-```
-
-Update:
-
-```text
-docs/version-status.md
-```
-
-only after real testing.
-
----
-
-# 16. Remove Remaining Production Stubs
-
-Before release:
-
-```bash
-grep -R "throw pending" versions/
-grep -R "not implemented" common practices seed-search versions
-grep -R "cannot run yet" common practices seed-search versions
-```
-
-Supported versions must have no normal-path stubs.
-
-Known current unfinished commands include:
-
-```text
-/practice seeds search
-/practice seeds export
-```
-
-Fix them.
-
----
-
-# 17. Final CI
-
-Final CI must build real mod outputs:
-
-```text
-shared-tests
-
-1.16.1
-- compile
-- tests
-- Fabric build
-- jar validation
-- smoke launch
-
-1.21.1
-- compile
-- tests
-- Fabric build
-- jar validation
-- smoke launch
-
-26.3
-- compile
-- tests
-- Fabric build
-- jar validation
-- smoke launch
-```
-
-Inspect jars for:
-
-```text
-fabric.mod.json
-entrypoint
-mixins
-shared runtime
-correct Minecraft version
+01 verify/fix 1.16.1 runtime
+02 finish 1.16.1 parity
+03 verified 1.16.1 seeds
+04 fix 26.3 real seeded worlds
+05 finish 26.3 structures
+06 finish 26.3 portals
+07 finish 26.3 dragon
+08 finish 26.3 GUI/keybinds
+09 finish 26.3 seed Stage-B analysis
+10 verify all 26.3 practices
+11 verified 26.3 seeds
+12 convert 1.21.1 to Loom/Fabric
+13 implement LiveAdapter121
+14 implement SeedAnalyzer121
+15 implement 1.21.1 GUI/keybinds/events
+16 verify all 1.21.1 practices
+17 verified 1.21.1 seeds
+18 enable verified capabilities
+19 documentation cleanup
+20 final local builds + release jars
 ```
 
 ---
 
-# 18. Required Implementation Order
+# 20. Agent Rules
 
-Follow exactly:
-
-```text
-01 fix CI
-02 wire PracticeRuntime into 1.16.1
-03 implement AdapterSet116
-04 real commands
-05 real events/timers
-06 finish all scenario behavior
-07 checkpoints
-08 GUI/keybinds
-09 SeedAnalyzer116
-10 seed search + export
-11 verified 1.16.1 tests
-12 migrate legacy root runtime
-13 real 1.21.1 Fabric module
-14 AdapterSet121
-15 SeedAnalyzer121
-16 verify 1.21.1
-17 finish AdapterSet263
-18 SeedAnalyzer263
-19 verify 26.3
-20 final CI/release
-```
-
----
-
-# 19. Agent Rules
+Continue autonomously through the list.
 
 For every task:
 
 ```text
-inspect existing code
-implement smallest complete production change
-add tests
-compile
-run relevant runtime validation
-update docs/version-status.md
-commit
+inspect
+implement
+test
+build
+runtime-verify when possible
+fix discovered issues
+update version-status
 continue
 ```
+
+Do not stop merely because compilation passes.
 
 Never:
 
 ```text
-claim working from unit tests alone
-ship plain Java adapter jars as mods
-leave fake production behavior
-mark unverified seeds verified
+fake world seeds
+ship pending adapters
+use fake test adapters in production
+mark unverified features working
 put Minecraft imports in common/
-return true for unsupported capabilities
+block seed search on the Minecraft main thread
 ```
 
 ---
 
-# 20. Definition of Done
+# Definition of Done
 
-Project is complete when all three versions can do:
+All three versions must support:
 
 ```text
-launch Minecraft
-→ open Practice menu
+launch
+→ open practice UI
 → choose practice
-→ choose seed/search filters
-→ start
-→ run correct scenario
-→ timer triggers correctly
+→ choose seed/search
+→ create real seeded practice world
+→ run scenario
+→ timer works
 → completion detected
 → stats saved
-→ retry same/new/previous seed
+→ retry same/new/previous
 ```
 
-with no production:
+with no normal production path containing:
 
 ```text
-pending()
+throw pending(...)
 fake adapters
-placeholder world logic
+placeholder world behavior
 unimplemented commands
 ```
