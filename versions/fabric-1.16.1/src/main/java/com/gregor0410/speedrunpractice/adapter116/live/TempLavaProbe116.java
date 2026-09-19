@@ -11,6 +11,7 @@ import com.gregor0410.speedrunpractice.common.seeds.SeedQuery;
 import com.gregor0410.speedrunpractice.common.util.SpeedrunLogger;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
 import net.minecraft.fluid.FluidState;
 import net.minecraft.fluid.Fluids;
 import net.minecraft.server.MinecraftServer;
@@ -33,6 +34,9 @@ import java.util.concurrent.atomic.AtomicReference;
 public final class TempLavaProbe116 {
     private static final long[] SEEDS = {
         12345L, 20001L, 20002L, 20003L, 20004L, 987654321L,
+        // Seed 17 documents the known cross-chunk order-inversion FN
+        // (tall-grass plant shifting the lava-lake box up by one).
+        17L,
     };
     private static final int RADIUS = 64;
     private static final int TICKET_RADIUS = 6;
@@ -77,6 +81,7 @@ public final class TempLavaProbe116 {
         StringBuilder dist = new StringBuilder();
         int distTrue = 0;
         int distTotal = 0;
+        java.util.List<Long> distTrues = new java.util.ArrayList<Long>();
         for (long scan = 1; scan <= 20; scan++) {
             try {
                 boolean verdict = seeds.analyze(scan, SeedQuery.builder()
@@ -84,16 +89,27 @@ public final class TempLavaProbe116 {
                 distTotal++;
                 if (verdict) {
                     distTrue++;
+                    distTrues.add(scan);
                 }
                 dist.append(verdict ? 'T' : 'f');
             } catch (RuntimeException failure) {
                 dist.append('E');
             }
         }
-        SpeedrunLogger.warn("PROBELAVA116 DIST true=" + distTrue + "/" + distTotal + " " + dist);
+        SpeedrunLogger.warn("PROBELAVA116 DIST true=" + distTrue + "/" + distTotal + " " + dist
+                + " trues=" + distTrues);
+        java.util.List<Long> targets = new java.util.ArrayList<Long>();
+        for (long seed : SEEDS) {
+            targets.add(seed);
+        }
+        for (Long found : distTrues) {
+            if (!targets.contains(found)) {
+                targets.add(found);
+            }
+        }
         int match = 0;
         int total = 0;
-        for (long seed : SEEDS) {
+        for (long seed : targets) {
             total++;
             boolean stageB;
             Object finding;
@@ -179,6 +195,10 @@ public final class TempLavaProbe116 {
                 public void run() {
                     try {
                         found.set(scan(world, center));
+                        // TEMP round-7: dump the real spring neighborhood.
+                        if (seed == 17L) {
+                            dumpSpring(world);
+                        }
                     } catch (RuntimeException failure) {
                         found.set("scan-fail:" + failure);
                     } finally {
@@ -230,7 +250,8 @@ public final class TempLavaProbe116 {
                         boolean all = true;
                         for (int dx = -TICKET_RADIUS; dx <= TICKET_RADIUS && all; dx++) {
                             for (int dz = -TICKET_RADIUS; dz <= TICKET_RADIUS && all; dz++) {
-                                all = world.isChunkLoaded(middle.x + dx, middle.z + dz);
+                                all = world.getChunk(middle.x + dx, middle.z + dz,
+                                        net.minecraft.world.chunk.ChunkStatus.FULL, false) != null;
                             }
                         }
                         ready.set(all ? Boolean.TRUE : Boolean.FALSE);
@@ -250,6 +271,41 @@ public final class TempLavaProbe116 {
         return false;
     }
 
+    // TEMP round-8 diagnostics: revert after use. Runs on the server thread.
+    // Smart dump: all lava + cave air (lake extent) plus the top solid per
+    // column (hill surface the lake gates read).
+    private static void dumpSpring(ServerWorld world) {
+        for (int x = 34; x <= 54; x++) {
+            for (int z = -32; z <= -14; z++) {
+                BlockPos topPos = null;
+                BlockState topState = null;
+                for (int y = 60; y <= 85; y++) {
+                    BlockPos pos = new BlockPos(x, y, z);
+                    BlockState state;
+                    try {
+                        state = world.getBlockState(pos);
+                    } catch (RuntimeException unreadable) {
+                        continue;
+                    }
+                    if (state == null || state.isAir()) {
+                        continue;
+                    }
+                    topPos = pos;
+                    topState = state;
+                    if (state.getBlock() == Blocks.LAVA
+                            || state.getBlock() == Blocks.CAVE_AIR) {
+                        SpeedrunLogger.warn("PROBELAVA116-DUMP seed=17 at=" + x + "," + y + ","
+                                + z + " state=" + state);
+                    }
+                }
+                if (topPos != null) {
+                    SpeedrunLogger.warn("PROBELAVA116-DTOP seed=17 at=" + x + ","
+                            + topPos.getY() + "," + z + " state=" + topState);
+                }
+            }
+        }
+    }
+
     /**
      * Lava census within the radius: first (bottom-up) hit plus the
      * highest lava Y and a surface count (lava no deeper than 8 below
@@ -260,6 +316,8 @@ public final class TempLavaProbe116 {
         String first = null;
         int highest = Integer.MIN_VALUE;
         int surface = 0;
+        StringBuilder detail = new StringBuilder();
+        int detailed = 0;
         for (int x = spawn.getX() - RADIUS; x <= spawn.getX() + RADIUS; x++) {
             for (int z = spawn.getZ() - RADIUS; z <= spawn.getZ() + RADIUS; z++) {
                 long dx = (long) x - spawn.getX();
@@ -267,12 +325,13 @@ public final class TempLavaProbe116 {
                 if (dx * dx + dz * dz > (long) RADIUS * RADIUS) {
                     continue;
                 }
-                int floor;
+                int realSurface;
                 try {
-                    floor = world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z) - 8;
+                    realSurface = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z);
                 } catch (RuntimeException unreadable) {
                     continue;
                 }
+                int floor = realSurface - 8;
                 for (int y = 0; y < 256; y++) {
                     BlockPos pos = new BlockPos(x, y, z);
                     BlockState state;
@@ -291,6 +350,12 @@ public final class TempLavaProbe116 {
                         if (y >= floor) {
                             surface++;
                         }
+                        // TEMP diagnostics: high-lava positions + real surfaces.
+                        if (y >= 40 && detailed < 8) {
+                            detailed++;
+                            detail.append(" [").append(x).append(',').append(y).append(',')
+                                    .append(z).append("/s").append(realSurface).append(']');
+                        }
                     }
                 }
             }
@@ -298,7 +363,7 @@ public final class TempLavaProbe116 {
         if (first == null) {
             return "none";
         }
-        return first + " top=" + highest + " surf=" + surface;
+        return first + " top=" + highest + " surf=" + surface + detail;
     }
 
     private static boolean isLava(BlockState state) {

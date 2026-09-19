@@ -29,7 +29,19 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public final class TempLavaProbe121 {
     private static final long[] SEEDS = {
-        12345L, 20001L, -5442079527854560511L, 424242L, 987654321L, 555555555L,
+        12345L,
+        20001L,
+        -5442079527854560511L,
+        424242L,
+        987654321L,
+        555555555L,
+        12L,
+        39L,
+        70L,
+        28L,
+        53L,
+        67L,
+        89L,
     };
     private static final int RADIUS = 64;
     private static final int TICKET_RADIUS = 6;
@@ -73,7 +85,7 @@ public final class TempLavaProbe121 {
         StringBuilder dist = new StringBuilder();
         int distTrue = 0;
         int distTotal = 0;
-        for (long scan = 1; scan <= 40; scan++) {
+        for (long scan = 1; scan <= 10; scan++) {
             try {
                 boolean verdict = seeds.analyze(scan, SeedQuery.builder()
                         .version(com.gregor0410.speedrunpractice.common.api.GameVersion.MC_1_21_1)
@@ -91,7 +103,7 @@ public final class TempLavaProbe121 {
         // True-seek: DIST is mostly false, so find true seeds to
         // ground-truth the positive side too.
         java.util.List<Long> extra = new java.util.ArrayList<Long>();
-        for (long scan = 41; scan <= 100 && extra.size() < 3; scan++) {
+        for (long scan = 41; scan <= 60 && extra.size() < 3; scan++) {
             try {
                 if (seeds.analyze(scan, SeedQuery.builder()
                         .version(com.gregor0410.speedrunpractice.common.api.GameVersion.MC_1_21_1)
@@ -195,7 +207,7 @@ public final class TempLavaProbe121 {
                 @Override
                 public void run() {
                     try {
-                        found.set(scan(world, spawn));
+                        found.set(scan(world, spawn, seed));
                     } catch (RuntimeException failure) {
                         found.set("scan-fail:" + failure);
                     } finally {
@@ -255,7 +267,8 @@ public final class TempLavaProbe121 {
                         boolean all = true;
                         for (int dx = -TICKET_RADIUS; dx <= TICKET_RADIUS && all; dx++) {
                             for (int dz = -TICKET_RADIUS; dz <= TICKET_RADIUS && all; dz++) {
-                                all = world.isChunkLoaded(center.x + dx, center.z + dz);
+                                all = world.getChunk(center.x + dx, center.z + dz,
+                                        net.minecraft.world.chunk.ChunkStatus.FULL, false) != null;
                             }
                         }
                         ready.set(all ? Boolean.TRUE : Boolean.FALSE);
@@ -281,9 +294,26 @@ public final class TempLavaProbe121 {
      * the real local surface, mirroring the Stage-B gate). Runs on the
      * server thread.
      */
-    private static String scan(ServerWorld world, BlockPos spawn) {
+    private static String scan(ServerWorld world, BlockPos spawn, long seed) {
         int bottom = world.getBottomY();
         int top = world.getTopY() - 1;
+        // TEMP round-4: dump the real seed-12 FP column.
+        if (seed == 12L) {
+            for (int y = 40; y <= 90; y++) {
+                BlockPos at = new BlockPos(-24, y, 23);
+                BlockState state;
+                try {
+                    state = world.getBlockState(at);
+                } catch (RuntimeException unreadable) {
+                    continue;
+                }
+                if (state == null || state.isAir()) {
+                    continue;
+                }
+                SpeedrunLogger.warn("PROBELAVA121-DUMP seed=12 at=-24," + y + ",23 state="
+                        + state);
+            }
+        }
         String first = null;
         int highest = Integer.MIN_VALUE;
         int surface = 0;
@@ -299,7 +329,7 @@ public final class TempLavaProbe121 {
                 int realSurface;
                 try {
                     realSurface = world.getTopY(
-                            net.minecraft.world.Heightmap.Type.WORLD_SURFACE, x, z);
+                            net.minecraft.world.Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z);
                 } catch (RuntimeException unreadable) {
                     continue;
                 }

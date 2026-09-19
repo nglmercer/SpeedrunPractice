@@ -33,6 +33,10 @@ import java.util.concurrent.atomic.AtomicReference;
 public final class TempLavaProbe263 {
     private static final long[] SEEDS = {
         12345L, 987654321L, 555555555L, -123456789L, 20260918L,
+        6L, 14L, 39L,
+        28L, 35L, 36L, 53L, 63L, 67L,
+        // Seed 42 pinned: phantom-lava FP fixed by the NO_LEAVES tag fix.
+        42L,
     };
     private static final int RADIUS = 64;
     private static final int TICKET_RADIUS = 6;
@@ -202,7 +206,7 @@ public final class TempLavaProbe263 {
                 @Override
                 public void run() {
                     try {
-                        found.set(scan(level, center));
+                        found.set(scan(level, center, seed));
                     } catch (RuntimeException failure) {
                         found.set("scan-fail:" + failure);
                     } finally {
@@ -255,7 +259,9 @@ public final class TempLavaProbe263 {
                         boolean all = true;
                         for (int dx = -TICKET_RADIUS; dx <= TICKET_RADIUS && all; dx++) {
                             for (int dz = -TICKET_RADIUS; dz <= TICKET_RADIUS && all; dz++) {
-                                all = level.hasChunk(middle.x() + dx, middle.z() + dz);
+                                all = level.getChunk(middle.x() + dx, middle.z() + dz,
+                                        net.minecraft.world.level.chunk.status.ChunkStatus.FULL,
+                                        false) != null;
                             }
                         }
                         ready.set(all ? Boolean.TRUE : Boolean.FALSE);
@@ -281,9 +287,31 @@ public final class TempLavaProbe263 {
      * the real local surface, mirroring the Stage-B gate). Runs on the
      * server thread.
      */
-    private static String scan(ServerLevel level, BlockPos spawn) {
+    private static String scan(ServerLevel level, BlockPos spawn, long seed) {
         int bottom = level.getMinY();
         int top = level.getMinY() + level.getHeight() - 1;
+        // TEMP round-5: wide fluid-only dump around the seed-42 phantom.
+        if (seed == 42L) {
+            for (int x = -64; x <= -24; x++) {
+                for (int y = 55; y <= 75; y++) {
+                    for (int z = -64; z <= -24; z++) {
+                        BlockPos at = new BlockPos(x, y, z);
+                        BlockState state;
+                        try {
+                            state = level.getBlockState(at);
+                        } catch (RuntimeException unreadable) {
+                            continue;
+                        }
+                        if (state == null || (!state.is(Blocks.WATER)
+                                && !state.is(Blocks.LAVA) && !state.is(Blocks.CAVE_AIR))) {
+                            continue;
+                        }
+                        SpeedrunLogger.warn("PROBELAVA263-DUMP seed=42 at=" + x + "," + y + ","
+                                + z + " state=" + state);
+                    }
+                }
+            }
+        }
         String first = null;
         int highest = Integer.MIN_VALUE;
         int surface = 0;
@@ -299,7 +327,9 @@ public final class TempLavaProbe263 {
                 int realSurface;
                 try {
                     realSurface = level.getHeight(
-                            net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, x, z);
+                            net.minecraft.world.level.levelgen.Heightmap.Types
+                                    .MOTION_BLOCKING_NO_LEAVES,
+                            x, z);
                 } catch (RuntimeException unreadable) {
                     continue;
                 }

@@ -1,11 +1,13 @@
 package com.gregor0410.speedrunpractice.adapter121.live;
 
+import com.google.common.collect.ImmutableList;
 import com.gregor0410.speedrunpractice.common.util.SpeedrunLogger;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.block.entity.BlockEntityType;
+import net.minecraft.block.entity.MobSpawnerBlockEntity;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.fluid.Fluid;
@@ -21,7 +23,9 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvent;
+import net.minecraft.structure.StructureStart;
 import net.minecraft.util.TypeFilter;
+import net.minecraft.util.collection.BoundedRegionArray;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.ChunkPos;
@@ -33,6 +37,7 @@ import net.minecraft.util.math.random.Random;
 import net.minecraft.util.math.random.RandomSeed;
 import net.minecraft.util.math.random.Xoroshiro128PlusPlusRandom;
 import net.minecraft.util.shape.VoxelShape;
+import net.minecraft.world.ChunkRegion;
 import net.minecraft.world.Heightmap;
 import net.minecraft.world.LocalDifficulty;
 import net.minecraft.world.StructureWorldAccess;
@@ -42,66 +47,86 @@ import net.minecraft.world.biome.source.BiomeAccess;
 import net.minecraft.world.biome.source.BiomeSource;
 import net.minecraft.world.biome.source.util.MultiNoiseUtil;
 import net.minecraft.world.border.WorldBorder;
+import net.minecraft.world.chunk.AbstractChunkHolder;
 import net.minecraft.world.chunk.Chunk;
+import net.minecraft.world.chunk.ChunkGenerationStep;
 import net.minecraft.world.chunk.ChunkManager;
 import net.minecraft.world.chunk.ChunkStatus;
+import net.minecraft.world.chunk.GenerationDependencies;
+import net.minecraft.world.chunk.ProtoChunk;
+import net.minecraft.world.chunk.UpgradeData;
 import net.minecraft.world.chunk.light.LightingProvider;
 import net.minecraft.world.dimension.DimensionType;
 import net.minecraft.world.event.GameEvent;
+import net.minecraft.world.gen.GenerationStep;
+import net.minecraft.world.gen.StructureAccessor;
+import net.minecraft.world.gen.chunk.Blender;
 import net.minecraft.world.gen.chunk.ChunkGenerator;
 import net.minecraft.world.gen.chunk.NoiseChunkGenerator;
-import net.minecraft.world.gen.chunk.VerticalBlockSample;
-import net.minecraft.world.gen.feature.ConfiguredFeature;
 import net.minecraft.world.gen.feature.Feature;
 import net.minecraft.world.gen.feature.PlacedFeature;
-import net.minecraft.world.gen.feature.SpringFeature;
-import net.minecraft.world.gen.feature.SpringFeatureConfig;
 import net.minecraft.world.gen.feature.util.PlacedFeatureIndexer;
 import net.minecraft.world.gen.noise.NoiseConfig;
+import net.minecraft.world.gen.structure.Structure;
 import net.minecraft.world.tick.QueryableTickScheduler;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
 /**
  * Stage-B lava verification for seed search (plan section 7): runs the
- * game's own lava-spring placement pipeline for a candidate seed over
- * noise-stage terrain columns, on search worker threads. Yarn port of the
- * verified 26.3 verifier ({@code StageBLava263}); every vanilla call below
- * was checked against the 1.21.1 decoration loop
+ * game's own decoration pipeline for a candidate seed over noise-stage
+ * terrain columns, on search worker threads. Yarn port of the verified
+ * 26.3 verifier ({@code StageBLava263}); every vanilla call below was
+ * checked against the 1.21.1 decoration loop
  * ({@code ChunkGenerator.generateFeatures} plus
  * {@code PlacedFeatureIndexer.collectIndexedFeatures}, CFR-decompiled from
  * the mapped jar).
  *
- * <p>What is exact: the decoration seeding
- * ({@code setPopulationSeed}/{@code setDecoratorSeed} with the same
- * per-step feature indices vanilla computes through
- * {@link PlacedFeatureIndexer}), every placement modifier (including the
- * biome filter, which reads candidate-seeded biomes), and the
- * {@link SpringFeature} conditions themselves — all real game code with
- * the candidate seed.
+ * <p>What is exact: the whole decoration pipeline — every placed
+ * feature of every decoration step ({@link PlacedFeatureIndexer} step
+ * order, feature order and indices), the decoration seeding
+ * ({@code setPopulationSeed}/{@code setDecoratorSeed}), every placement
+ * modifier (including the biome filter, which reads candidate-seeded
+ * biomes), and every feature body itself (ores, disks, lakes, springs,
+ * trees) — all real game code with the candidate seed, in live order,
+ * so each feature sees the same blocks live generation would have
+ * left. A springs-only replay misfired where an ore blob covered the
+ * spring site, missed lava lakes entirely, and gated against a
+ * treeless surface the live run did not have (headless probes
+ * 2026-09-19); replaying the full pipeline fixes all three.
  *
- * <p>What is approximated: the terrain substrate is noise-stage columns
- * ({@code getColumnSample}), without surface rules, carvers or structure
- * terrain adaptation, and only lava features run (other decoration such
- * as ores or trees is skipped). Surface rules swap the top block's look,
- * not its solidity, so spring conditions (air plus sturdy rock
- * neighbours) evaluate the same; caves, structures and other features
- * intersecting a spring site can theoretically flip a result either way,
- * which in-game spot checks of found seeds should confirm.
+ * <p>What is nearly exact: the terrain substrate is per-chunk scratch
+ * state run through the game's own {@code populateNoise} (noise fill
+ * plus aquifers), {@code buildSurface} (surface rules) and {@code carve}
+ * (AIR carvers, the only step vanilla runs) with the candidate seed, in
+ * the same order live generation uses. Features therefore see the same
+ * dirt cover, aquifer water and caves the live run would leave.
  *
- * <p>Cost: a full scan builds up to ~21k noise columns, so lava-only
- * searches over wide ranges are slow; combine lava with structure or
- * biome filters so Stage-B runs only for Stage-A survivors.
+ * <p>What is approximated: structure terrain adaptation (the scratch
+ * substrate knows no structures) and the LIQUID carver step (vanilla
+ * never runs it either). A structure intersecting a lava site can
+ * theoretically flip a result either way, which in-game spot checks of
+ * found seeds should confirm. A feature the scratch level cannot serve
+ * (chunk access the replay does not model) fails soft per feature and
+ * is counted in the log, so one unsupported feature can never sink the
+ * whole seed.
+ *
+ * <p>Cost: a full scan builds up to 144 noise chunks and replays every
+ * decoration feature inside them, so lava-only searches over wide
+ * ranges are slow; combine lava with structure or biome filters so
+ * Stage-B runs only for Stage-A survivors.
  *
  * <p>Only surface lava counts: a placement verifies the seed only when
  * it sits no deeper than {@value #SURFACE_MARGIN} blocks below the
- * local noise surface. Deep cave springs the player would never find
+ * local surface. Deep cave springs the player would never find
  * must not satisfy a "surface lava near spawn" query (headless probe
  * 2026-09-19: ungated Stage-B fired on y=-50..-5 springs for seeds
  * with zero surface lava).
@@ -121,14 +146,28 @@ final class StageBLava121 {
      */
     private static final int MARGIN_BLOCKS = 6;
     /**
-     * Safety valve on noise-column builds per verification, sized for
-     * full coverage of the scanned chunks (9x9x256). A smaller budget
-     * would silently stop covering later chunks and miss lava there.
+     * Safety valve on scratch-chunk builds per verification. The replay
+     * touches the 9x9 scan plus a one-chunk halo (spring tries at chunk
+     * borders read neighbours across), so the budget must cover 11x11
+     * with slack: an exhausted budget reads missing chunks as air,
+     * forging phantom spring holes at the scan edge.
      */
-    private static final int MAX_COLUMNS = 21000;
+    private static final int MAX_CHUNKS = 144;
     /**
-     * How far below the local noise surface a spring source may sit and
-     * still count as surface lava (spring sources embed in rock with one
+     * Synthetic generation step for the scratch regions. The replay's
+     * region overrides serve chunks directly, so the step is only ever
+     * read by {@code isChunkLoaded} (every queried chunk reports
+     * loaded) and crash details; block writes never go through it.
+     */
+    private static final ChunkGenerationStep STEP = new ChunkGenerationStep(ChunkStatus.SURFACE,
+            new GenerationDependencies(ImmutableList.copyOf(
+                    Collections.nCopies(9, ChunkStatus.SURFACE))),
+            new GenerationDependencies(ImmutableList.copyOf(
+                    Collections.nCopies(9, ChunkStatus.SURFACE))),
+            8, (context, step, array, chunk) -> CompletableFuture.completedFuture(chunk));
+    /**
+     * How far below the local surface a spring source may sit and still
+     * count as surface lava (spring sources embed in rock with one
      * escape face, and lava flows a few blocks from the source).
      */
     private static final int SURFACE_MARGIN = 8;
@@ -149,19 +188,6 @@ final class StageBLava121 {
             return false;
         }
         DynamicRegistryManager registries = server.getRegistryManager();
-        Registry<PlacedFeature> placed;
-        try {
-            placed = registries.get(RegistryKeys.PLACED_FEATURE);
-        } catch (RuntimeException missing) {
-            return false;
-        }
-        if (placed == null) {
-            return false;
-        }
-        List<RegistryEntry<PlacedFeature>> springs = lavaSprings(placed);
-        if (springs.isEmpty()) {
-            return false;
-        }
         List<RegistryEntry<Biome>> biomes;
         try {
             biomes = new ArrayList<RegistryEntry<Biome>>(generator.getBiomeSource().getBiomes());
@@ -184,25 +210,69 @@ final class StageBLava121 {
         } catch (RuntimeException missing) {
             return false;
         }
-        List<Spring> targets = new ArrayList<Spring>();
-        for (RegistryEntry<PlacedFeature> spring : springs) {
-            Spring located = locate(perStep, spring.value());
-            if (located != null) {
-                targets.add(located);
+        // Every placed feature of every decoration step, in vanilla
+        // order: pre-spring features (ores, disks, lakes) shape spring
+        // validity, springs and lakes write the lava, and post-spring
+        // features (trees) shape the surface gate. Skipping any of them
+        // forged both false positives and false negatives.
+        List<StepTarget> replay = new ArrayList<StepTarget>();
+        for (int step = 0; step < perStep.size(); step++) {
+            PlacedFeatureIndexer.IndexedFeatures data = perStep.get(step);
+            if (data == null || data.features() == null) {
+                continue;
+            }
+            for (PlacedFeature feature : data.features()) {
+                try {
+                    replay.add(new StepTarget(feature,
+                            data.indexMapping().applyAsInt(feature), step));
+                } catch (RuntimeException unindexed) {
+                    // Live would seed this feature too, but the index
+                    // map is the only source of indices; fail soft.
+                }
             }
         }
-        if (targets.isEmpty()) {
+        if (replay.isEmpty()) {
             return false;
         }
         // TEMP probe diagnostics: revert after verification.
-        StringBuilder springIds = new StringBuilder();
-        for (RegistryEntry<PlacedFeature> spring : springs) {
-            springIds.append(placed.getId(spring.value())).append(' ');
+        SpeedrunLogger.warn("PROBELAVA121-DIAG steps=" + perStep.size() + " features="
+                + replay.size());
+        Registry<Biome> biomeRegistry;
+        try {
+            biomeRegistry = registries.get(RegistryKeys.BIOME);
+        } catch (RuntimeException missing) {
+            return false;
         }
-        SpeedrunLogger.warn("PROBELAVA121-DIAG springs=" + springs.size() + " targets="
-                + targets.size() + " ids=" + springIds);
+        if (biomeRegistry == null) {
+            return false;
+        }
+        StructureAccessor structures;
+        BiomeAccess access;
+        try {
+            structures = new StructureAccessor(overworld,
+                    server.getSaveProperties().getGeneratorOptions(), null) {
+                @Override
+                public List<StructureStart> getStructureStarts(ChunkPos pos,
+                        Predicate<Structure> predicate) {
+                    // No structures exist in the scratch substrate, so
+                    // structure terrain adaptation never applies.
+                    return Collections.emptyList();
+                }
+
+                @Override
+                public List<StructureStart> getStructureStarts(ChunkSectionPos sectionPos,
+                        Structure structure) {
+                    return Collections.emptyList();
+                }
+            };
+            access = overworld.getBiomeAccess().withSource(
+                    (x, y, z) -> biomeSource.getBiome(x, y, z, sampler));
+        } catch (RuntimeException badSubstrate) {
+            return false;
+        }
         ColumnLevel level = new ColumnLevel(server, overworld,
-                (NoiseChunkGenerator) generator, noiseConfig, biomeSource, sampler, spawn, seed);
+                (NoiseChunkGenerator) generator, noiseConfig, biomeSource, sampler, spawn, seed,
+                biomeRegistry, structures, access);
         ChunkRandom random =
                 new ChunkRandom(new Xoroshiro128PlusPlusRandom(RandomSeed.getSeed()));
         int minChunkX = ChunkSectionPos.getSectionCoord(spawn.getX() - RADIUS - MARGIN_BLOCKS);
@@ -210,22 +280,49 @@ final class StageBLava121 {
         int minChunkZ = ChunkSectionPos.getSectionCoord(spawn.getZ() - RADIUS - MARGIN_BLOCKS);
         int maxChunkZ = ChunkSectionPos.getSectionCoord(spawn.getZ() + RADIUS + MARGIN_BLOCKS);
         try {
+            int failed = 0;
             for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
                 for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
                     BlockPos origin = ChunkSectionPos.from(new ChunkPos(chunkX, chunkZ),
                             level.getBottomSectionCoord()).getMinPos();
                     long populationSeed =
                             random.setPopulationSeed(seed, origin.getX(), origin.getZ());
-                    for (Spring target : targets) {
+                    for (StepTarget target : replay) {
                         random.setDecoratorSeed(populationSeed, target.index, target.step);
-                        target.placed.generate(level, generator, random, origin);
-                        if (level.foundLava()) {
-                            // TEMP probe diagnostics: revert after verification.
-                            SpeedrunLogger.warn("PROBELAVA121-DIAG seed=" + seed + " lavaAt="
-                                    + level.firstLava());
-                            return true;
+                        level.noteTarget(chunkX, chunkZ, target.step, target.index);
+                        try {
+                            target.placed.generate(level, generator, random, origin);
+                        } catch (RuntimeException unsupported) {
+                            // One unservable feature (chunk access the
+                            // scratch level does not model) must not sink
+                            // the seed; its absence can only cost a find.
+                            failed++;
+                            continue;
                         }
                     }
+                }
+            }
+            if (failed > 0) {
+                SpeedrunLogger.warn("Stage-B lava check for seed " + seed + " skipped "
+                        + failed + " unservable feature placements");
+            }
+            // The surface gate runs here, on the finished replay: later
+            // steps (trees) raise the surface above early lava, so gating
+            // at write time forges false positives (seed 12: an oak
+            // branch 14 blocks above a lava pocket).
+            if (level.foundLava()) {
+                // TEMP probe diagnostics: revert after verification.
+                BlockPos first = level.firstLava();
+                SpeedrunLogger.warn("PROBELAVA121-DIAG seed=" + seed + " lavaAt="
+                        + first + " noiseSurf=" + level.surfaceAt(first)
+                        + " how=" + level.firstLavaHow() + " failed=" + failed);
+            }
+            // TEMP round-5: final replay column for the seed-12 fix check.
+            if (seed == 12L) {
+                for (int y = 55; y <= 90; y++) {
+                    BlockPos at = new BlockPos(-24, y, 23);
+                    SpeedrunLogger.warn("PROBELAVA121-RCOL seed=12 at=-24," + y + ",23"
+                            + " block=" + level.getBlockState(at).getBlock());
                 }
             }
         } catch (RuntimeException failure) {
@@ -235,73 +332,13 @@ final class StageBLava121 {
         return level.foundLava();
     }
 
-    /** Placed features whose feature is a lava spring (datapack-safe). */
-    private static List<RegistryEntry<PlacedFeature>> lavaSprings(Registry<PlacedFeature> placed) {
-        List<RegistryEntry<PlacedFeature>> out = new ArrayList<RegistryEntry<PlacedFeature>>();
-        List<RegistryEntry.Reference<PlacedFeature>> entries;
-        try {
-            entries = placed.streamEntries().collect(
-                    java.util.stream.Collectors.<RegistryEntry.Reference<PlacedFeature>>toList());
-        } catch (RuntimeException missing) {
-            return out;
-        }
-        for (RegistryEntry.Reference<PlacedFeature> holder : entries) {
-            PlacedFeature feature;
-            try {
-                feature = holder.value();
-            } catch (RuntimeException missing) {
-                continue;
-            }
-            if (feature == null || feature.feature() == null) {
-                continue;
-            }
-            ConfiguredFeature<?, ?> inner;
-            try {
-                inner = feature.feature().value();
-            } catch (RuntimeException missing) {
-                continue;
-            }
-            if (inner == null || !(inner.feature() instanceof SpringFeature)) {
-                continue;
-            }
-            if (!(inner.config() instanceof SpringFeatureConfig)) {
-                continue;
-            }
-            FluidState state = ((SpringFeatureConfig) inner.config()).state;
-            if (state == null || state.isEmpty()) {
-                continue;
-            }
-            Fluid type = state.getFluid();
-            if (type == Fluids.LAVA || type == Fluids.FLOWING_LAVA) {
-                out.add(holder);
-            }
-        }
-        return out;
-    }
-
-    /** Decoration step plus vanilla feature index of one placed feature. */
-    private static Spring locate(List<PlacedFeatureIndexer.IndexedFeatures> perStep,
-            PlacedFeature target) {
-        for (int step = 0; step < perStep.size(); step++) {
-            PlacedFeatureIndexer.IndexedFeatures data = perStep.get(step);
-            if (data == null || data.features() == null || !data.features().contains(target)) {
-                continue;
-            }
-            try {
-                return new Spring(target, data.indexMapping().applyAsInt(target), step);
-            } catch (RuntimeException missing) {
-                return null;
-            }
-        }
-        return null;
-    }
-
-    private static final class Spring {
+    /** One replayed decoration feature: step plus vanilla feature index. */
+    private static final class StepTarget {
         final PlacedFeature placed;
         final int index;
         final int step;
 
-        private Spring(PlacedFeature placed, int index, int step) {
+        private StepTarget(PlacedFeature placed, int index, int step) {
             this.placed = placed;
             this.index = index;
             this.step = step;
@@ -309,11 +346,76 @@ final class StageBLava121 {
     }
 
     /**
-     * A {@link StructureWorldAccess} over lazily built noise-stage columns
-     * for the candidate seed. Reads serve the placement pipeline; writes are
-     * recorded (lava writes are the verification signal) and visible to
-     * later reads. Everything the spring path never touches delegates to
-     * the live level or answers degenerately.
+     * Minimal region serving the replay's substrate stages: the chunk
+     * under construction plus empty shells for the carver's 17x17
+     * neighbourhood (carvers only read their generation settings, which
+     * key off the candidate-seed biome). Seed, biomes and blending all
+     * answer for the candidate world, never the live one.
+     */
+    private static final class FakeRegion extends ChunkRegion {
+        private final ProtoChunk center;
+        private final ServerWorld live;
+        private final Registry<Biome> biomes;
+        private final BiomeAccess access;
+        private final long seed;
+        private final Map<Long, ProtoChunk> shells = new HashMap<Long, ProtoChunk>();
+
+        private FakeRegion(ServerWorld live, ProtoChunk center, Registry<Biome> biomes,
+                BiomeAccess access, long seed) {
+            super(live, BoundedRegionArray.<AbstractChunkHolder>create(
+                    center.getPos().x, center.getPos().z, 0, (x, z) -> null), STEP, center);
+            this.center = center;
+            this.live = live;
+            this.biomes = biomes;
+            this.access = access;
+            this.seed = seed;
+        }
+
+        @Override
+        public Chunk getChunk(int chunkX, int chunkZ) {
+            if (chunkX == center.getPos().x && chunkZ == center.getPos().z) {
+                return center;
+            }
+            long key = (((long) chunkX) << 32) | (chunkZ & 0xFFFFFFFFL);
+            ProtoChunk shell = shells.get(key);
+            if (shell == null) {
+                shell = new ProtoChunk(new ChunkPos(chunkX, chunkZ),
+                        UpgradeData.NO_UPGRADE_DATA, live, biomes, null);
+                shells.put(key, shell);
+            }
+            return shell;
+        }
+
+        @Override
+        public Chunk getChunk(int chunkX, int chunkZ, ChunkStatus leastStatus, boolean create) {
+            return getChunk(chunkX, chunkZ);
+        }
+
+        @Override
+        public BiomeAccess getBiomeAccess() {
+            return access;
+        }
+
+        @Override
+        public long getSeed() {
+            return seed;
+        }
+
+        @Override
+        public boolean needsBlending(ChunkPos chunkPos, int checkRadius) {
+            // Scratch chunks model a fresh candidate world, which never
+            // borders old-version terrain.
+            return false;
+        }
+    }
+
+    /**
+     * A {@link StructureWorldAccess} over lazily built surfaced and
+     * carved scratch chunks for the candidate seed. Reads serve the
+     * placement pipeline; writes are recorded (lava writes are the
+     * verification signal) and visible to later reads. Everything the
+     * spring path never touches delegates to the live level or answers
+     * degenerately.
      */
     private static final class ColumnLevel implements StructureWorldAccess {
         private final MinecraftServer server;
@@ -324,15 +426,19 @@ final class StageBLava121 {
         private final MultiNoiseUtil.MultiNoiseSampler sampler;
         private final BlockPos spawn;
         private final long seed;
-        private final Map<Long, VerticalBlockSample> columns =
-                new HashMap<Long, VerticalBlockSample>();
+        private final Registry<Biome> biomeRegistry;
+        private final StructureAccessor structures;
+        private final BiomeAccess access;
+        private final Map<Long, ProtoChunk> chunks = new HashMap<Long, ProtoChunk>();
         private final Map<BlockPos, BlockState> overrides = new HashMap<BlockPos, BlockState>();
         private final List<BlockPos> lava = new ArrayList<BlockPos>();
         private int built;
+        private ProtoChunk thrashChunk;
 
         private ColumnLevel(MinecraftServer server, ServerWorld live,
                 NoiseChunkGenerator generator, NoiseConfig noiseConfig, BiomeSource biomeSource,
-                MultiNoiseUtil.MultiNoiseSampler sampler, BlockPos spawn, long seed) {
+                MultiNoiseUtil.MultiNoiseSampler sampler, BlockPos spawn, long seed,
+                Registry<Biome> biomeRegistry, StructureAccessor structures, BiomeAccess access) {
             this.server = server;
             this.live = live;
             this.generator = generator;
@@ -341,25 +447,30 @@ final class StageBLava121 {
             this.sampler = sampler;
             this.spawn = spawn;
             this.seed = seed;
+            this.biomeRegistry = biomeRegistry;
+            this.structures = structures;
+            this.access = access;
         }
 
         /**
-         * Whether any recorded lava counts. Recording filters at write
-         * time (radius plus surface floor), so this stays O(1) no matter
-         * how many deep/out-of-range springs the scan places.
+         * Whether any recorded lava counts against the finished replay's
+         * surface. Recording keeps every in-radius lava write; the
+         * surface gate runs here because later steps (trees) raise the
+         * surface above early lava. Only call once the replay is
+         * complete: mid-replay gating forges false positives.
          */
         boolean foundLava() {
-            return !lava.isEmpty();
+            return !budgetTripped && firstLava() != null;
         }
 
         /**
          * Lowest Y that still counts as surface lava at a column: the
-         * local noise surface minus {@value #SURFACE_MARGIN}. Fails
-         * closed (unreadable surface verifies nothing).
+         * local surface minus {@value #SURFACE_MARGIN}. Fails closed
+         * (unreadable surface verifies nothing).
          */
         private int surfaceFloor(int x, int z) {
             try {
-                return getTopY(Heightmap.Type.WORLD_SURFACE, x, z) - SURFACE_MARGIN;
+                return getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z) - SURFACE_MARGIN;
             } catch (RuntimeException unreadable) {
                 return Integer.MAX_VALUE;
             }
@@ -367,7 +478,46 @@ final class StageBLava121 {
 
         // TEMP probe diagnostics: revert after verification.
         BlockPos firstLava() {
-            return lava.isEmpty() ? null : lava.get(0);
+            for (int i = 0; i < lava.size(); i++) {
+                BlockPos at = lava.get(i);
+                if (at.getY() >= surfaceFloor(at.getX(), at.getZ())) {
+                    return at;
+                }
+            }
+            return null;
+        }
+
+        // TEMP probe diagnostics: revert after verification.
+        String firstLavaHow() {
+            for (int i = 0; i < lava.size(); i++) {
+                BlockPos at = lava.get(i);
+                if (at.getY() >= surfaceFloor(at.getX(), at.getZ())) {
+                    return i < firstLavaHows.size() ? firstLavaHows.get(i) : "?";
+                }
+            }
+            return "?";
+        }
+
+        /** Placing chunk/step/index of the feature currently generating. */
+        private String currentHow = "?";
+        /** Parallel to {@link #lava}: where each candidate came from. */
+        private final List<String> firstLavaHows = new ArrayList<String>();
+        private boolean budgetTripped;
+
+        void noteTarget(int chunkX, int chunkZ, int step, int index) {
+            currentHow = chunkX + "," + chunkZ + "/s" + step + "i" + index;
+        }
+
+        // TEMP probe diagnostics: revert after verification.
+        int surfaceAt(BlockPos at) {
+            if (at == null) {
+                return Integer.MIN_VALUE;
+            }
+            try {
+                return getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, at.getX(), at.getZ());
+            } catch (RuntimeException unreadable) {
+                return Integer.MIN_VALUE;
+            }
         }
 
         @Override
@@ -384,12 +534,14 @@ final class StageBLava121 {
             if (pos.getY() < getBottomY() || pos.getY() >= getTopY()) {
                 return Blocks.AIR.getDefaultState();
             }
-            VerticalBlockSample column = column(pos.getX(), pos.getZ());
-            if (column == null) {
+            ProtoChunk chunk = surfaced(
+                    ChunkSectionPos.getSectionCoord(pos.getX()),
+                    ChunkSectionPos.getSectionCoord(pos.getZ()));
+            if (chunk == null) {
                 return Blocks.AIR.getDefaultState();
             }
             try {
-                BlockState state = column.getState(pos.getY());
+                BlockState state = chunk.getBlockState(pos);
                 return state == null ? Blocks.AIR.getDefaultState() : state;
             } catch (RuntimeException outOfRange) {
                 return Blocks.AIR.getDefaultState();
@@ -407,10 +559,54 @@ final class StageBLava121 {
                 return false;
             }
             overrides.put(pos.toImmutable(), state);
-            if (isLava(state) && withinRadius(pos) && pos.getY() >= surfaceFloor(pos.getX(), pos.getZ())) {
+            if (isLava(state) && withinRadius(pos)) {
                 lava.add(pos.toImmutable());
+                firstLavaHows.add(currentHow);
+                // TEMP substrate dump: revert after verification.
+                if (lava.size() == 1) {
+                    dumpSubstrate(pos.toImmutable());
+                }
             }
             return true;
+        }
+
+        // TEMP substrate dump: revert after verification.
+        private void dumpSubstrate(BlockPos at) {
+            StringBuilder out = new StringBuilder();
+            out.append("PROBELAVA121-SUB seed=").append(seed).append(" at=").append(at)
+                    .append(" built=").append(built);
+            int[][] offsets = {{0, 0, 0}, {0, 1, 0}, {0, -1, 0}, {-1, 0, 0}, {1, 0, 0},
+                {0, 0, -1}, {0, 0, 1}};
+            for (int[] o : offsets) {
+                int x = at.getX() + o[0];
+                int y = at.getY() + o[1];
+                int z = at.getZ() + o[2];
+                out.append(" [").append(o[0]).append(',').append(o[1]).append(',')
+                        .append(o[2]).append('=');
+                try {
+                    long key = (((long) ChunkSectionPos.getSectionCoord(x)) << 32)
+                            | (ChunkSectionPos.getSectionCoord(z) & 0xFFFFFFFFL);
+                    ProtoChunk chunk = chunks.get(key);
+                    BlockState state = chunk == null ? null
+                            : chunk.getBlockState(new BlockPos(x, y, z));
+                    if (state == null) {
+                        out.append('?');
+                    } else {
+                        String name = state.getBlock().getTranslationKey();
+                        int dot = name.lastIndexOf('.');
+                        out.append(dot >= 0 ? name.substring(dot + 1) : name);
+                        if (!state.getFluidState().isEmpty()) {
+                            out.append('+').append(state.getFluidState().getFluid() == Fluids.WATER
+                                    || state.getFluidState().getFluid() == Fluids.FLOWING_WATER
+                                    ? "W" : "F");
+                        }
+                    }
+                } catch (RuntimeException unreadable) {
+                    out.append('?');
+                }
+                out.append(']');
+            }
+            SpeedrunLogger.warn(out.toString());
         }
 
         private boolean withinRadius(BlockPos at) {
@@ -489,7 +685,49 @@ final class StageBLava121 {
 
         @Override
         public Chunk getChunk(int chunkX, int chunkZ, ChunkStatus status, boolean create) {
-            throw new UnsupportedOperationException("Stage-B serves columns, not chunks");
+            // Ore veins (and any other section-cache user) read and write
+            // through a section cache over this call; it must serve the
+            // scratch chunk, never throw. Writes land directly in the
+            // ProtoChunk where block reads see them on override-miss,
+            // while override writes keep shadowing chunk state exactly
+            // as live chunk writes would — both views converge (same
+            // shape as the 26.3 BulkSectionAccess find, 2026-09-19).
+            ProtoChunk chunk = surfaced(chunkX, chunkZ);
+            if (chunk != null) {
+                return chunk;
+            }
+            return thrash();
+        }
+
+        @Override
+        public Chunk getChunk(BlockPos pos) {
+            // Vanilla's placement helper marks the non-air blocks above
+            // every write for post-processing through this call, and so
+            // does the multiface-growth feature; both are the only call
+            // sites in the whole decoration pipeline (same shape as the
+            // 26.3 javap audit). The replay never runs post-processing,
+            // so the marks are inert — but the call must not throw, or
+            // every helper-using feature (all ores included, ~20 skipped
+            // placements per chunk) is silently dropped from the replay.
+            ProtoChunk chunk = surfaced(ChunkSectionPos.getSectionCoord(pos.getX()),
+                    ChunkSectionPos.getSectionCoord(pos.getZ()));
+            if (chunk != null) {
+                return chunk;
+            }
+            return thrash();
+        }
+
+        /**
+         * Inert chunk absorbing post-processing marks past the build
+         * budget. Block reads never route through here (they serve air
+         * directly), so its empty state is never observed.
+         */
+        private ProtoChunk thrash() {
+            if (thrashChunk == null) {
+                thrashChunk = new ProtoChunk(new ChunkPos(0, 0),
+                        UpgradeData.NO_UPGRADE_DATA, live, biomeRegistry, null);
+            }
+            return thrashChunk;
         }
 
         @Override
@@ -499,6 +737,13 @@ final class StageBLava121 {
 
         @Override
         public BlockEntity getBlockEntity(BlockPos pos) {
+            // Dungeons place a spawner and configure its block entity;
+            // a throwaway keeps vanilla quiet. Nothing reads it back
+            // for block placement, so lava is unaffected.
+            BlockState state = getBlockState(pos);
+            if (state.isOf(Blocks.SPAWNER)) {
+                return new MobSpawnerBlockEntity(pos, state);
+            }
             return null;
         }
 
@@ -652,26 +897,42 @@ final class StageBLava121 {
                     && (fluid.getFluid() == Fluids.LAVA || fluid.getFluid() == Fluids.FLOWING_LAVA);
         }
 
-        private VerticalBlockSample column(int x, int z) {
-            long key = (((long) x) << 32) | (z & 0xFFFFFFFFL);
-            VerticalBlockSample cached = columns.get(key);
+        /**
+         * The fully generated candidate-seed chunk at {@code (chunkX,
+         * chunkZ)}: noise fill plus aquifers, surface rules and AIR
+         * carvers, each the game's own stage in live order, then cached.
+         * Every count in the verifier reads through here, so springs see
+         * the same blocks live generation would leave.
+         */
+        private ProtoChunk surfaced(int chunkX, int chunkZ) {
+            long key = (((long) chunkX) << 32) | (chunkZ & 0xFFFFFFFFL);
+            ProtoChunk cached = chunks.get(key);
             if (cached != null) {
                 return cached;
             }
-            if (built >= MAX_COLUMNS) {
+            if (built >= MAX_CHUNKS) {
+                budgetTripped = true;
                 return null;
             }
-            VerticalBlockSample fresh;
+            ProtoChunk fresh;
             try {
-                fresh = generator.getColumnSample(x, z, live, noiseConfig);
-            } catch (RuntimeException badColumn) {
+                fresh = new ProtoChunk(new ChunkPos(chunkX, chunkZ),
+                        UpgradeData.NO_UPGRADE_DATA, live, biomeRegistry, null);
+                generator.populateNoise(Blender.getNoBlending(), noiseConfig, structures, fresh)
+                        .join();
+                FakeRegion region = new FakeRegion(live, fresh, biomeRegistry, access, seed);
+                generator.buildSurface(region, structures, noiseConfig, fresh);
+                Blender.createCarvingMasks(region, fresh);
+                generator.carve(region, seed, noiseConfig, access, structures, fresh,
+                        GenerationStep.Carver.AIR);
+            } catch (RuntimeException badChunk) {
                 return null;
             }
             if (fresh == null) {
                 return null;
             }
             built++;
-            columns.put(key, fresh);
+            chunks.put(key, fresh);
             return fresh;
         }
     }
