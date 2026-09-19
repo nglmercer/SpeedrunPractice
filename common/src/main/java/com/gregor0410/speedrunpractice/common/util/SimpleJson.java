@@ -150,7 +150,11 @@ public final class SimpleJson {
         private int index;
 
         private Parser(String text) {
-            this.text = text == null ? "" : text;
+            String clean = text == null ? "" : text;
+            if (!clean.isEmpty() && clean.charAt(0) == 0xFEFF) {
+                clean = clean.substring(1);
+            }
+            this.text = clean;
         }
 
         private boolean atEnd() {

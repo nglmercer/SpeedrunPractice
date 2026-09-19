@@ -52,6 +52,8 @@ public final class PracticeActionExecutor implements CommandAdapter.CommandExecu
         }
         if ("start".equals(action)) {
             return start(context);
+        } else if (action.startsWith("start.")) {
+            return startAlias(context, action);
         } else if ("restart.new".equals(action)) {
             runtime.reset(PracticeScenario.ResetMode.NEW_SEED);
             context.feedback("Restarted on new seed " + currentSeed() + ".");
@@ -150,6 +152,46 @@ public final class PracticeActionExecutor implements CommandAdapter.CommandExecu
         }
         PracticePlayer player = context.player();
         PracticeSession session = runtime.startPractice(type, new PracticeSettings(), player);
+        context.feedback("Started " + type.displayName() + " on seed " + session.seed() + ".");
+        return 1;
+    }
+
+    /**
+     * Short practice aliases ({@code /practice end|nether|overworld [bt]|
+     * postblind|stronghold}, plan section 2): the same engine start as
+     * {@code /practice start <type>}, with the legacy optional {@code seed}
+     * (explicit-seed start) and postblind {@code maxDist} arguments.
+     */
+    private int startAlias(CommandAdapter.CommandContextView context, String action)
+            throws PracticeException {
+        PracticeType type;
+        if ("start.end".equals(action)) {
+            type = PracticeType.END;
+        } else if ("start.nether".equals(action)) {
+            type = PracticeType.NETHER;
+        } else if ("start.overworld".equals(action)) {
+            type = PracticeType.OVERWORLD;
+        } else if ("start.bt".equals(action)) {
+            type = PracticeType.BURIED_TREASURE;
+        } else if ("start.postblind".equals(action)) {
+            type = PracticeType.POSTBLIND;
+        } else if ("start.stronghold".equals(action)) {
+            type = PracticeType.STRONGHOLD;
+        } else {
+            throw new PracticeException("Unknown practice action: \"" + action + "\"",
+                    "Unknown command. Try /practice start <type> or /practice stop.");
+        }
+        PracticeSettings settings = new PracticeSettings();
+        if (type == PracticeType.POSTBLIND && context.hasArg("maxDist")) {
+            settings.set("postblind.maxDist", String.valueOf(context.intArg("maxDist")));
+        }
+        PracticePlayer player = context.player();
+        PracticeSession session;
+        if (context.hasArg("seed")) {
+            session = runtime.startPractice(type, settings, player, context.longArg("seed"));
+        } else {
+            session = runtime.startPractice(type, settings, player);
+        }
         context.feedback("Started " + type.displayName() + " on seed " + session.seed() + ".");
         return 1;
     }

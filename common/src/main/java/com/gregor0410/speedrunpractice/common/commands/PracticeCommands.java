@@ -147,17 +147,21 @@ public final class PracticeCommands {
         root.then(Node.literal("config", "Configuration")
                 .then(Node.literal("reload", "Reload config + scenarios").action("config.reload")));
 
-        // Legacy aliases from the 1.16.1 runtime.
-        root.then(Node.literal("end", "Legacy: end practice").action("legacy.end")
+        // Short practice aliases (plan section 2): the engine owns these
+        // spellings on every version now; the 1.16.1 legacy executors are gone.
+        root.then(Node.literal("end", "Start end practice").action("start.end")
                 .arg("seed", ArgType.LONG, true));
-        root.then(Node.literal("nether", "Legacy: nether practice").action("legacy.nether")
+        root.then(Node.literal("nether", "Start nether practice").action("start.nether")
                 .arg("seed", ArgType.LONG, true));
-        root.then(Node.literal("overworld", "Legacy: overworld practice").action("legacy.overworld")
+        root.then(Node.literal("overworld", "Start overworld practice").action("start.overworld")
                 .arg("seed", ArgType.LONG, true)
-                .then(Node.literal("bt", "Legacy: buried treasure").action("legacy.bt").arg("seed", ArgType.LONG, true)));
-        root.then(Node.literal("postblind", "Legacy: post-blind practice").action("legacy.postblind")
-                .arg("maxDist", ArgType.INT, true).arg("seed", ArgType.LONG, true));
-        root.then(Node.literal("stronghold", "Legacy: stronghold practice").action("legacy.stronghold")
+                .then(Node.literal("bt", "Start buried-treasure practice").action("start.bt").arg("seed", ArgType.LONG, true)));
+        root.then(Node.literal("postblind", "Start post-blind practice").action("start.postblind")
+                .then(Node.literal("<maxDist>", "Max stronghold distance")
+                        .arg("maxDist", ArgType.INT, false).action("start.postblind")
+                        .then(Node.literal("<seed>", "Use a specific seed")
+                                .arg("seed", ArgType.LONG, false).action("start.postblind"))));
+        root.then(Node.literal("stronghold", "Start stronghold practice").action("start.stronghold")
                 .arg("seed", ArgType.LONG, true));
         root.then(Node.literal("seedlist", "Legacy: seed list")
                 .then(Node.literal("reload", "Reload the seed list").action("legacy.seedlist.reload"))

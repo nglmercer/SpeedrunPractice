@@ -53,9 +53,16 @@ servers without GUI support the commands are the full interface.
 /practice config reload            Reload config + custom scenarios
 ```
 
-## Legacy aliases (kept)
+## Short practice aliases
 
-`/practice end|nether|overworld [bt]|postblind [maxDist]|stronghold [seed]`,
+`/practice end|nether|overworld [bt]|postblind [maxDist]|stronghold [seed]`
+are engine-owned shortcuts for `/practice start <type>` (plan section 2):
+the optional seed starts that practice on a fixed seed, and postblind's
+optional maxDist caps the stronghold distance (default 1000).
+
+## Legacy spellings (legacy tree, kept)
+
 `/practice seedlist reload|toggle`, `/practice <type> inventory <1-3>
-select|save`, `/practice world`, `/practice revert <split>`, `/instaperch`.
-These map onto the new engine actions; see `PracticeCommands.buildTree()`.
+select|save`, `/practice world`, `/practice revert <split>`, `/instaperch`,
+and the bare `/practice seed [<seed>]` forms are still implemented by the
+1.16.1 legacy command tree; see `PracticeCommands.buildTree()`.

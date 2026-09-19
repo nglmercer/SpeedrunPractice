@@ -24,9 +24,10 @@ import static net.minecraft.server.command.CommandManager.literal;
 /**
  * Builds real Brigadier nodes from the shared command tree. Nodes named
  * {@code <...>} with arguments become argument nodes; everything else is a
- * literal. Two spellings stay legacy-owned until the section 11 migration:
- * {@code legacy.*} placeholders (the legacy tree already implements those
- * spellings) plus the bare {@code seed} node and its seed-argument child
+ * literal. Two spellings stay legacy-owned (plan section 2 cut over the
+ * practice aliases; seed lists, inventory slots, world, revert and the bare
+ * seed forms are still implemented by the legacy tree): {@code legacy.*}
+ * placeholders plus the bare {@code seed} node and its seed-argument child
  * (registering those would merge-override the working legacy seed
  * commands); the non-colliding {@code seed next/previous/favorite} nodes
  * register normally.

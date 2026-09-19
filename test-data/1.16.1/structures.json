@@ -1,6 +1,6 @@
 {
   "version": "1.16.1",
-  "note": "Rows are illustrative until verified in-game; flip verified to true after checking each seed. Verified XZ come from live /locate on a headless dedicated server (seed in level-seed, fresh world); Y follows the analyzer convention (63 overworld, 64 nether) since /locate reports no Y. Spawn comes from level.dat after save-all.",
+  "note": "Rows are illustrative until verified in-game; flip verified to true after checking each seed. Verified XZ come from live /locate on a headless dedicated server (seed in level-seed, fresh world), doorstep-checked against SeedAnalyzer116 predictions (11 blocks for region structures, 1 for buried treasure, exact for strongholds); Y follows the analyzer convention (63 overworld, 64 nether) since /locate reports no Y. Spawn comes from level.dat after save-all. spawn_biome is game-verified via /locatebiome from the recorded spawn (0-1 blocks away) with the analyzer agreeing on all 5 seeds. bastion_type is the analyzer prediction (in-client chunk check still open).",
   "seeds": [
     {
       "seed": 12345,
@@ -151,7 +151,8 @@
           "z": 192
         }
       },
-      "bastion_type": "housing"
+      "bastion_type": "housing",
+      "spawn_biome": "minecraft:plains"
     },
     {
       "seed": 20004,

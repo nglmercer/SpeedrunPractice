@@ -22,8 +22,9 @@ while everything needing a player is still unverified.
 
 | Feature | 1.16.1 | 1.21.1 | 26.3 |
 | ------- | ------ | ------ | ---- |
-| Mod loads (new adapter entrypoint) | runtime unverified | ❌ adapter pending | ✅ dedicated server 2026-09-18 |
-| `/practice` commands register | runtime unverified | ❌ adapter pending | ✅ dedicated server 2026-09-18 |
+| Mod loads (new adapter entrypoint) | ✅ dedicated server 2026-09-18 (JDK 17, Loader 0.13.2) | ❌ adapter pending | ✅ dedicated server 2026-09-18 |
+| `/practice` commands register | ✅ dedicated server 2026-09-18 (17 shared children; searches, exports and alias routing driven over RCON) | ❌ adapter pending | ✅ dedicated server 2026-09-18 |
+| Short practice aliases route to engine | ✅ dedicated server 2026-09-18 (all 9 alias forms reach the engine; actual starts need a player) | ❌ adapter pending | runtime unverified |
 | Practice world creation | runtime unverified | ❌ adapter pending | ❌ adapter pending |
 | Practice world deletion/reset | runtime unverified | ❌ adapter pending | ❌ adapter pending |
 | `/practice start overworld` | runtime unverified | ❌ adapter pending | ❌ adapter pending |
@@ -44,7 +45,8 @@ while everything needing a player is still unverified.
 | Completion detection | runtime unverified | ❌ adapter pending | ❌ adapter pending |
 | Statistics | runtime unverified | ❌ adapter pending | ❌ adapter pending |
 | Seed list | runtime unverified | ❌ adapter pending | ❌ adapter pending |
-| Seed search | runtime unverified (lava presets need a stage-B chunk verifier) | ❌ adapter pending | ✅ real analyzer verified on dedicated server 2026-09-18 (biome/village/stronghold searches + export + /locate cross-checks; bastion-type and lava presets mismatch by design) |
+| Seed search | ✅ dedicated server 2026-09-18 (village/stronghold/treasure/fortress/bastion + biome searches and exports on 5 seeds, all doorstep-cross-checked via /locate; lava presets need a stage-B chunk verifier) | ❌ adapter pending | ✅ real analyzer verified on dedicated server 2026-09-18 (biome/village/stronghold searches + export + /locate cross-checks; bastion-type and lava presets mismatch by design) |
+| Verified seed fixtures (plan section 14) | ✅ 5 seeds (12345, 20001–20004) with structure positions, spawn, spawn biome and bastion type in `test-data/1.16.1/structures.json` | ❌ | 5 seeds recorded 2026-09-18 per the fixture method note (not re-checked this session) |
 | Favorites | runtime unverified | ❌ adapter pending | ❌ adapter pending |
 | GUI screens | runtime unverified | ❌ adapter pending | ❌ adapter pending |
 | Keybinds | runtime unverified | ❌ adapter pending | ❌ adapter pending |
@@ -86,30 +88,34 @@ needs version block APIs. No row flips to ✅ until exercised in-game.
 
 These prove shared logic only. They never flip a runtime cell above to ✅.
 
-Stage-4 local verification (2026-09-18, offline, JDK 25): full
-`./gradlew build --offline` green (exit 0); forced `--rerun-tasks` run of
-`:common`, `:seed-search`, `:practices` plus the three version-module suites:
-39 suites / 283 tests / 0 failures / 0 errors / 0 skipped;
-`scripts/verify-architecture.ps1` exit 0 (no Minecraft/Fabric imports in
-shared modules); `scripts/verify-supported-versions.ps1` exit 0 (all three
-adapters still claim no capability — skeleton state).
+Stage-4 local verification (2026-09-18, offline): full
+`./gradlew build --offline` green (exit 0), including a forced
+`--rerun-tasks` run: 41 suites / 291 tests / 0 failures / 0 errors /
+0 skipped; `scripts/verify-architecture.ps1` exit 0 (no Minecraft/Fabric
+imports in shared modules); `scripts/verify-supported-versions.ps1`
+exit 0 (all three adapters still claim no capability — skeleton state).
 
 ## Legacy baseline (migrated into `:versions:fabric-1.16.1`, 1.16.1 only)
 
 The pre-existing 1.16.1 Fabric mod code now lives in the version module next
-to the new live adapter and remains the only playable jar until the new
-1.16.1 adapter reaches parity practice by practice (plan section 5).
-Baseline capabilities live in `docs/original-feature-matrix.md`; nothing was
-re-verified as part of the new-architecture work.
+to the new live adapter. Plan section 2 cut the six practice spellings
+(`end`, `nether`, `overworld` + `bt`, `postblind`, `stronghold`) over to
+the engine and deleted their legacy executors; the legacy tree keeps only
+seed/seedlist/inventory/world/revert/`instaperch` plus the shared world,
+config and mixin internals the live adapter reuses. Baseline capabilities
+live in `docs/original-feature-matrix.md`; practice starts still need a
+player/client to verify.
 
-## Server-side verification harness (not yet green)
+## Server-side verification harness (green on 1.16.1)
 
 `scripts/verify-server-116/` drives a headless 1.16.1 dedicated server over
-RCON (`practice seeds search/results/export`) plus a `/locate` cross-check
-procedure for prediction correctness. It has not produced a passing run
-yet: the 1.16.1 loader/mixin stack refuses to boot on the only JDK on this
-machine (25) and no older JDK is fetchable offline. No row above changes
-until the harness (or a real client) runs it green.
+RCON (`practice seeds search/results/export`, alias routing checks) plus a
+`/locate` doorstep cross-check procedure for prediction correctness. Green
+since 2026-09-18 on JDK 17 (`$HOME/.jdks/jdk-17.0.20.1+1`, Loader 0.13.2):
+5 fixture seeds fully cross-checked, RCON source confirmed at world spawn,
+and the vanilla `/locate` walk quirk documented (console-centered global
+locates can return a farther structure; doorstep checks are the verdict —
+see the `test-data/1.16.1/structures.json` note).
 
 ## Update protocol
 

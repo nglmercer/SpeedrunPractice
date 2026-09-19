@@ -404,6 +404,54 @@ public class PracticeRuntimeTest {
     }
 
     @Test
+    public void executorStartAliases() throws Exception {
+        ScenarioTestHarness harness = new ScenarioTestHarness();
+        harness.scriptStructure("stronghold", new PracticePosition(1000.0, 64.0, 1000.0),
+                Collections.<String, String>emptyMap());
+        PracticeRuntime runtime = runtime(folder.getRoot().toPath(), harness);
+        CommandAdapter.CommandExecutor executor = runtime.asCommandExecutor();
+        PracticePlayer player = ScenarioTestHarness.player("p1");
+
+        String[][] aliases = {
+                {"start.end", "End"},
+                {"start.nether", "Nether"},
+                {"start.overworld", "Overworld"},
+                {"start.bt", "Buried Treasure"},
+                {"start.postblind", "Post Blind"},
+                {"start.stronghold", "Stronghold"},
+        };
+        for (String[] alias : aliases) {
+            FakeCommandContext start = new FakeCommandContext(alias[0], player);
+            assertEquals(1, executor.execute(start));
+            assertTrue(runtime.hasActive());
+            assertTrue(start.feedback.get(0).contains("Started " + alias[1] + " on seed "));
+            executor.execute(new FakeCommandContext("stop", player));
+        }
+
+        FakeCommandContext fixed = new FakeCommandContext("start.overworld", player);
+        fixed.longArgs.put("seed", 4242L);
+        assertEquals(1, executor.execute(fixed));
+        assertEquals(4242L, runtime.currentSeed().getAsLong());
+        executor.execute(new FakeCommandContext("stop", player));
+
+        FakeCommandContext blind = new FakeCommandContext("start.postblind", player);
+        blind.intArgs.put("maxDist", 250);
+        blind.longArgs.put("seed", 777L);
+        assertEquals(1, executor.execute(blind));
+        assertEquals(777L, runtime.currentSeed().getAsLong());
+        assertEquals("250", runtime.engine().currentContext().settings().get("postblind.maxDist"));
+        executor.execute(new FakeCommandContext("stop", player));
+
+        try {
+            executor.execute(new FakeCommandContext("start.bogus", player));
+            fail("expected PracticeException");
+        } catch (PracticeException failure) {
+            assertTrue(failure.getUserMessage().contains("Unknown command"));
+        }
+        runtime.shutdown();
+    }
+
+    @Test
     public void executorRejectsUnknownType() throws Exception {
         PracticeRuntime runtime = runtime(folder.getRoot().toPath(), new ScenarioTestHarness());
         FakeCommandContext start = new FakeCommandContext("start", ScenarioTestHarness.player("p1"));
@@ -536,7 +584,7 @@ public class PracticeRuntimeTest {
         CommandAdapter.CommandExecutor executor = runtime.asCommandExecutor();
         PracticePlayer player = ScenarioTestHarness.player("p1");
 
-        FakeCommandContext legacy = new FakeCommandContext("legacy.end", player);
+        FakeCommandContext legacy = new FakeCommandContext("legacy.world", player);
         assertEquals(1, executor.execute(legacy));
         assertTrue(legacy.feedback.get(0).contains("legacy"));
 
@@ -620,6 +668,7 @@ public class PracticeRuntimeTest {
         private final PracticePlayer player;
         private final Map<String, String> stringArgs = new HashMap<String, String>();
         private final Map<String, Long> longArgs = new HashMap<String, Long>();
+        private final Map<String, Integer> intArgs = new HashMap<String, Integer>();
         private final List<String> feedback = new ArrayList<String>();
 
         private FakeCommandContext(String action, PracticePlayer player) {
@@ -639,7 +688,8 @@ public class PracticeRuntimeTest {
 
         @Override
         public boolean hasArg(String name) {
-            return stringArgs.containsKey(name) || longArgs.containsKey(name);
+            return stringArgs.containsKey(name) || longArgs.containsKey(name)
+                    || intArgs.containsKey(name);
         }
 
         @Override
@@ -655,7 +705,8 @@ public class PracticeRuntimeTest {
 
         @Override
         public int intArg(String name) {
-            return 0;
+            Integer value = intArgs.get(name);
+            return value == null ? 0 : value.intValue();
         }
 
         @Override

@@ -56,6 +56,13 @@ public class SimpleJsonTest {
         SimpleJson.parse("{} trailing");
     }
 
+    @Test
+    public void skipsLeadingByteOrderMark() {
+        String bom = Character.toString((char) 0xFEFF);
+        Map<String, Object> map = SimpleJson.parseObject(bom + "{\"n\":42}");
+        assertEquals(42L, map.get("n"));
+    }
+
     @Test(expected = SimpleJson.JsonException.class)
     public void rejectsUnterminatedInput() {
         SimpleJson.parse("{\"a\":");
