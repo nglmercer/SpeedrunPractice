@@ -49,12 +49,16 @@ dependencies {
     mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
     // Fabric API. This is technically optional, but you probably want it anyway.
-    modIncludeImplementation(fabricApi.module("fabric-api-base", project.fabric_version))
-    modIncludeImplementation(fabricApi.module("fabric-commands-v0", project.fabric_version))
-    modIncludeImplementation(fabricApi.module("fabric-command-api-v1", project.fabric_command_api_version))
-    modIncludeImplementation(fabricApi.module("fabric-resource-loader-v0", project.fabric_version))
-    modIncludeImplementation(fabricApi.module("fabric-lifecycle-events-v1", project.fabric_version))
-    modIncludeImplementation(fabricApi.module("fabric-key-binding-api-v1", project.fabric_version))
+    // NOTE: pinned module coordinates instead of fabricApi.module(...) BOM
+    // lookups (fabric_version=0.18.0+build.387-1.16.1): the BOM POM is not
+    // always resolvable, while these exact module versions are the set the
+    // BOM resolves to (verified in the loom-cache argFiles of a working run).
+    modIncludeImplementation("net.fabricmc.fabric-api:fabric-api-base:0.3.0+c88702897d")
+    modIncludeImplementation("net.fabricmc.fabric-api:fabric-commands-v0:0.2.0+52d3083602")
+    modIncludeImplementation("net.fabricmc.fabric-api:fabric-command-api-v1:1.1.2+95b14da07d")
+    modIncludeImplementation("net.fabricmc.fabric-api:fabric-resource-loader-v0:0.2.6+f41e209802")
+    modIncludeImplementation("net.fabricmc.fabric-api:fabric-lifecycle-events-v1:1.2.0+e83e061c02")
+    modIncludeImplementation("net.fabricmc.fabric-api:fabric-key-binding-api-v1:1.0.1+f404f3be02")
     // New runtime: shared engine bundled into the mod jar below.
     // Plain `implementation` (not `modIncludeImplementation`): the full Loom
     // plugin reads `mod*` project jars eagerly at configuration time, which

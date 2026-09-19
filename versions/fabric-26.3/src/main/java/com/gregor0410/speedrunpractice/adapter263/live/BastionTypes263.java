@@ -13,9 +13,12 @@ import java.util.Optional;
 
 /**
  * Bastion-subtype reading shared by live structure lookups and seed
- * analysis: the start piece's template path names the variant
- * ({@code bastion/treasure/...}, {@code bastion/bridge/...},
- * {@code bastion/housing/...}, {@code bastion/stables/...}).
+ * analysis: the start piece (always one of the four entries in vanilla
+ * {@code template_pool/bastion/starts.json}) names the variant. Folder
+ * names are NOT the community names: {@code treasure} and {@code bridge}
+ * match, but stables live under {@code hoglin_stable} and housing under
+ * {@code units} (verified against the 26.3 jar pools and headlessly on
+ * seeds 12345 + the run-world nether).
  */
 final class BastionTypes263 {
     private BastionTypes263() {
@@ -54,10 +57,15 @@ final class BastionTypes263 {
         if (parts.length < 2) {
             return null;
         }
-        String type = parts[1];
-        if ("treasure".equals(type) || "bridge".equals(type) || "housing".equals(type)
-                || "stables".equals(type)) {
-            return type;
+        String folder = parts[1];
+        if ("treasure".equals(folder) || "bridge".equals(folder)) {
+            return folder;
+        }
+        if ("hoglin_stable".equals(folder)) {
+            return "stables";
+        }
+        if ("units".equals(folder)) {
+            return "housing";
         }
         return null;
     }

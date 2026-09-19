@@ -1,6 +1,7 @@
 package com.gregor0410.speedrunpractice.mixin;
 
 import com.gregor0410.speedrunpractice.SpeedrunPractice;
+import com.gregor0410.speedrunpractice.config.ModConfigScreen;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.options.OptionsScreen;
@@ -20,7 +21,7 @@ public class OptionsScreenMixin {
     @Inject(method="Lnet/minecraft/client/gui/screen/options/OptionsScreen;init()V",at=@At("TAIL"))
     public void addConfigButton(CallbackInfo ci){
         ((ScreenAccess)this).invokeAddButton(new ButtonWidget(((Screen)(Object)this).width/2 + 5,((Screen)(Object)this).height / 6 + 138,150,20, new TranslatableText("speedrun-practice.options"),(buttonWidget)->{
-            MinecraftClient.getInstance().openScreen(SpeedrunPractice.config.getScreen(this.parent));
+            MinecraftClient.getInstance().openScreen(ModConfigScreen.create(SpeedrunPractice.config, this.parent));
         }));
     }
 }

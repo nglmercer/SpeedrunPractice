@@ -8,6 +8,7 @@ import com.gregor0410.speedrunpractice.common.seeds.SeedFilters;
 import com.gregor0410.speedrunpractice.common.seeds.SeedQuery;
 import com.gregor0410.speedrunpractice.common.util.SpeedrunLogger;
 import com.gregor0410.ptlib.PTLib;
+import com.gregor0410.speedrunpractice.mixin.DimensionTypeAccess;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.BlockPos;
@@ -124,8 +125,11 @@ public final class SeedAnalyzer116 implements SeedAnalyzer {
         // Practice worlds build these exact sources per seed (see the server
         // mixin); the live configs capture PTLib/datapack spacing tweaks.
         BiomeSource overSource = new VanillaLayeredBiomeSource(seed, false, false);
-        BiomeSource netherSource = nether.getChunkManager().getChunkGenerator()
-                .getBiomeSource().withSeed(seed);
+        // NOTE: BiomeSource.withSeed is client-only in 1.16.1 (stripped on
+        // dedicated servers); build the practice-seed nether source the same
+        // way practice worlds do instead.
+        BiomeSource netherSource = DimensionTypeAccess.invokeCreateNetherGenerator(seed)
+                .getBiomeSource();
         StructuresConfig overConfig = overworld.getChunkManager().getChunkGenerator().getConfig();
         StructuresConfig netherConfig = nether.getChunkManager().getChunkGenerator().getConfig();
 

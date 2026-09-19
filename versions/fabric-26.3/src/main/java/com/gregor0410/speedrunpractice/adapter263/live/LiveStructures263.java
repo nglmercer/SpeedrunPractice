@@ -18,6 +18,7 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.levelgen.structure.Structure;
+import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.levelgen.structure.StructurePiece;
 import net.minecraft.world.level.levelgen.structure.StructureStart;
 import net.minecraft.world.level.levelgen.structure.structures.StrongholdPieces;
@@ -253,11 +254,28 @@ final class LiveStructures263 implements StructureAdapter {
      * when the pieces are not readable, in which case scenarios fall back
      * to the stairs position.
      */
+    /**
+     * Reads the generated start for a structure in the chunk of a
+     * {@code findNearestMapStructure} hit. Scans the chunk's recorded starts
+     * instead of {@code StructureManager.getStructureAt}: locate positions
+     * carry y=0, which falls outside compact bounding boxes (bastions) and
+     * reads back as an invalid start even though the structure generated
+     * fine (verified headlessly on seed 12345).
+     */
+    static StructureStart startAt(ServerLevel backing, Structure structure, BlockPos found) {
+        ChunkAccess chunk = backing.getChunk(found);
+        for (StructureStart start : chunk.getAllStarts().values()) {
+            if (start != null && start.isValid() && start.getStructure() == structure) {
+                return start;
+            }
+        }
+        return null;
+    }
+
     private static String findPortalRoom(ServerLevel backing, Structure structure, BlockPos found) {
         try {
-            backing.getChunk(found);
-            StructureStart start = backing.structureManager().getStructureAt(found, structure);
-            if (start == null || !start.isValid()) {
+            StructureStart start = startAt(backing, structure, found);
+            if (start == null) {
                 return null;
             }
             for (StructurePiece piece : start.getPieces()) {
@@ -279,9 +297,7 @@ final class LiveStructures263 implements StructureAdapter {
      */
     private static String findBastionType(ServerLevel backing, Structure structure, BlockPos found) {
         try {
-            backing.getChunk(found);
-            StructureStart start = backing.structureManager().getStructureAt(found, structure);
-            return BastionTypes263.typeOf(start);
+            return BastionTypes263.typeOf(startAt(backing, structure, found));
         } catch (RuntimeException bad) {
             SpeedrunLogger.warn("Bastion-type scan failed: " + bad.getMessage());
             return null;

@@ -108,7 +108,10 @@ public abstract class MinecraftServerMixin implements IMinecraftServer {
 
     @Inject(method="setDifficulty",at=@At("HEAD"))
     private void setDifficulty(Difficulty difficulty, boolean bl, CallbackInfo ci){
-        LevelInfo levelInfo = saveProperties.getLevelInfo().method_28381(difficulty);
+        // NOTE: SaveProperties.getLevelInfo() is client-only in 1.16.1 (the
+        // server's SaveProperties lacks it, and Fabric strips it on dedicated
+        // servers), so read the LevelInfo field via the accessor instead.
+        LevelInfo levelInfo = ((LevelPropertiesAccess) saveProperties).getLevelInfo().method_28381(difficulty);
         this.worlds.values().forEach(world->{
             if(world instanceof PracticeWorld) {
                 ((LevelPropertiesAccess) world.getLevelProperties()).setLevelInfo(levelInfo);
@@ -209,8 +212,9 @@ public abstract class MinecraftServerMixin implements IMinecraftServer {
             chunkGenerator = DimensionTypeAccess.invokeCreateEndGenerator(seed);
         }
         ServerWorldProperties mainWorldProperties = this.saveProperties.getMainWorldProperties();
-        LevelProperties serverWorldProperties = new LevelProperties(saveProperties.getLevelInfo(),saveProperties.getGeneratorOptions(),((LevelPropertiesAccess)mainWorldProperties).getLifecycle());
-        ((LevelPropertiesAccess)serverWorldProperties).setLevelInfo(saveProperties.getLevelInfo());
+        LevelInfo baseLevelInfo = ((LevelPropertiesAccess) saveProperties).getLevelInfo();
+        LevelProperties serverWorldProperties = new LevelProperties(baseLevelInfo,saveProperties.getGeneratorOptions(),((LevelPropertiesAccess)mainWorldProperties).getLifecycle());
+        ((LevelPropertiesAccess)serverWorldProperties).setLevelInfo(baseLevelInfo);
         return new PracticeWorld((MinecraftServer)(Object) this,
                 this.workerExecutor,
                 this.session,

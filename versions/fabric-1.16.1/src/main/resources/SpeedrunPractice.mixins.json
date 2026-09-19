@@ -9,22 +9,22 @@
     "EnderDragonFightAccess",
     "EndPortalBlockMixin",
     "EntityMixin",
-    "KeyboardMixin",
     "LevelPropertiesAccess",
     "MinecraftServerAccess",
     "MinecraftServerMixin",
-    "OptionsScreenMixin",
     "PlayerAdvancementTrackerMixin",
     "PlayerManagerMixin",
     "PortalForcerMixin",
-    "ScreenAccess",
     "ServerPlayerEntityAccess",
     "ServerPlayerEntityMixin",
     "ServerWorldAccess",
     "ThreadedAnvilChunkStorageAccess"
   ],
   "client": [
-    "DebugHudMixin"
+    "DebugHudMixin",
+    "KeyboardMixin",
+    "OptionsScreenMixin",
+    "ScreenAccess"
   ],
   "injectors": {
     "defaultRequire": 1

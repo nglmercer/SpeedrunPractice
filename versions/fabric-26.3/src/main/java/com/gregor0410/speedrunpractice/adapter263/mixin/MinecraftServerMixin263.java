@@ -216,7 +216,7 @@ public abstract class MinecraftServerMixin263 implements IPracticeServer263 {
         for (Map<PracticeDimension, PracticeLevel263> triple : linkedPracticeLevels) {
             try {
                 removeLinkedPracticeLevels(triple);
-            } catch (IOException failure) {
+            } catch (IOException | RuntimeException failure) {
                 SpeedrunLogger.warn("Could not remove practice worlds on shutdown: "
                         + failure.getMessage());
             }
@@ -225,7 +225,7 @@ public abstract class MinecraftServerMixin263 implements IPracticeServer263 {
         for (PracticeLevel263 end : endPracticeLevels) {
             try {
                 removePracticeLevel(end);
-            } catch (IOException failure) {
+            } catch (IOException | RuntimeException failure) {
                 SpeedrunLogger.warn("Could not remove end practice world on shutdown: "
                         + failure.getMessage());
             }
@@ -316,6 +316,12 @@ public abstract class MinecraftServerMixin263 implements IPracticeServer263 {
 
     private void removePracticeLevel(PracticeLevel263 level) throws IOException {
         MinecraftServer server = (MinecraftServer) (Object) this;
+        if (!levels.containsKey(level.dimension())) {
+            // Already removed (deleted mid-session, reaped again on
+            // shutdown): closing a second time wedges the server thread
+            // inside ServerLevel.close(), so there is nothing left to do.
+            return;
+        }
         ServerLevel mainOverworld = server.overworld();
         BlockPos lobby = mainOverworld == null ? BlockPos.ZERO : mainOverworld.getRespawnData().pos();
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {

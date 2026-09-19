@@ -184,10 +184,25 @@ public final class LiveAdapter263 implements MinecraftAdapter {
 
     @Override
     public boolean supports(Capability capability) {
-        // Nothing claimed until validated against 26.3 behaviour: a
-        // capability may return true only after its implementation exists,
-        // compiles, and passes in-game testing on this version.
-        return false;
+        // Plan section 15: true only when implemented, compiled, and
+        // runtime-tested. CUSTOM_DIMENSION_RUNTIME (linked practice triples
+        // created/deleted across 6 headless runs) and BASTION_TYPE_QUERY
+        // (bridge + stables metadata read from live starts, typed searches
+        // matching) passed on the real 26.3 dedicated server. The rest stay
+        // false: FAST_WORLD_RESET has no recycled-world path (rebuild only),
+        // DRAGON_FORCE_PERCH never ran against a living dragon (player-gated
+        // spawn), PORTAL_STATE_CAPTURE has no capture/restore API, and seed
+        // search reads no portal-room/eye-count metadata.
+        if (capability == null) {
+            return false;
+        }
+        switch (capability) {
+            case CUSTOM_DIMENSION_RUNTIME:
+            case BASTION_TYPE_QUERY:
+                return true;
+            default:
+                return false;
+        }
     }
 
     /** Resolves the backing level for a practice handle, failing readably. */
