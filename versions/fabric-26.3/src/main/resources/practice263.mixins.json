@@ -9,6 +9,7 @@
     "MinecraftServerMixin263",
     "NetherPortalBlockMixin263",
     "PlayerListMixin263",
+    "ServerLevelSeedMixin263",
     "SinglePoolElementAccess263"
   ],
   "injectors": {

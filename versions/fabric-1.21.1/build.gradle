@@ -1,27 +1,63 @@
-plugins {
-    id 'java-library'
+buildscript {
+    repositories {
+        maven {
+            name = 'Fabric'
+            url = 'https://maven.fabricmc.net/'
+        }
+        mavenCentral()
+    }
+    dependencies {
+        // Applied by class below (see root build.gradle): both Loom plugins
+        // ship in one artifact and Gradle cannot resolve both markers at once.
+        // Same Loom as the 1.16.1 remap module.
+        classpath 'net.fabricmc:fabric-loom:1.18.2'
+    }
 }
+
+// 1.21.1 = modern Fabric build (plan section 8). Real remap-Loom module:
+// obfuscated MC + yarn mappings, mirroring the 1.16.1 module wiring.
+apply plugin: net.fabricmc.loom.LoomGradlePlugin
 
 group = 'com.gregor0410'
-// 1.21.1 = modern compatibility/reference build (plan section 1).
-// Skeleton adapter set; compiles offline as plain Java. Full Loom wiring
-// needs its Loom/Minecraft/loader dependencies plus a JDK 21+ toolchain;
-// see versions/README.md.
-description = 'Minecraft 1.21.1 adapter set (modern compatibility build).'
+description = 'Minecraft 1.21.1 adapter set (modern Fabric build).'
 
-java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
+version = mod_version
+
+repositories {
+    // Loom adds the Minecraft/Fabric ones.
+    mavenLocal()
 }
 
-tasks.withType(JavaCompile).configureEach {
-    it.options.encoding = 'UTF-8'
+configurations {
+    modIncludeImplementation
+
+    include.extendsFrom modIncludeImplementation
+    modImplementation.extendsFrom modIncludeImplementation
+
+    // Resolvable view of the new-runtime modules for fat-jar bundling below.
+    bundleLibs {
+        canBeConsumed = false
+        canBeResolved = true
+    }
 }
 
 dependencies {
-    api project(':common')
-    api project(':practices')
-    api project(':seed-search')
+    // To change the versions see the gradle.properties file
+    minecraft "com.mojang:minecraft:${project.mc121_minecraft_version}"
+    mappings "net.fabricmc:yarn:${project.mc121_yarn_mappings}:v2"
+    modImplementation "net.fabricmc:fabric-loader:${project.mc121_loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.mc121_fabric_version}"
+    // New runtime: shared engine bundled into the mod jar below.
+    // Plain `implementation` (not `modIncludeImplementation`): the full Loom
+    // plugin reads `mod*` project jars eagerly at configuration time, which
+    // breaks clean builds (same lesson as the 1.16.1 module).
+    implementation project(':common')
+    implementation project(':practices')
+    implementation project(':seed-search')
+    bundleLibs project(':common')
+    bundleLibs project(':practices')
+    bundleLibs project(':seed-search')
+
     testImplementation 'junit:junit:4.13.2'
 }
 
@@ -29,6 +65,47 @@ tasks.withType(Test).configureEach {
     useJUnit()
 }
 
+processResources {
+    inputs.property "version", project.version
+    filteringCharset "UTF-8"
+
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version
+    }
+}
+
+def targetJavaVersion = 21
+tasks.withType(JavaCompile).configureEach {
+    it.options.encoding = "UTF-8"
+    if (targetJavaVersion >= 10 || JavaVersion.current().isJava10Compatible()) {
+        it.options.release = targetJavaVersion
+    }
+}
+
+java {
+    def javaVersion = JavaVersion.toVersion(targetJavaVersion)
+    if (JavaVersion.current() < javaVersion) {
+        toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
+    }
+    withSourcesJar()
+}
+
+base {
+    archivesName = 'speedrun-practice-1.21.1'
+}
+
 jar {
-    archiveBaseName = 'speedrun-practice-1.21.1'
+    // Execution-time ordering for the bundling below (no artifact reads at
+    // configuration time, so Loom's eager-jar problem stays fixed).
+    dependsOn project(':common').tasks.named('jar')
+    dependsOn project(':practices').tasks.named('jar')
+    dependsOn project(':seed-search').tasks.named('jar')
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from("${rootProject.projectDir}/LICENSE") {
+        rename { "${it}_speedrun-practice" }
+    }
+    // Bundle the new-runtime modules' classes. The closure defers artifact
+    // resolution to execution time so Loom never reads the module jars
+    // during configuration (which breaks clean builds).
+    from { configurations.bundleLibs.collect { zipTree(it) } }
 }

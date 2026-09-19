@@ -2,6 +2,11 @@ package com.gregor0410.speedrunpractice.adapter121.live;
 
 import com.gregor0410.speedrunpractice.common.api.PracticeDimension;
 import com.gregor0410.speedrunpractice.common.api.PracticeException;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.registry.RegistryKeys;
+import net.minecraft.registry.tag.TagKey;
+import net.minecraft.util.Identifier;
+import net.minecraft.world.gen.structure.Structure;
 
 import java.util.Collections;
 import java.util.HashSet;
@@ -68,6 +73,21 @@ public final class FeatureIds121 {
             clean = "minecraft:monument";
         }
         return clean;
+    }
+
+    /** Parses a preset/filter id into a namespaced structure identifier. */
+    public static Identifier identifier(String id) throws PracticeException {
+        return Identifier.of(namespaced(id));
+    }
+
+    /** Registry key for a preset/filter structure id. */
+    public static RegistryKey<Structure> key(String id) throws PracticeException {
+        return RegistryKey.of(RegistryKeys.STRUCTURE, identifier(id));
+    }
+
+    /** Structure-tag key for a preset/filter id (family lookups like `village`). */
+    public static TagKey<Structure> tagKey(String id) throws PracticeException {
+        return TagKey.of(RegistryKeys.STRUCTURE, identifier(id));
     }
 
     /** Which dimension generates the structure (for generator resolution). */

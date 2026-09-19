@@ -80,6 +80,16 @@ public class PracticeLevel263 extends ServerLevel {
         return constructing != null ? constructing.longValue() : practiceSeed;
     }
 
+    /**
+     * Practice seed currently under construction on this thread, or null.
+     * Lets constructor-time bytecode (which cannot see the not-yet-assigned
+     * field, and sometimes bypasses {@link #getSeed()} for the server-global
+     * seed) use the practice seed anyway.
+     */
+    public static Long constructingSeed() {
+        return CONSTRUCTING_SEED.get();
+    }
+
     /** The vanilla dimension this practice level mirrors. */
     public PracticeDimension practiceDimension() {
         return dimension;

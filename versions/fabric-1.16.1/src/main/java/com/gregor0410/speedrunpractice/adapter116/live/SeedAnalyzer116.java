@@ -54,14 +54,18 @@ import java.util.Set;
  * <p>Distances are horizontal blocks from the predicted spawn (nether
  * structures from spawn/8). Pillager-outpost village avoidance and
  * end-city terrain checks are not replicated (treated as valid when the
- * biome gate passes). Lava findings are omitted because lava needs
- * generated chunks: lava-constrained queries always mismatch here and must
- * run through a chunk-generating stage-B verifier instead.
+ * biome gate passes).
  *
  * <p>{@code location.<id>} findings carry the predicted start-chunk center.
  * X/Z come from the placement math; Y is conventional (overworld sea level,
  * 64 in the Nether/End), not a prediction, because surface height needs
  * generated chunks.
+ *
+ * <p>Stage-B verification runs for lava-constrained queries after Stage-A
+ * passes: the game's own lava-lake and lava-spring placement executes
+ * for the candidate seed over noise-stage terrain columns
+ * ({@link StageBLava116}), so {@code lava.available} reflects real
+ * worldgen.
  *
  * <p>Threading: every call builds fresh sources/randoms, so concurrent
  * search workers share nothing mutable. Calls need a loaded server (any
@@ -95,6 +99,11 @@ public final class SeedAnalyzer116 implements SeedAnalyzer {
     @Override
     public boolean matches(long seed, SeedQuery query) {
         return analyze(seed, query).matches();
+    }
+
+    @Override
+    public boolean supportsLava() {
+        return true;
     }
 
     @Override
@@ -133,9 +142,6 @@ public final class SeedAnalyzer116 implements SeedAnalyzer {
         StructuresConfig overConfig = overworld.getChunkManager().getChunkGenerator().getConfig();
         StructuresConfig netherConfig = nether.getChunkManager().getChunkGenerator().getConfig();
 
-        if (query.lavaRequired()) {
-            return SeedAnalysis.mismatch();
-        }
         Map<String, Object> findings = new LinkedHashMap<String, Object>();
         BlockPos spawn = predictSpawn(overSource, overworld.getSeaLevel(), seed);
         String spawnBiome = biomeId(biomeAt(overSource, spawn.getX(), spawn.getZ()));
@@ -197,6 +203,23 @@ public final class SeedAnalyzer116 implements SeedAnalyzer {
         if (query.strongholdRing() > 0 && !sawStronghold) {
             return SeedAnalysis.mismatch();
         }
+        if (query.lavaRequired()) {
+            // Stage-B runs only for Stage-A survivors: real lake/spring
+            // placement verification for the candidate seed.
+            MinecraftServer server = adapter.server();
+            boolean lava;
+            try {
+                lava = server != null && StageBLava116.verify(server, overworld, seed, spawn,
+                        overSource, overConfig);
+            } catch (RuntimeException failure) {
+                SpeedrunLogger.warn("Stage-B lava check failed for seed " + seed + ": " + failure);
+                return SeedAnalysis.mismatch();
+            }
+            if (!lava) {
+                return SeedAnalysis.mismatch();
+            }
+            findings.put(SeedFilters.FIND_LAVA, Boolean.TRUE);
+        }
         return SeedAnalysis.of(ok, findings);
     }
 
@@ -213,7 +236,11 @@ public final class SeedAnalyzer116 implements SeedAnalyzer {
      * jar's center+8 snap. The dedicated-server path that produces this is not
      * understood; treat spawn-relative distances as approximate within a chunk.
      */
-    private static BlockPos predictSpawn(BiomeSource source, int seaLevel, long seed) {
+    /**
+     * Predicted spawn for a seed. Package-visible so the Stage-B probe
+     * measures ground truth from the same center.
+     */
+    static BlockPos predictSpawn(BiomeSource source, int seaLevel, long seed) {
         BlockPos found;
         try {
             found = source.locateBiome(0, seaLevel, 0, 256, source.getSpawnBiomes(), new Random(seed));
@@ -239,9 +266,21 @@ public final class SeedAnalyzer116 implements SeedAnalyzer {
      * {@code requiredBastionType} only constrains bastion starts (ignored
      * for every other feature).
      */
-    private Found findRegional(long seed, StructureFeature<?> feature, BiomeSource source,
-                               StructuresConfig config, BlockPos center, int maxDistance,
-                               String requiredBastionType) {
+    /**
+     * Nearest village start chunk within {@code maxBlocks} of
+     * {@code center}, or null. Package-visible for the Stage-B lake
+     * village gate ({@code StageBLava116}).
+     */
+    static ChunkPos nearestVillageStart(long seed, BiomeSource source, StructuresConfig config,
+                                        BlockPos center, int maxBlocks) {
+        Found found = findRegional(seed, StructureFeature.VILLAGE, source, config, center,
+                maxBlocks, null);
+        return found == null ? null : found.start;
+    }
+
+    private static Found findRegional(long seed, StructureFeature<?> feature, BiomeSource source,
+                                      StructuresConfig config, BlockPos center, int maxDistance,
+                                      String requiredBastionType) {
         if (!source.hasStructureFeature(feature)) {
             return null;
         }
@@ -309,8 +348,8 @@ public final class SeedAnalyzer116 implements SeedAnalyzer {
      * with this mod). The region random continues exactly where vanilla's
      * generation leaves it.
      */
-    private boolean extraValid(StructureFeature<?> feature, long seed, ChunkPos start,
-                               ChunkRandom random, Biome biome) {
+    private static boolean extraValid(StructureFeature<?> feature, long seed, ChunkPos start,
+                                      ChunkRandom random, Biome biome) {
         if (feature == StructureFeature.BASTION_REMNANT) {
             com.gregor0410.ptlib.config.PTConfig config = PTLib.getConfig();
             if (!(config.isBridge() || config.isHousing() || config.isTreasure() || config.isStables())) {

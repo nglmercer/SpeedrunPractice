@@ -131,9 +131,11 @@ final class LiveWorlds implements WorldAdapter {
         Map<PracticeDimension, LiveWorld> staleTriple = adapter.triple(staleKey);
         PracticeWorld fresh = createPracticeWorld(seed, options);
         ServerWorld freshWorld = ((LiveWorld) fresh).world();
-        handle.rebind(freshWorld, seed);
-        // The legacy mixin already pruned the stale set server-side; drop its
-        // tracking and delete leftovers (a no-op when already pruned).
+        // Drop the stale triple BEFORE rebinding: the stale map aliases the
+        // surviving handle object, so rebinding first would untrack the fresh
+        // keys and delete the fresh world instead of the stale one.
+        // The legacy mixin already pruned the stale set server-side; this
+        // drops its tracking and deletes leftovers (a no-op when pruned).
         MinecraftServer server = adapter.server();
         if (staleTriple != null) {
             adapter.forget(staleKey);
@@ -142,6 +144,14 @@ final class LiveWorlds implements WorldAdapter {
                     ((IMinecraftServer) server).deletePracticeWorld(stale.world());
                 }
             }
+        } else {
+            adapter.forget(staleKey);
+            if (server != null) {
+                ((IMinecraftServer) server).deletePracticeWorld(server.getWorld(staleKey));
+            }
+        }
+        handle.rebind(freshWorld, seed);
+        if (staleTriple != null) {
             // Point the fresh triple at the surviving handle.
             Map<PracticeDimension, LiveWorld> freshTriple = adapter.triple(freshWorld.getRegistryKey());
             if (freshTriple != null) {
@@ -152,10 +162,6 @@ final class LiveWorlds implements WorldAdapter {
                 adapter.trackTriple(fixed);
             }
         } else {
-            adapter.forget(staleKey);
-            if (server != null) {
-                ((IMinecraftServer) server).deletePracticeWorld(server.getWorld(staleKey));
-            }
             adapter.track(handle);
         }
         adapter.setCurrentWorld(handle);

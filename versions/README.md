@@ -15,33 +15,29 @@ runtime + new live adapter, migrated from root `src/` in plan step 12);
 adapter methods that still need live Minecraft calls fail with a domain
 `AdapterException` carrying a user-facing message, never an NPE.
 
-## Capability matrix (initial)
+## Capability matrix
 
-No adapter claims any capability yet: `supports()` returns `false` for every
-`Capability` on all three versions (plan sections 7 and 98). A capability may
-return `true` only after its implementation exists, compiles, and passes
-in-game testing on that version.
+A capability returns `true` only after its implementation exists, compiles,
+and passes in-game testing on that version (plan sections 7 and 98).
 
 | Capability | 1.16.1 | 1.21.1 | 26.3 |
 | ---------- | :----: | :----: | :--: |
-| `CUSTOM_DIMENSION_RUNTIME` | no (adapter pending) | no (adapter pending) | no (adapter pending) |
-| `FAST_WORLD_RESET` | no (adapter pending) | no (adapter pending) | no (adapter pending) |
-| `BASTION_TYPE_QUERY` | no (adapter pending) | no (adapter pending) | no (adapter pending) |
-| `DRAGON_FORCE_PERCH` | no (adapter pending) | no (adapter pending) | no (adapter pending) |
-| `PORTAL_STATE_CAPTURE` | no (adapter pending) | no (adapter pending) | no (adapter pending) |
-| `STRUCTURE_METADATA_SEARCH` | no (adapter pending) | no (adapter pending) | no (adapter pending) |
+| `CUSTOM_DIMENSION_RUNTIME` | no | yes (headless 2026-09-19) | yes (headless 2026-09-18) |
+| `FAST_WORLD_RESET` | no | no (rebuild-only by design) | no (rebuild-only by design) |
+| `BASTION_TYPE_QUERY` | no | yes (headless 2026-09-19) | yes (headless 2026-09-18) |
+| `DRAGON_FORCE_PERCH` | no | no (player-gated) | no (player-gated) |
+| `PORTAL_STATE_CAPTURE` | no | no (no API) | no (no API) |
+| `STRUCTURE_METADATA_SEARCH` | no | no | no |
 
 GUI/commands consult `supports()` and disable or explain unsupported options.
 Per-version runtime status lives in `docs/version-status.md`.
 
 ## Loom wiring
 
-1.16.1 is a full Loom module: `AdapterSet116` delegates to the live
-`adapter116/live/` implementation (`LiveAdapter116` + sub-adapters +
-`Runtime116` bootstrap) in this module's `src/`, and the module builds the
-remapped playable jar. The 1.21.1 module still compiles as plain Java so
-shared code stays verifiable offline. Full in-game wiring per remaining
-module:
+1.16.1, 1.21.1 and 26.3 are all full Loom modules: each `AdapterSet`
+delegates to a live `adapter*/live/` implementation (`LiveAdapter*` +
+sub-adapters + `Runtime*` bootstrap) in its module's `src/`, and each
+module builds a remapped playable jar. Reference wiring per module:
 
 ```text
 versions/fabric-<mc>/
@@ -60,19 +56,19 @@ instead of rebuilding that state.
 
 ## 1.21.1 port state
 
-The 1.21.1 module already carries the mapping-free slices of the port:
-`adapter121/RegistryIds` (item-id normalization) and
-`adapter121/live/FeatureIds121` (preset-id vocabulary, aliases, dimension
-homes, bastion/stronghold predicates), both unit-tested. The Loom conversion
-itself is blocked offline: the Gradle cache holds Minecraft/intermediary/
-yarn artifacts only for 1.16.1 and 26.3, plus the 1.16.1-era and 26.3-era
-loader/fabric-api lines — no 1.21.1 artifacts. The online step is: add the
-loom plugin + `minecraft`/`mappings`/loader/fabric-api deps for 1.21.1 to
-`versions/fabric-1.21.1/build.gradle` (Java 21), then port the live slices
-(entrypoint, commands, events, worlds, players, inventories, structures,
-portals, dragon, GUI, keybinds, `SeedAnalyzer121`) against 1.21.1 mappings,
-mirroring `adapter116/live/` and `adapter263/live/`. Until then the module
-stays plain Java so `:versions:fabric-1.21.1:build --offline` keeps passing.
+The 1.21.1 module is a full Loom module (Java 21, yarn mappings) with every
+slice live behind the `AdapterSet121` shell: entrypoint, commands, worlds,
+players, inventories, structures, portals, dragon, registries, GUI +
+keybinds, timer bridge, and `SeedAnalyzer121`. No `pending()` remains.
+Headless-verified on the real 1.21.1 dedicated server 2026-09-19: worlds
+8/8, structures 8/8, portals 3/3 plus 4-direction pig travel, dragons 5/5,
+registries 3/3, seeds 7/7 against live `locateStructure` (walk-order
+first-hit, bytecode-verified), GUI/timer server behavior 4/4. Anything
+needing a player or a client window (practice starts, screens, keybind
+presses) is still unverified. The 26.3 probe exposed a main-seed presence
+gate on practice worlds (same bug shape on 1.21.1, confirmed in bytecode);
+`ServerWorldSeedMixin121` redirects it to the practice seed, and seeds
+re-probed 7/7 afterwards with identical positions.
 
 Do not unify mixin targets across versions; per-version mixins are expected.
 Do not touch `common` just to fix mapping names.
@@ -80,13 +76,12 @@ Do not touch `common` just to fix mapping names.
 ## 26.3 port state
 
 `LiveAdapter263` (behind the `AdapterSet263` shell) delegates to live
-slices for commands (`LiveCommands263`), seeds (`SeedAnalyzer263`, real
-worldgen analysis), worlds (`LiveWorlds263`/`LiveWorld263`), players
-(`LivePlayers263`/`LivePlayer263`), inventories (`LiveInventories263`),
-an interim `RegistryIds`-based registry, and event polling
-(`EventPoller263`). Structures, portals, dragon and GUI still
-`throw pending(...)` (`LiveAdapter263.java` lines 74-127), and `supports()`
-still claims nothing — verified by
-`scripts/verify-supported-versions.ps1` (exit 0, 2026-09-18). Runtime
-truth per feature lives in `docs/version-status.md`; anything needing a
-player is still unverified.
+slices for every sub-adapter plus `SeedAnalyzer263`, with no `pending()`
+left; `supports()` claims `CUSTOM_DIMENSION_RUNTIME` + `BASTION_TYPE_QUERY`
+(headless-verified 2026-09-18). Runtime truth per feature lives in
+`docs/version-status.md`; anything needing a player is still unverified.
+2026-09-19: `SeedAnalyzer263` got the walk-order first-hit fix (same root
+cause as 1.21.1, both bytecode-verified) plus a public `spawnCenter` API
+for the seed-dependent 26.3 spawn, and probed 19/19 against live locate on
+3 seeds; the probe also exposed the main-seed presence gate, fixed by
+`ServerLevelSeedMixin263` (see `docs/version-status.md`).

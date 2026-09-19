@@ -57,12 +57,15 @@ import java.util.function.Predicate;
  *       ({@code setInitialSpawn} without its chunk-loading 11x11 refinement,
  *       so predictions can sit up to ~80 blocks from the refined spawn;
  *       distances are measured from the prediction).</li>
- *   <li>Region structures: the placement's own potential-chunk math plus
- *       the game's placement, restriction and generation checks
+ *   <li>Region structures: the game's own locate walk (rings expand
+ *       {@code 0..bound}, border cells in {@code dx}/{@code dz} order,
+ *       first verifying candidate wins â€” never nearest) plus the game's
+ *       placement, restriction and generation checks
  *       ({@code isStructureChunk},
  *       {@code applyAdditionalChunkRestrictions} and {@code generate}),
  *       including multi-entry set selection replicated from
- *       {@code createStructures}.</li>
+ *       {@code createStructures}. Both replications were verified against
+ *       26.3 bytecode.</li>
  *   <li>Strongholds: the exact ring positions from
  *       {@code getRingPositionsFor}, with ring numbers from the replicated
  *       ring-growth rule.</li>
@@ -78,7 +81,8 @@ import java.util.function.Predicate;
  * <p>Preset ids resolve tag-first: family ids like {@code village} name a
  * structure tag on modern versions (there is no {@code minecraft:village}
  * structure, only the five biome variants plus the tag), so each member is
- * searched and the nearest wins. Ids without a tag resolve directly.
+ * searched and the nearest first-hit wins. Ids without a tag resolve
+ * directly.
  *
  * <p>{@code location.<id>} findings carry {@code getLocatePos} X/Z (exactly
  * what {@code /locate} reports); Y is conventional (overworld sea level,
@@ -283,6 +287,33 @@ public final class SeedAnalyzer263 implements SeedAnalyzer {
         return origin.getWorldPosition().offset(8, y, 8);
     }
 
+    /**
+     * Predicted spawn for a seed: the overworld search center every
+     * overworld distance is measured from (the Nether center derives as
+     * {@code (spawnX/8, 64, spawnZ/8)}; the End center is fixed). Null when
+     * no server is loaded. Public so callers can cross-check predictions
+     * against live locates from the same centers.
+     */
+    public BlockPos spawnCenter(long seed) {
+        try {
+            MinecraftServer server = live.server();
+            if (server == null) {
+                return null;
+            }
+            RegistryAccess registries = server.registryAccess();
+            HolderGetter<NormalNoise> noises = registries.lookupOrThrow(Registries.NOISE);
+            HolderLookup<StructureSet> sets = registries.lookupOrThrow(Registries.STRUCTURE_SET);
+            ServerLevel overworld = server.getLevel(Level.OVERWORLD);
+            if (overworld == null) {
+                return null;
+            }
+            Dim over = dim(overworld, seed, noises, sets);
+            return over == null ? null : predictSpawn(over);
+        } catch (RuntimeException missing) {
+            return null;
+        }
+    }
+
     private static double locationY(Placed placed, ServerLevel overworld) {
         if (placed.dim.level.dimension() == Level.OVERWORLD) {
             return (double) overworld.getSeaLevel();
@@ -360,33 +391,42 @@ public final class SeedAnalyzer263 implements SeedAnalyzer {
         return null;
     }
 
-    /** Nearest region-structure start: lattice, restrictions, real generation. */
+    /**
+     * Region-structure start replicating the game's own locate walk
+     * ({@code ChunkGenerator.findNearestMapStructure} + its random-spread
+     * helper, verified against 26.3 bytecode): rings expand {@code 0..bound},
+     * each ring visits only its border cells in {@code dx}/{@code dz}
+     * order, and the FIRST verifying candidate wins â€” the game never
+     * compares distances, so a nearer start in a later-visited region
+     * loses to a farther start found first. The caller applies the
+     * query's max distance to that answer afterwards.
+     */
     private Found findSpread(long seed, MinecraftServer server, RegistryAccess registries,
             StructureTemplateManager templates, Holder<Structure> holder, Structure structure,
             Placed placed, BlockPos center, int maxDistance, String requiredBastionType) {
         RandomSpreadStructurePlacement placement =
                 (RandomSpreadStructurePlacement) placed.placement;
         int spacing = placement.spacing();
-        ChunkPos centerChunk = new ChunkPos(SectionPos.blockToSectionCoord(center.getX()),
-                SectionPos.blockToSectionCoord(center.getZ()));
-        int centerRegionX = Math.floorDiv(centerChunk.x(), spacing);
-        int centerRegionZ = Math.floorDiv(centerChunk.z(), spacing);
+        int centerChunkX = SectionPos.blockToSectionCoord(center.getX());
+        int centerChunkZ = SectionPos.blockToSectionCoord(center.getZ());
         int rings = Math.min(MAX_RINGS, maxDistance / (spacing * 16) + 2);
-        Found best = null;
         int checked = 0;
-        for (int ring = 0; ring < rings; ring++) {
+        for (int ring = 0; ring <= rings; ring++) {
             for (int dx = -ring; dx <= ring; dx++) {
+                boolean edgeX = dx == -ring || dx == ring;
                 for (int dz = -ring; dz <= ring; dz++) {
-                    if (Math.max(Math.abs(dx), Math.abs(dz)) != ring) {
+                    boolean edgeZ = dz == -ring || dz == ring;
+                    if (!edgeX && !edgeZ) {
                         continue;
                     }
                     if (checked++ >= RECENT_CAP) {
-                        return best;
+                        return null;
                     }
-                    // Chunk (not region) coords, mirroring the /locate walk:
-                    // center chunk plus spacing-scaled ring offsets.
+                    // Chunk coords into the region lattice, exactly like the
+                    // game walk; the chunk gate plus per-chunk generation
+                    // below mirror what the walk verifies per candidate.
                     ChunkPos candidate = placement.getPotentialStructureChunk(seed,
-                            (centerRegionX + dx) * spacing, (centerRegionZ + dz) * spacing);
+                            centerChunkX + spacing * dx, centerChunkZ + spacing * dz);
                     if (!placement.isStructureChunk(placed.dim.state, candidate.x(), candidate.z())) {
                         continue;
                     }
@@ -402,14 +442,11 @@ public final class SeedAnalyzer263 implements SeedAnalyzer {
                         continue;
                     }
                     BlockPos pos = placement.getLocatePos(candidate);
-                    long distance = horizontal(center, pos);
-                    if (best == null || distance < best.distance) {
-                        best = new Found(distance, 0, pos);
-                    }
+                    return new Found(horizontal(center, pos), 0, pos);
                 }
             }
         }
-        return best;
+        return null;
     }
 
     /**

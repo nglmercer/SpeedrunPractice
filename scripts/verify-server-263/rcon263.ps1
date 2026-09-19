@@ -58,12 +58,23 @@ try {
     foreach ($cmd in $Command) {
         $i++
         Send-Packet $stream $i 2 $cmd
-        Start-Sleep -Milliseconds 700
+        # Wait for the first response byte (structure searches and world
+        # probes can take a while); then drain with a settle window so
+        # multi-packet replies are not split across commands.
+        $deadline = [DateTime]::UtcNow.AddSeconds(300)
+        while (-not $stream.DataAvailable -and [DateTime]::UtcNow -lt $deadline) {
+            Start-Sleep -Milliseconds 200
+        }
         $out = ""
-        while ($stream.DataAvailable) {
-            $pkt = Read-Packet $stream
-            if ($pkt -eq $null) { break }
-            $out += $pkt.text
+        $settle = [DateTime]::UtcNow.AddSeconds(3)
+        while ([DateTime]::UtcNow -lt $settle) {
+            while ($stream.DataAvailable) {
+                $pkt = Read-Packet $stream
+                if ($pkt -eq $null) { break }
+                $out += $pkt.text
+                $settle = [DateTime]::UtcNow.AddSeconds(1)
+            }
+            Start-Sleep -Milliseconds 200
         }
         Write-Output "=== RCON> $cmd"
         Write-Output $out

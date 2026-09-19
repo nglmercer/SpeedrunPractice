@@ -66,11 +66,23 @@ import java.util.Map;
  *
  * <p>What is approximated: the terrain substrate is noise-stage columns
  * ({@code getBaseColumn}), without surface rules, carvers or structure
- * terrain adaptation. Surface rules swap the top block's look, not its
- * solidity, so spring conditions (air plus sturdy rock neighbours)
- * evaluate the same; caves and structures intersecting a spring site can
- * theoretically flip a result either way, which in-game spot checks of
- * found seeds should confirm.
+ * terrain adaptation, and only lava features run (other decoration such
+ * as ores or trees is skipped). Surface rules swap the top block's look,
+ * not its solidity, so spring conditions (air plus sturdy rock
+ * neighbours) evaluate the same; caves, structures and other features
+ * intersecting a spring site can theoretically flip a result either way,
+ * which in-game spot checks of found seeds should confirm.
+ *
+ * <p>Cost: a full scan builds up to ~21k noise columns, so lava-only
+ * searches over wide ranges are slow; combine lava with structure or
+ * biome filters so Stage-B runs only for Stage-A survivors.
+ *
+ * <p>Only surface lava counts: a placement verifies the seed only when
+ * it sits no deeper than {@value #SURFACE_MARGIN} blocks below the
+ * local noise surface. Deep cave springs the player would never find
+ * must not satisfy a "surface lava near spawn" query (headless probe
+ * 2026-09-19: ungated Stage-B fired on y=-50..-5 springs for seeds
+ * with zero surface lava).
  *
  * <p>Only reports lava it actually places: any failure or budget
  * exhaustion verifies nothing and the seed mismatches (false negatives
@@ -79,10 +91,25 @@ import java.util.Map;
 final class StageBLava263 {
     /** Horizontal radius around spawn inside which lava counts. */
     private static final int RADIUS = 64;
-    /** Chunk margin around the radius so spring origins are covered. */
-    private static final int MARGIN_CHUNKS = 1;
-    /** Safety valve on noise-column builds per verification. */
-    private static final int MAX_COLUMNS = 8192;
+    /**
+     * Block margin around the radius. Springs write exactly at their
+     * origin inside the chunk, and lava flows a few blocks from the
+     * source, so 6 blocks cover every chunk whose pool can reach inside
+     * the radius (still 9x9 chunks).
+     */
+    private static final int MARGIN_BLOCKS = 6;
+    /**
+     * Safety valve on noise-column builds per verification, sized for
+     * full coverage of the scanned chunks (9x9x256). A smaller budget
+     * would silently stop covering later chunks and miss lava there.
+     */
+    private static final int MAX_COLUMNS = 21000;
+    /**
+     * How far below the local noise surface a spring source may sit and
+     * still count as surface lava (spring sources embed in rock with one
+     * escape face, and lava flows a few blocks from the source).
+     */
+    private static final int SURFACE_MARGIN = 8;
 
     private StageBLava263() {
     }
@@ -142,15 +169,18 @@ final class StageBLava263 {
         if (targets.isEmpty()) {
             return false;
         }
+        // TEMP probe diagnostics: revert after verification.
+        SpeedrunLogger.warn("PROBELAVA263-DIAG springs=" + springs.size() + " targets="
+                + targets.size());
         ColumnLevel level = new ColumnLevel(server, overworld,
                 (NoiseBasedChunkGenerator) generator, randomState, resolver, seed, spawn);
         FeaturePlacer placer = new FeaturePlacer(level, generator);
         WorldgenRandom random =
                 new WorldgenRandom(new XoroshiroRandomSource(RandomSupport.generateUniqueSeed()));
-        int minChunkX = SectionPos.blockToSectionCoord(spawn.getX() - RADIUS - MARGIN_CHUNKS * 16);
-        int maxChunkX = SectionPos.blockToSectionCoord(spawn.getX() + RADIUS + MARGIN_CHUNKS * 16);
-        int minChunkZ = SectionPos.blockToSectionCoord(spawn.getZ() - RADIUS - MARGIN_CHUNKS * 16);
-        int maxChunkZ = SectionPos.blockToSectionCoord(spawn.getZ() + RADIUS + MARGIN_CHUNKS * 16);
+        int minChunkX = SectionPos.blockToSectionCoord(spawn.getX() - RADIUS - MARGIN_BLOCKS);
+        int maxChunkX = SectionPos.blockToSectionCoord(spawn.getX() + RADIUS + MARGIN_BLOCKS);
+        int minChunkZ = SectionPos.blockToSectionCoord(spawn.getZ() - RADIUS - MARGIN_BLOCKS);
+        int maxChunkZ = SectionPos.blockToSectionCoord(spawn.getZ() + RADIUS + MARGIN_BLOCKS);
         try {
             for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
                 for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
@@ -160,7 +190,13 @@ final class StageBLava263 {
                     for (Spring target : targets) {
                         random.setFeatureSeed(decorationSeed, target.index, target.step);
                         placer.placeWithBiomeCheck(target.placed, random, origin);
-                        if (level.foundLava(spawn)) {
+                        if (level.foundLava()) {
+                            // TEMP probe diagnostics: revert after verification.
+                            BlockPos first = level.firstLava();
+                            int noiseSurface = first == null ? Integer.MIN_VALUE
+                                    : level.noiseSurfaceAt(first.getX(), first.getZ());
+                            SpeedrunLogger.warn("PROBELAVA263-DIAG seed=" + seed + " lavaAt="
+                                    + first + " noiseSurf=" + noiseSurface);
                             return true;
                         }
                     }
@@ -170,7 +206,7 @@ final class StageBLava263 {
             SpeedrunLogger.warn("Stage-B lava check failed for seed " + seed + ": " + failure);
             return false;
         }
-        return level.foundLava(spawn);
+        return level.foundLava();
     }
 
     /** Placed features whose feature is a lava spring (datapack-safe). */
@@ -238,6 +274,7 @@ final class StageBLava263 {
         private final NoiseBasedChunkGenerator generator;
         private final RandomState randomState;
         private final BiomeResolver resolver;
+        private final BlockPos spawn;
         private final long seed;
         private final Map<Long, net.minecraft.world.level.NoiseColumn> columns =
                 new HashMap<Long, net.minecraft.world.level.NoiseColumn>();
@@ -253,18 +290,44 @@ final class StageBLava263 {
             this.generator = generator;
             this.randomState = randomState;
             this.resolver = resolver;
+            this.spawn = spawn;
             this.seed = seed;
         }
 
-        boolean foundLava(BlockPos spawn) {
-            for (BlockPos at : lava) {
-                long dx = (long) at.getX() - spawn.getX();
-                long dz = (long) at.getZ() - spawn.getZ();
-                if (dx * dx + dz * dz <= (long) RADIUS * RADIUS) {
-                    return true;
-                }
+        /**
+         * Whether any recorded lava counts. Recording filters at write
+         * time (radius plus surface floor), so this stays O(1) no matter
+         * how many deep/out-of-range springs the scan places.
+         */
+        boolean foundLava() {
+            return !lava.isEmpty();
+        }
+
+        // TEMP probe diagnostics: revert after verification.
+        BlockPos firstLava() {
+            return lava.isEmpty() ? null : lava.get(0);
+        }
+
+        // TEMP probe diagnostics: revert after verification.
+        int noiseSurfaceAt(int x, int z) {
+            try {
+                return getHeight(Heightmap.Types.WORLD_SURFACE, x, z);
+            } catch (RuntimeException unreadable) {
+                return Integer.MIN_VALUE;
             }
-            return false;
+        }
+
+        /**
+         * Lowest Y that still counts as surface lava at a column: the
+         * local noise surface minus {@value #SURFACE_MARGIN}. Fails
+         * closed (unreadable surface verifies nothing).
+         */
+        private int surfaceFloor(int x, int z) {
+            try {
+                return getHeight(Heightmap.Types.WORLD_SURFACE, x, z) - SURFACE_MARGIN;
+            } catch (RuntimeException unreadable) {
+                return Integer.MAX_VALUE;
+            }
         }
 
         @Override
@@ -309,10 +372,17 @@ final class StageBLava263 {
                 return false;
             }
             overrides.put(pos.immutable(), state);
-            if (isLava(state)) {
+            if (isLava(state) && withinRadius(pos)
+                    && pos.getY() >= surfaceFloor(pos.getX(), pos.getZ())) {
                 lava.add(pos.immutable());
             }
             return true;
+        }
+
+        private boolean withinRadius(BlockPos at) {
+            long dx = (long) at.getX() - spawn.getX();
+            long dz = (long) at.getZ() - spawn.getZ();
+            return dx * dx + dz * dz <= (long) RADIUS * RADIUS;
         }
 
         @Override
