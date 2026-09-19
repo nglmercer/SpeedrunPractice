@@ -31,6 +31,15 @@ real Minecraft testing
 dedicated-server testing where applicable
 ```
 
+## Current progress checkpoint (2026-09-19)
+
+Implementation order is currently at step 09. Stage-B lava verification now
+has production paths in all three version adapters and is being checked
+against real generated worlds. The parity work is not complete yet: temporary
+headless probes and diagnostics remain during false-positive/false-negative
+investigation, so no lava capability or runtime-status row should be marked
+verified until those probes pass and are removed.
+
 ---
 
 # 1. Finish and Verify 1.16.1
