@@ -1,32 +1,195 @@
 {
   "version": "1.16.1",
-  "note": "Rows are illustrative until verified in-game; flip verified to true after checking each seed.",
+  "note": "Rows are illustrative until verified in-game; flip verified to true after checking each seed. Verified XZ come from live /locate on a headless dedicated server (seed in level-seed, fresh world); Y follows the analyzer convention (63 overworld, 64 nether) since /locate reports no Y. Spawn comes from level.dat after save-all.",
   "seeds": [
     {
       "seed": 12345,
-      "verified": false,
+      "verified": true,
       "structures": {
-        "fortress": {
-          "x": 112,
-          "y": 64,
-          "z": -48
-        },
-        "bastion_remnant": {
-          "x": -200,
-          "y": 70,
-          "z": 300
+        "village": {
+          "x": 752,
+          "y": 63,
+          "z": -464
         },
         "stronghold": {
-          "x": 1200,
-          "y": 30,
-          "z": -800
+          "x": -520,
+          "y": 63,
+          "z": -1608
+        },
+        "bastion_remnant": {
+          "x": -272,
+          "y": 64,
+          "z": -128
+        },
+        "fortress": {
+          "x": -336,
+          "y": 64,
+          "z": 128
         },
         "buried_treasure": {
+          "x": 1065,
+          "y": 63,
+          "z": 1289
+        },
+        "spawn": {
           "x": 64,
-          "y": 60,
-          "z": 160
+          "y": 72,
+          "z": -112
         }
-      }
+      },
+      "bastion_type": "treasure",
+      "spawn_biome": "minecraft:taiga_mountains"
+    },
+    {
+      "seed": 20001,
+      "verified": true,
+      "structures": {
+        "village": {
+          "x": -496,
+          "y": 63,
+          "z": 704
+        },
+        "stronghold": {
+          "x": 1864,
+          "y": 63,
+          "z": -280
+        },
+        "bastion_remnant": {
+          "x": 496,
+          "y": 64,
+          "z": 592
+        },
+        "fortress": {
+          "x": 16,
+          "y": 64,
+          "z": -224
+        },
+        "buried_treasure": {
+          "x": 185,
+          "y": 63,
+          "z": -183
+        },
+        "spawn": {
+          "x": 64,
+          "y": 63,
+          "z": 65
+        }
+      },
+      "bastion_type": "treasure",
+      "spawn_biome": "minecraft:forest"
+    },
+    {
+      "seed": 20002,
+      "verified": true,
+      "structures": {
+        "village": {
+          "x": 64,
+          "y": 63,
+          "z": -272
+        },
+        "stronghold": {
+          "x": -632,
+          "y": 63,
+          "z": 1736
+        },
+        "bastion_remnant": {
+          "x": -112,
+          "y": 64,
+          "z": 304
+        },
+        "fortress": {
+          "x": 336,
+          "y": 64,
+          "z": -256
+        },
+        "buried_treasure": {
+          "x": -407,
+          "y": 63,
+          "z": 761
+        },
+        "spawn": {
+          "x": -112,
+          "y": 64,
+          "z": 116
+        }
+      },
+      "bastion_type": "stables",
+      "spawn_biome": "minecraft:forest"
+    },
+    {
+      "seed": 20003,
+      "verified": true,
+      "structures": {
+        "village": {
+          "x": -160,
+          "y": 63,
+          "z": 160
+        },
+        "stronghold": {
+          "x": -664,
+          "y": 63,
+          "z": 1880
+        },
+        "bastion_remnant": {
+          "x": -144,
+          "y": 64,
+          "z": 272
+        },
+        "fortress": {
+          "x": 64,
+          "y": 64,
+          "z": 64
+        },
+        "buried_treasure": {
+          "x": 57,
+          "y": 63,
+          "z": 201
+        },
+        "spawn": {
+          "x": -175,
+          "y": 67,
+          "z": 192
+        }
+      },
+      "bastion_type": "housing"
+    },
+    {
+      "seed": 20004,
+      "verified": true,
+      "structures": {
+        "village": {
+          "x": 144,
+          "y": 63,
+          "z": -400
+        },
+        "stronghold": {
+          "x": 1704,
+          "y": 63,
+          "z": -248
+        },
+        "bastion_remnant": {
+          "x": 48,
+          "y": 64,
+          "z": -192
+        },
+        "fortress": {
+          "x": 240,
+          "y": 64,
+          "z": 160
+        },
+        "buried_treasure": {
+          "x": 313,
+          "y": 63,
+          "z": 521
+        },
+        "spawn": {
+          "x": 144,
+          "y": 82,
+          "z": 32
+        }
+      },
+      "bastion_type": "housing",
+      "spawn_biome": "minecraft:taiga"
     }
   ]
 }

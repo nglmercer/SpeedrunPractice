@@ -205,7 +205,14 @@ public final class SeedAnalyzer116 implements SeedAnalyzer {
         return home == PracticeDimension.OVERWORLD ? (double) seaLevel : 64.0;
     }
 
-    /** Vanilla's spawn start-chunk call; the located pos predicts the spawn. */
+    /**
+     * Vanilla's spawn start-chunk call; the located chunk's start predicts the
+     * spawn. Verified live on fresh dedicated-server worlds: 12345 spawns at
+     * exactly the located chunk's start (64, -112, twice), 20001 one block off
+     * ((64, 65) vs start (64, 64)); both beat the located pos and the merged
+     * jar's center+8 snap. The dedicated-server path that produces this is not
+     * understood; treat spawn-relative distances as approximate within a chunk.
+     */
     private static BlockPos predictSpawn(BiomeSource source, int seaLevel, long seed) {
         BlockPos found;
         try {
@@ -213,7 +220,10 @@ public final class SeedAnalyzer116 implements SeedAnalyzer {
         } catch (RuntimeException bad) {
             return new BlockPos(0, seaLevel, 0);
         }
-        return found == null ? new BlockPos(0, seaLevel, 0) : found;
+        if (found == null) {
+            return new BlockPos(0, seaLevel, 0);
+        }
+        return new BlockPos((found.getX() >> 4) << 4, seaLevel, (found.getZ() >> 4) << 4);
     }
 
     private static Biome biomeAt(BiomeSource source, int x, int z) {
@@ -368,7 +378,7 @@ public final class SeedAnalyzer116 implements SeedAnalyzer {
                     + (random.nextDouble() - 0.5D) * distance * 2.5D;
             int cx = (int) Math.round(Math.cos(angle) * radius);
             int cz = (int) Math.round(Math.sin(angle) * radius);
-            BlockPos nudged = source.locateBiome(cx << 4 + 8, 0, cz << 4 + 8, 112, valid, random);
+            BlockPos nudged = source.locateBiome((cx << 4) + 8, 0, (cz << 4) + 8, 112, valid, random);
             if (nudged != null) {
                 cx = nudged.getX() >> 4;
                 cz = nudged.getZ() >> 4;
