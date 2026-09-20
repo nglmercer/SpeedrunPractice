@@ -212,9 +212,6 @@ final class StageBLava263 {
         if (replay.isEmpty()) {
             return false;
         }
-        // TEMP probe diagnostics: revert after verification.
-        SpeedrunLogger.warn("PROBELAVA263-DIAG steps=" + perStep.size() + " features="
-                + replay.size());
         BiomeManager manager;
         PalettedContainerFactory containers;
         try {
@@ -242,7 +239,6 @@ final class StageBLava263 {
                     long decorationSeed = random.setDecorationSeed(seed, origin.getX(), origin.getZ());
                     for (StepTarget target : replay) {
                         random.setFeatureSeed(decorationSeed, target.index, target.step);
-                        level.noteTarget(chunkX, chunkZ, target.step, target.index);
                         try {
                             placer.placeWithBiomeCheck(target.placed, random, origin);
                         } catch (RuntimeException unsupported) {
@@ -257,26 +253,6 @@ final class StageBLava263 {
             if (failed > 0) {
                 SpeedrunLogger.warn("Stage-B lava check for seed " + seed + " skipped "
                         + failed + " unservable feature placements");
-            }
-            // The surface gate runs here, on the finished replay: later
-            // steps (trees) raise the surface above early lava, so gating
-            // at write time forges false positives.
-            if (level.foundLava()) {
-                // TEMP probe diagnostics: revert after verification.
-                BlockPos first = level.firstLava();
-                int noiseSurface = first == null ? Integer.MIN_VALUE
-                        : level.noiseSurfaceAt(first.getX(), first.getZ());
-                SpeedrunLogger.warn("PROBELAVA263-DIAG seed=" + seed + " lavaAt="
-                        + first + " noiseSurf=" + noiseSurface + " how=" + level.firstLavaHow()
-                        + " failed=" + failed);
-            }
-            // TEMP round-5: final replay column for the seed-42 phantom check.
-            if (seed == 42L) {
-                for (int y = 50; y <= 80; y++) {
-                    BlockPos at = new BlockPos(-48, y, -45);
-                    SpeedrunLogger.warn("PROBELAVA263-RCOL seed=42 at=-48," + y + ",-45"
-                            + " block=" + level.getBlockState(at).getBlock());
-                }
             }
         } catch (RuntimeException failure) {
             SpeedrunLogger.warn("Stage-B lava check failed for seed " + seed + ": " + failure);
@@ -427,7 +403,6 @@ final class StageBLava263 {
             return !budgetTripped && firstLava() != null;
         }
 
-        // TEMP probe diagnostics: revert after verification.
         BlockPos firstLava() {
             for (int i = 0; i < lava.size(); i++) {
                 BlockPos at = lava.get(i);
@@ -438,35 +413,7 @@ final class StageBLava263 {
             return null;
         }
 
-        // TEMP probe diagnostics: revert after verification.
-        String firstLavaHow() {
-            for (int i = 0; i < lava.size(); i++) {
-                BlockPos at = lava.get(i);
-                if (at.getY() >= surfaceFloor(at.getX(), at.getZ())) {
-                    return i < lavaHows.size() ? lavaHows.get(i) : "?";
-                }
-            }
-            return "?";
-        }
-
-        /** Placing chunk/step/index of the feature currently generating. */
-        private String currentHow = "?";
-        /** Parallel to {@link #lava}: where each candidate came from. */
-        private final List<String> lavaHows = new ArrayList<String>();
         private boolean budgetTripped;
-
-        void noteTarget(int chunkX, int chunkZ, int step, int index) {
-            currentHow = chunkX + "," + chunkZ + "/s" + step + "i" + index;
-        }
-
-        // TEMP probe diagnostics: revert after verification.
-        int noiseSurfaceAt(int x, int z) {
-            try {
-                return getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
-            } catch (RuntimeException unreadable) {
-                return Integer.MIN_VALUE;
-            }
-        }
 
         /**
          * Lowest Y that still counts as surface lava at a column: the
@@ -523,62 +470,11 @@ final class StageBLava263 {
             if (state == null) {
                 return false;
             }
-            // TEMP round-5: trace replay fluid writes near the seed-42 phantom.
-            if (seed == 42L && (state.is(Blocks.WATER) || state.is(Blocks.LAVA)
-                    || state.is(Blocks.CAVE_AIR)) && pos.getX() >= -64 && pos.getX() <= -24
-                    && pos.getZ() >= -64 && pos.getZ() <= -24) {
-                SpeedrunLogger.warn("PROBELAVA263-WRITE seed=42 at=" + pos.getX() + ","
-                        + pos.getY() + "," + pos.getZ() + " block=" + state.getBlock());
-            }
             overrides.put(pos.immutable(), state);
             if (isLava(state) && withinRadius(pos)) {
                 lava.add(pos.immutable());
-                lavaHows.add(currentHow);
-                // TEMP substrate dump: revert after verification.
-                if (lava.size() == 1) {
-                    dumpSubstrate(pos.immutable());
-                }
             }
             return true;
-        }
-
-        // TEMP substrate dump: revert after verification.
-        private void dumpSubstrate(BlockPos at) {
-            StringBuilder out = new StringBuilder();
-            out.append("PROBELAVA263-SUB seed=").append(seed).append(" at=").append(at)
-                    .append(" built=").append(built);
-            int[][] offsets = {{0, 0, 0}, {0, 1, 0}, {0, -1, 0}, {-1, 0, 0}, {1, 0, 0},
-                {0, 0, -1}, {0, 0, 1}};
-            for (int[] o : offsets) {
-                int x = at.getX() + o[0];
-                int y = at.getY() + o[1];
-                int z = at.getZ() + o[2];
-                out.append(" [").append(o[0]).append(',').append(o[1]).append(',')
-                        .append(o[2]).append('=');
-                try {
-                    long key = (((long) SectionPos.blockToSectionCoord(x)) << 32)
-                            | (SectionPos.blockToSectionCoord(z) & 0xFFFFFFFFL);
-                    ProtoChunk chunk = chunks.get(key);
-                    BlockState state = chunk == null ? null
-                            : chunk.getBlockState(new BlockPos(x, y, z));
-                    if (state == null) {
-                        out.append('?');
-                    } else {
-                        String name = state.getBlock().getDescriptionId();
-                        int dot = name.lastIndexOf('.');
-                        out.append(dot >= 0 ? name.substring(dot + 1) : name);
-                        if (!state.getFluidState().isEmpty()) {
-                            out.append('+').append(state.getFluidState().getType() == Fluids.WATER
-                                    || state.getFluidState().getType() == Fluids.FLOWING_WATER
-                                    ? "W" : "F");
-                        }
-                    }
-                } catch (RuntimeException unreadable) {
-                    out.append('?');
-                }
-                out.append(']');
-            }
-            SpeedrunLogger.warn(out.toString());
         }
 
         private boolean withinRadius(BlockPos at) {
@@ -615,12 +511,6 @@ final class StageBLava263 {
                 BlockPos pos = new BlockPos(x, y, z);
                 BlockState state = getBlockState(pos);
                 if (heightmapOpaque(type, state)) {
-                    // TEMP round-5: trace placement heightmap reads.
-                    if (seed == 42L && type == Heightmap.Types.WORLD_SURFACE_WG
-                            && x >= -64 && x <= -24 && z >= -64 && z <= -24) {
-                        SpeedrunLogger.warn("PROBELAVA263-HREAD seed=42 at=" + x + "," + z
-                                + " h=" + (y + 1));
-                    }
                     return y + 1;
                 }
             }

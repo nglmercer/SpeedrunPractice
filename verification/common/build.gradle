@@ -1,0 +1,32 @@
+plugins {
+    id 'java-library'
+}
+
+// Keep a distinct component identity from :common; both projects are named
+// "common" in Gradle and otherwise dependency resolution can select this
+// verification project when a production module asks for :common.
+group = 'com.gregor0410.verification'
+description = 'Verification-only report and fixture contracts. Never bundled into release jars.'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+dependencies {
+    api rootProject.project(':common')
+    api rootProject.project(':practices')
+    testImplementation 'junit:junit:4.13.2'
+}
+
+// Ship the canonical fixture inputs inside the verification-only jar so the
+// live differential suite can read the same reviewed data on every server.
+processResources {
+    from(rootProject.file('verification/fixtures')) {
+        into 'fixtures'
+    }
+}
+
+tasks.withType(Test).configureEach {
+    useJUnit()
+}

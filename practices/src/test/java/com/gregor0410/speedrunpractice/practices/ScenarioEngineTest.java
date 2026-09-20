@@ -161,4 +161,21 @@ public class ScenarioEngineTest {
         assertEquals(0.0, harness.positionOf("p1").x(), 0.0);
         engine.stopCurrent();
     }
+
+    @Test
+    public void repeatedLifecycleCyclesDoNotLeakPracticeWorlds() throws Exception {
+        ScenarioTestHarness harness = harness();
+        ScenarioEngine engine = engine(harness, new MonotonicPracticeTimer(),
+                new InMemoryPracticeStatistics());
+        ScenarioTestHarness.FakePlayer player = ScenarioTestHarness.player("cycle-player");
+
+        for (int cycle = 0; cycle < 50; cycle++) {
+            engine.startScenario(new OverworldScenario(), new PracticeSettings(), player, cycle);
+            assertEquals(cycle, engine.currentContext().seed());
+            engine.resetCurrent(PracticeScenario.ResetMode.SAME_SEED, null);
+            assertEquals(cycle, engine.currentContext().world().seed());
+            engine.stopCurrent();
+            assertEquals("practice world leaked on cycle " + cycle, 0, harness.worldCount());
+        }
+    }
 }

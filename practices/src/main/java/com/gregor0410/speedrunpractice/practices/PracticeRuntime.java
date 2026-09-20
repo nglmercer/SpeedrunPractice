@@ -13,6 +13,7 @@ import com.gregor0410.speedrunpractice.common.api.PracticeType;
 import com.gregor0410.speedrunpractice.common.checkpoint.CheckpointManager;
 import com.gregor0410.speedrunpractice.common.config.SpeedrunPracticeConfig;
 import com.gregor0410.speedrunpractice.common.engine.ScenarioEngine;
+import com.gregor0410.speedrunpractice.common.events.PracticeEvent;
 import com.gregor0410.speedrunpractice.common.loadout.Loadout;
 import com.gregor0410.speedrunpractice.common.loadout.LoadoutManager;
 import com.gregor0410.speedrunpractice.common.scenario.ScenarioDefinition;
@@ -238,6 +239,11 @@ public final class PracticeRuntime {
     public PracticeScenario.TickResult tick() throws PracticeException {
         ensureActive();
         return engine.tickCurrent();
+    }
+
+    /** Delivers one version-translated live event to the active scenario. */
+    public PracticeScenario.TickResult fireEvent(PracticeEvent event) throws PracticeException {
+        return engine.fireEvent(event);
     }
 
     public void reset(PracticeScenario.ResetMode mode) throws PracticeException {

@@ -74,6 +74,11 @@ public final class LiveAdapter263 implements MinecraftAdapter {
         }
     }
 
+    /** Verification-only count of handles that should disappear after delete. */
+    public int trackedPracticeWorlds() {
+        return byKey.size();
+    }
+
     /** Remembers one created practice world for handle resolution. */
     void track(LiveWorld263 handle) {
         byKey.put(handle.level().dimension(), handle);

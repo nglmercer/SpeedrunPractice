@@ -56,8 +56,9 @@ import java.util.Set;
  * end-city terrain checks are not replicated (treated as valid when the
  * biome gate passes).
  *
- * <p>{@code location.<id>} findings carry the predicted start-chunk center.
- * X/Z come from the placement math; Y is conventional (overworld sea level,
+ * <p>{@code location.<id>} findings carry the game's reported structure
+ * position from the start chunk. X/Z come from the placement math; Y is
+ * conventional (overworld sea level,
  * 64 in the Nether/End), not a prediction, because surface height needs
  * generated chunks.
  *
@@ -139,11 +140,39 @@ public final class SeedAnalyzer116 implements SeedAnalyzer {
         // way practice worlds do instead.
         BiomeSource netherSource = DimensionTypeAccess.invokeCreateNetherGenerator(seed)
                 .getBiomeSource();
-        StructuresConfig overConfig = overworld.getChunkManager().getChunkGenerator().getConfig();
-        StructuresConfig netherConfig = nether.getChunkManager().getChunkGenerator().getConfig();
+        LiveWorld current = adapter.currentWorld();
+        ServerWorld activeOverworld = overworld;
+        ServerWorld activeNether = nether;
+        ServerWorld activeEnd = end;
+        if (current != null && current.seed() == seed) {
+            Map<PracticeDimension, LiveWorld> triple = adapter.triple(current.world().getRegistryKey());
+            if (triple != null) {
+                LiveWorld candidateOverworld = triple.get(PracticeDimension.OVERWORLD);
+                LiveWorld candidateNether = triple.get(PracticeDimension.NETHER);
+                LiveWorld candidateEnd = triple.get(PracticeDimension.END);
+                if (candidateOverworld != null) {
+                    activeOverworld = candidateOverworld.world();
+                }
+                if (candidateNether != null) {
+                    activeNether = candidateNether.world();
+                }
+                if (candidateEnd != null) {
+                    activeEnd = candidateEnd.world();
+                }
+            }
+        }
+        StructuresConfig overConfig = activeOverworld.getChunkManager().getChunkGenerator().getConfig();
+        StructuresConfig netherConfig = activeNether.getChunkManager().getChunkGenerator().getConfig();
 
         Map<String, Object> findings = new LinkedHashMap<String, Object>();
         BlockPos spawn = predictSpawn(overSource, overworld.getSeaLevel(), seed);
+        if (current != null && current.dimension() == PracticeDimension.OVERWORLD
+                && current.seed() == seed) {
+            // Differential verification and the live locate adapter both use
+            // the server-refined spawn of the active candidate world. Seed
+            // searches without such a world retain the deterministic fallback.
+            spawn = current.world().getSpawnPos();
+        }
         String spawnBiome = biomeId(biomeAt(overSource, spawn.getX(), spawn.getZ()));
         findings.put(SeedFilters.FIND_BIOME_SPAWN, spawnBiome);
         boolean ok = query.requiredBiome() == null
@@ -167,11 +196,14 @@ public final class SeedAnalyzer116 implements SeedAnalyzer {
                 found = findStronghold(seed, overSource, overConfig, spawn, maxDistance,
                         query.strongholdRing());
             } else if (home == PracticeDimension.NETHER) {
-                BlockPos netherSpawn = new BlockPos(spawn.getX() / 8, 64, spawn.getZ() / 8);
+                // The legacy live locate adapter queries the sibling Nether
+                // world from its own server spawn, not the overworld spawn
+                // divided by eight. Mirror that center for parity.
+                BlockPos netherSpawn = activeNether.getSpawnPos();
                 found = findRegional(seed, feature, netherSource, netherConfig, netherSpawn,
                         maxDistance, query.bastionType());
             } else if (home == PracticeDimension.END) {
-                found = findEndStructure(seed, feature, end, maxDistance);
+                found = findEndStructure(seed, feature, activeEnd, maxDistance);
             } else {
                 found = findRegional(seed, feature, overSource, overConfig, spawn, maxDistance, null);
             }
@@ -183,9 +215,11 @@ public final class SeedAnalyzer116 implements SeedAnalyzer {
             }
             findings.put(SeedFilters.FIND_STRUCTURE_PREFIX + id + SeedFilters.FIND_STRUCTURE_SUFFIX,
                     found.distance);
+            int locateOffset = feature == StructureFeature.STRONGHOLD
+                    ? 8 : (feature == StructureFeature.BURIED_TREASURE ? 9 : 0);
             findings.put("location." + id, new PracticePosition(
-                    found.start.x * 16 + 8, locationY(home, overworld.getSeaLevel()),
-                    found.start.z * 16 + 8));
+                    found.start.x * 16 + locateOffset, locationY(home, overworld.getSeaLevel()),
+                    found.start.z * 16 + locateOffset));
             if (feature == StructureFeature.STRONGHOLD && found.ring > 0) {
                 findings.put(SeedFilters.FIND_STRONGHOLD_RING, (long) found.ring);
             }
@@ -295,7 +329,6 @@ public final class SeedAnalyzer116 implements SeedAnalyzer {
                 ? MAX_RINGS
                 : Math.min(MAX_RINGS, maxDistance / (16 * spacing) + 2);
         ChunkRandom random = new ChunkRandom();
-        Found best = null;
         for (int ring = 0; ring <= rings; ring++) {
             for (int ox = -ring; ox <= ring; ox++) {
                 for (int oz = -ring; oz <= ring; oz++) {
@@ -316,17 +349,16 @@ public final class SeedAnalyzer116 implements SeedAnalyzer {
                         continue;
                     }
                     long distance = horizontal(center, start);
-                    if (best == null || distance < best.distance) {
-                        best = new Found(distance, 0, start);
+                    if (distance <= maxDistance) {
+                        // 1.16.1 locateStructure returns the first valid
+                        // start in its ring walk, not the globally nearest
+                        // later candidate.
+                        return new Found(distance, 0, start);
                     }
                 }
             }
-            if (best != null && ringMinDistance(ring + 1, spacing) > maxDistance
-                    && best.distance <= maxDistance) {
-                return best;
-            }
         }
-        return best;
+        return null;
     }
 
     private static long ringMinDistance(int ring, int spacing) {
@@ -463,7 +495,7 @@ public final class SeedAnalyzer116 implements SeedAnalyzer {
      * treasure, bridge order. Null when every type is disabled (no bastion
      * can generate then).
      */
-    private static String predictBastionType(long seed, ChunkPos start) {
+    static String predictBastionType(long seed, ChunkPos start) {
         com.gregor0410.ptlib.config.PTConfig config = PTLib.getConfig();
         List<String> enabled = new ArrayList<String>();
         if (config.isHousing()) {

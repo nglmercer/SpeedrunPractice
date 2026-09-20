@@ -191,6 +191,8 @@ public final class SeedAnalyzer263 implements SeedAnalyzer {
             }
             Found best = null;
             Placed bestPlaced = null;
+            Holder<Structure> bestHolder = null;
+            Structure bestStructure = null;
             boolean placementSkipped = false;
             for (Holder<Structure> holder : candidates) {
                 Structure structure = holder.value();
@@ -221,6 +223,8 @@ public final class SeedAnalyzer263 implements SeedAnalyzer {
                         && (best == null || found.distance < best.distance)) {
                     best = found;
                     bestPlaced = placed;
+                    bestHolder = holder;
+                    bestStructure = structure;
                 }
             }
             if (best == null) {
@@ -234,6 +238,18 @@ public final class SeedAnalyzer263 implements SeedAnalyzer {
                     best.distance);
             findings.put("location." + id, new PracticePosition(
                     best.pos.getX(), locationY(bestPlaced, overworld), best.pos.getZ()));
+            if (isBastion(id)) {
+                try {
+                    String type = BastionTypes263.typeOf(generateStart(seed, registries, templates,
+                            bestHolder, bestStructure, bestPlaced, best.candidate));
+                    if (type != null) {
+                        findings.put(SeedFilters.FIND_BASTION_TYPE, type);
+                    }
+                } catch (RuntimeException ignored) {
+                    // The required subtype was already checked during search;
+                    // a missing reporting value must not change seed matching.
+                }
+            }
             if (bestPlaced.placement instanceof ConcentricRingsStructurePlacement && best.ring > 0) {
                 findings.put(SeedFilters.FIND_STRONGHOLD_RING, (long) best.ring);
             }
@@ -442,7 +458,7 @@ public final class SeedAnalyzer263 implements SeedAnalyzer {
                         continue;
                     }
                     BlockPos pos = placement.getLocatePos(candidate);
-                    return new Found(horizontal(center, pos), 0, pos);
+                    return new Found(horizontal(center, pos), 0, pos, candidate);
                 }
             }
         }
@@ -558,7 +574,7 @@ public final class SeedAnalyzer263 implements SeedAnalyzer {
             BlockPos pos = rings.getLocatePos(candidate);
             long distance = horizontal(center, pos);
             if (distance <= maxDistance && (best == null || distance < best.distance)) {
-                best = new Found(distance, ring, pos);
+                best = new Found(distance, ring, pos, candidate);
             }
         }
         return best;
@@ -645,11 +661,13 @@ public final class SeedAnalyzer263 implements SeedAnalyzer {
         final long distance;
         final int ring;
         final BlockPos pos;
+        final ChunkPos candidate;
 
-        private Found(long distance, int ring, BlockPos pos) {
+        private Found(long distance, int ring, BlockPos pos, ChunkPos candidate) {
             this.distance = distance;
             this.ring = ring;
             this.pos = pos;
+            this.candidate = candidate;
         }
     }
 }

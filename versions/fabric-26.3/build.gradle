@@ -54,6 +54,48 @@ tasks.withType(Test).configureEach {
     useJUnit()
 }
 
+def verificationServerJavaVersion = project.findProperty('speedrunPracticeServerJavaVersion')
+if (verificationServerJavaVersion != null) {
+    tasks.matching { it.name == 'runServer' }.configureEach {
+        if (it instanceof JavaExec) {
+            it.javaLauncher = javaToolchains.launcherFor {
+                languageVersion = JavaLanguageVersion.of(
+                        Integer.parseInt(verificationServerJavaVersion.toString()))
+            }
+        }
+    }
+}
+
+// Verification-only probes never enter the production mod jar.
+sourceSets {
+    verification {
+        java.srcDir 'verification/src/main/java'
+        resources.srcDir 'verification/src/main/resources'
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+    }
+}
+
+configurations {
+    verificationImplementation.extendsFrom implementation
+}
+
+dependencies {
+    verificationImplementation rootProject.project(':verification:common')
+}
+
+tasks.named('compileVerificationJava') {
+    classpath = project.files(tasks.named('compileJava').get().classpath,
+            sourceSets.main.output, configurations.getByName('verificationCompileClasspath'))
+}
+
+tasks.register('verificationJar', Jar) {
+    dependsOn tasks.named('compileVerificationJava')
+    dependsOn rootProject.project(':verification:common').tasks.named('jar')
+    archiveBaseName = 'speedrun-practice-verification-26.3'
+    from sourceSets.verification.output
+    from { zipTree(rootProject.project(':verification:common').tasks.named('jar').get().archiveFile) }
+}
+
 processResources {
     inputs.property "version", project.version
     filteringCharset "UTF-8"
@@ -65,4 +107,7 @@ processResources {
 
 jar {
     archiveBaseName = 'speedrun-practice-26.3'
+    exclude '**/Temp*Probe*'
+    exclude '**/VerificationEntrypoint*'
+    exclude '**/verification/**'
 }

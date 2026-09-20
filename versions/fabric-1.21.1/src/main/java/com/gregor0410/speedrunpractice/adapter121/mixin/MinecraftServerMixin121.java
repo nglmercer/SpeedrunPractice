@@ -382,18 +382,31 @@ public abstract class MinecraftServerMixin121 implements IPracticeServer121 {
     }
 
     private static void deleteDirectory(Path root) throws IOException {
-        if (root == null || !Files.exists(root)) {
-            return;
-        }
-        try (Stream<Path> walk = Files.walk(root)) {
-            List<Path> entries = new ArrayList<Path>();
-            java.util.Iterator<Path> iterator = walk.sorted(Comparator.reverseOrder()).iterator();
-            while (iterator.hasNext()) {
-                entries.add(iterator.next());
+        IOException last = null;
+        for (int attempt = 0; attempt < 20; attempt++) {
+            if (root == null || !Files.exists(root)) {
+                return;
             }
-            for (Path path : entries) {
-                Files.deleteIfExists(path);
+            try (Stream<Path> walk = Files.walk(root)) {
+                List<Path> entries = new ArrayList<Path>();
+                java.util.Iterator<Path> iterator = walk.sorted(Comparator.reverseOrder()).iterator();
+                while (iterator.hasNext()) {
+                    entries.add(iterator.next());
+                }
+                for (Path path : entries) {
+                    Files.deleteIfExists(path);
+                }
+                return;
+            } catch (IOException failure) {
+                last = failure;
+                try {
+                    Thread.sleep(50L);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw failure;
+                }
             }
         }
+        throw last;
     }
 }

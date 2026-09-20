@@ -70,7 +70,6 @@ public final class Runtime263 {
             runtime.shutdown();
         });
         ServerTickEvents.END_SERVER_TICK.register(server -> tick());
-        TempLavaProbe263.arm(); // TEMP probe: revert after passing
         SpeedrunLogger.info("New practice runtime armed for 26.3 (config: " + configDir + ")");
     }
 

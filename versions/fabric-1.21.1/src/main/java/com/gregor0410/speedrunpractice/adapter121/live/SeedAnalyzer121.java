@@ -134,6 +134,7 @@ public final class SeedAnalyzer121 implements SeedAnalyzer {
             return SeedAnalysis.mismatch();
         }
         ServerWorld overworld = server.getOverworld();
+        LiveWorld121 current = live.currentWorld();
         if (overworld == null) {
             return SeedAnalysis.mismatch();
         }
@@ -167,7 +168,7 @@ public final class SeedAnalyzer121 implements SeedAnalyzer {
         Dim end = endLevel == null ? null : dim(endLevel, seed, noises, sets);
 
         Map<String, Object> findings = new LinkedHashMap<String, Object>();
-        BlockPos spawn = predictSpawn(over);
+        BlockPos spawn = predictSpawn(over, seed, current);
         String spawnBiome = biomeId(over.biomeSource.getBiome(
                 spawn.getX() >> 2, spawn.getY() >> 2, spawn.getZ() >> 2, over.sampler));
         if (spawnBiome == null) {
@@ -193,6 +194,7 @@ public final class SeedAnalyzer121 implements SeedAnalyzer {
             }
             Found best = null;
             Placed bestPlaced = null;
+            Structure bestStructure = null;
             boolean placementSkipped = false;
             for (RegistryEntry<Structure> holder : candidates) {
                 Structure structure = holder.value();
@@ -223,6 +225,7 @@ public final class SeedAnalyzer121 implements SeedAnalyzer {
                         && (best == null || found.distance < best.distance)) {
                     best = found;
                     bestPlaced = placed;
+                    bestStructure = structure;
                 }
             }
             if (best == null) {
@@ -236,6 +239,18 @@ public final class SeedAnalyzer121 implements SeedAnalyzer {
                     best.distance);
             findings.put("location." + id, new PracticePosition(
                     best.pos.getX(), locationY(bestPlaced, overworld), best.pos.getZ()));
+            if (isBastion(id)) {
+                try {
+                    String type = BastionTypes121.typeOf(generateStart(registries, templates,
+                            bestStructure, bestPlaced, best.candidate));
+                    if (type != null) {
+                        findings.put(SeedFilters.FIND_BASTION_TYPE, type);
+                    }
+                } catch (RuntimeException ignored) {
+                    // The required subtype was already checked during search;
+                    // a missing reporting value must not change seed matching.
+                }
+            }
             if (bestPlaced.placement instanceof ConcentricRingsStructurePlacement && best.ring > 0) {
                 findings.put(SeedFilters.FIND_STRONGHOLD_RING, (long) best.ring);
             }
@@ -288,8 +303,16 @@ public final class SeedAnalyzer121 implements SeedAnalyzer {
                 noiseConfig.getMultiNoiseSampler(), calculator);
     }
 
-    /** Origin chunk plus game spawn height (no chunk refinement). */
-    private static BlockPos predictSpawn(Dim over) {
+    /**
+     * Use the server-refined spawn for an active candidate world.  A normal
+     * seed search has no generated candidate world, so it retains the cheap
+     * deterministic origin fallback used by the analyzer contract.  The
+     * structure search continues to use the stable loaded lobby adapters.
+     */
+    private static BlockPos predictSpawn(Dim over, long seed, LiveWorld121 current) {
+        if (current != null && current.world().getSeed() == seed) {
+            return current.world().getSpawnPos();
+        }
         int y = over.generator.getSpawnHeight(over.level);
         return new BlockPos(8, y, 8);
     }
@@ -428,7 +451,7 @@ public final class SeedAnalyzer121 implements SeedAnalyzer {
                         continue;
                     }
                     BlockPos pos = placement.getLocatePos(candidate);
-                    return new Found(horizontal(center, pos), 0, pos);
+                    return new Found(horizontal(center, pos), 0, pos, candidate);
                 }
             }
         }
@@ -548,7 +571,7 @@ public final class SeedAnalyzer121 implements SeedAnalyzer {
             BlockPos pos = rings.getLocatePos(candidate);
             long distance = horizontal(center, pos);
             if (distance <= maxDistance && (best == null || distance < best.distance)) {
-                best = new Found(distance, ring, pos);
+                best = new Found(distance, ring, pos, candidate);
             }
         }
         return best;
@@ -633,11 +656,13 @@ public final class SeedAnalyzer121 implements SeedAnalyzer {
         final long distance;
         final int ring;
         final BlockPos pos;
+        final ChunkPos candidate;
 
-        private Found(long distance, int ring, BlockPos pos) {
+        private Found(long distance, int ring, BlockPos pos, ChunkPos candidate) {
             this.distance = distance;
             this.ring = ring;
             this.pos = pos;
+            this.candidate = candidate;
         }
     }
 }

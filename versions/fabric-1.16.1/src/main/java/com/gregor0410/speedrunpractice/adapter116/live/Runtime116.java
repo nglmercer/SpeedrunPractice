@@ -63,7 +63,6 @@ public final class Runtime116 {
             runtime.shutdown();
         });
         ServerTickEvents.END_SERVER_TICK.register(server -> tick());
-        TempLavaProbe116.arm(); // TEMP probe: revert after passing
         SpeedrunLogger.info("New practice runtime armed for 1.16.1 (config: " + configDir + ")");
     }
 

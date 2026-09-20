@@ -8,6 +8,36 @@ or compilation alone (plan section 98). Until then the vocabulary is:
 - `shared model implemented` — `common`/`practices` logic exists and is unit-tested
 - `runtime unverified` — code exists but never ran in-game on that version
 
+## Verification-framework status (current)
+
+The repository now has a verification-only source set and jar for each
+supported version. Release jars are checked by `verifyReleaseJar116`,
+`verifyReleaseJar121`, and `verifyReleaseJar263`; probes and verification
+entrypoints are not packaged into production jars. The canonical fixtures live
+under `verification/fixtures/` and reject any row that is not explicitly
+verified.
+
+The clean 26.3 headless lava gate passed on 2026-09-19:
+`verifyHeadless263` produced `build/verification/26.3/report.json` with
+`suite.started` and `lava.stage-b` passing across the five canonical seeds
+plus the positive control seed `63`. The same gate passed on 1.21.1 after a
+fresh dedicated-server run: six comparisons (`12345`, `20001`–`20004`, and
+positive control `12`) all logged `MATCH=true` and `DONE match=6/6`.
+
+The 1.16.1 gate also passed on JDK 17: two report checks passed, and all ten
+lava comparisons logged `MATCH=true` with `DONE match=10/10`. The seed `17`
+case was corrected by preserving generation-step ordering across the scanned
+chunk set, which prevents a later cross-chunk decoration write from changing
+an earlier lake candidate. Both the 1.16.1 and 1.21.1 canonical fixtures now
+contain five verified rows. The 1.21.1 rows were collected by a dedicated
+server fixture run and include spawn, biome, village, stronghold portal-room,
+fortress, bastion subtype, and lava metadata. The 1.16.1 rows use the live
+structure table plus the fresh Stage-B lava gate. All runs used fresh
+server logs/RCON, generated real practice chunks, and left no verification
+server listening after shutdown. The `all` command is registered on every
+version, but its remaining world/structure/portal/player/scenario suites still
+report an explicit not-implemented failure rather than claiming coverage.
+
 ## New architecture (`PracticeRuntime` + `ScenarioEngine` + `AdapterSet`)
 
 1.16.1 runs the new runtime for real: `Runtime116` wires the shared engine
@@ -53,7 +83,7 @@ needing a player is still unverified.
 | Statistics | runtime unverified | runtime unverified | ❌ adapter pending |
 | Seed list | runtime unverified | runtime unverified | ❌ adapter pending |
 | Seed search | ✅ dedicated server 2026-09-18 (village/stronghold/treasure/fortress/bastion + biome searches and exports on 5 seeds, all doorstep-cross-checked via /locate; lava presets need a stage-B chunk verifier) | ✅ real analyzer verified on dedicated server 2026-09-19 (biome/village/stronghold/fortress/bastion+type/end-city vs live locate 7/7, re-probed 7/7 after the practice-seed gate fix; lava/unknown mismatch by design) | ✅ real analyzer verified on dedicated server 2026-09-19 (walk-order first-hit fix; 19/19 vs live locate on 3 seeds incl. bastion-type round-trips; lava via Stage-B separately) |
-| Verified seed fixtures (plan section 14) | ✅ 5 seeds (12345, 20001–20004) with structure positions, spawn, spawn biome and bastion type in `test-data/1.16.1/structures.json` | ❌ (positions live in probe logs, not fixtures yet) | ✅ 5 seeds, all 16 fields each corroborated against the archived live-server log |
+| Verified seed fixtures (plan section 14) | ✅ 5 seeds (12345, 20001–20004) with structure positions, spawn, spawn biome and bastion type in `test-data/1.16.1/structures.json` | ✅ 5 seeds (12345, 20001–20004), including spawn, biome, lava, portal-room and bastion metadata in `verification/fixtures/1.21.1.json` | ✅ 5 seeds, all 16 fields each corroborated against the archived live-server log |
 | Favorites | runtime unverified | runtime unverified | ❌ adapter pending |
 | GUI screens | runtime unverified | ✅ server behavior 2026-09-19 (unavailable + foreign/live-handle guards 4/4 headless); screens need a client | ❌ adapter pending |
 | Keybinds | runtime unverified | runtime unverified (client entrypoint wired; presses need a client) | ❌ adapter pending |
@@ -125,15 +155,31 @@ and the vanilla `/locate` walk quirk documented (console-centered global
 locates can return a farther structure; doorstep checks are the verdict —
 see the `test-data/1.16.1/structures.json` note).
 
-## 1.21.1 headless verification (2026-09-19)
+## Headless verification suites (2026-09-19)
 
-All server-side 1.21.1 slices passed temporary in-game probes on the real
-1.21.1 dedicated server (`:versions:fabric-1.21.1:runServer`, probes removed
-after passing): worlds 8/8, players/inventories boot checks, structures 8/8,
-portals 3/3 plus 4-direction pig travel, dragons 5/5, registries 3/3, seeds
-7/7, GUI/timer server behavior 4/4. The seeds probe cross-checks every
-prediction against live `locateStructure` on seed `-5442079527854560511`
-and RCON-verified vanilla `/locate` truth.
+The registered `practiceverify run all` contract suite now passes on a real
+dedicated server for every supported version: 1.16.1 (12/12 on JDK 17),
+1.21.1 (12/12), and 26.3 (12/12). The checks exercise the version-local live
+adapter, practice-world seed/spawn/cleanup, village lookup, portal creation,
+registry access, player inventory/reset/checkpoint state, End dragon reset,
+and the explicitly unavailable timer contract. The report also confirms that
+the verification entrypoint starts and the server shuts down cleanly.
+
+These are server-side adapter contracts, not client GUI or keybind smoke
+tests. The client checklist in `plan.md` remains open until a Minecraft
+client can be driven through menu, setup, start, results, restart, and
+keybind flows.
+
+The aggregate Gradle task accepts the legacy server's Java home explicitly:
+`./gradlew verifyAll -PspeedrunPracticeServerJavaHome116=<JDK-17-home>`.
+The 1.21.1 and 26.3 server tasks use the normal Gradle Java runtime.
+
+Earlier temporary 1.21.1 in-game probes also passed on the real server:
+worlds 8/8, players/inventories boot checks, structures 8/8, portals 3/3 plus
+4-direction pig travel, dragons 5/5, registries 3/3, seeds 7/7, and GUI/timer
+server behavior 4/4. The seeds probe cross-checked every prediction against
+live `locateStructure` on seed `-5442079527854560511` and RCON-verified
+vanilla `/locate` truth.
 
 Key finding: vanilla locate is **first-hit-in-walk-order, not nearest**
 (rings expand `0..bound`, border cells in `dx`/`dz` order, first verifying

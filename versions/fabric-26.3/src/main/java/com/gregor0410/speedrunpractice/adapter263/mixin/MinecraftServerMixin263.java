@@ -252,10 +252,14 @@ public abstract class MinecraftServerMixin263 implements IPracticeServer263 {
         LevelStem stem = new LevelStem(live.dimensionTypeRegistration(), generator);
         ServerLevelData data = new PrimaryLevelData(worldData.getLevelSettings().copy(),
                 PrimaryLevelData.SpecialWorldProperty.NONE, Lifecycle.stable());
-        return PracticeLevel263.create(server, executor, storageSource, data, key, stem,
+        PracticeLevel263 practice = PracticeLevel263.create(server, executor, storageSource, data, key, stem,
                 worldData.isDebugWorld(), BiomeManager.obfuscateSeed(seed),
                 Collections.<net.minecraft.world.level.CustomSpawner>emptyList(), true,
                 seed, dimension);
+        // Practice levels are disposable. Keep autosave from opening files
+        // that would still be held when the level is removed below.
+        practice.noSave = true;
+        return practice;
     }
 
     private static ResourceKey<Level> practiceKey(String path) {
@@ -339,28 +343,38 @@ public abstract class MinecraftServerMixin263 implements IPracticeServer263 {
             }
         }
         levels.remove(level.dimension(), level);
-        try {
-            level.save(null, false, false);
-        } catch (RuntimeException saveFailure) {
-            SpeedrunLogger.warn("Practice world save-on-delete failed: " + saveFailure.getMessage());
-        }
+        // Disposable practice levels are marked noSave at construction time;
+        // close releases their chunk/data resources without flushing them.
         level.close();
         deleteDirectory(storageSource.getDimensionPath(level.dimension()));
     }
 
     private static void deleteDirectory(Path root) throws IOException {
-        if (root == null || !Files.exists(root)) {
-            return;
-        }
-        try (Stream<Path> walk = Files.walk(root)) {
-            List<Path> entries = new ArrayList<Path>();
-            java.util.Iterator<Path> iterator = walk.sorted(Comparator.reverseOrder()).iterator();
-            while (iterator.hasNext()) {
-                entries.add(iterator.next());
+        IOException last = null;
+        for (int attempt = 0; attempt < 20; attempt++) {
+            if (root == null || !Files.exists(root)) {
+                return;
             }
-            for (Path path : entries) {
-                Files.deleteIfExists(path);
+            try (Stream<Path> walk = Files.walk(root)) {
+                List<Path> entries = new ArrayList<Path>();
+                java.util.Iterator<Path> iterator = walk.sorted(Comparator.reverseOrder()).iterator();
+                while (iterator.hasNext()) {
+                    entries.add(iterator.next());
+                }
+                for (Path path : entries) {
+                    Files.deleteIfExists(path);
+                }
+                return;
+            } catch (IOException failure) {
+                last = failure;
+                try {
+                    Thread.sleep(50L);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw failure;
+                }
             }
         }
+        throw last;
     }
 }

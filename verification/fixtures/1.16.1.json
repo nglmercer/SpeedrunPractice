@@ -1,0 +1,77 @@
+{
+  "version": "1.16.1",
+  "verifiedOn": "2026-09-19",
+  "method": "Live 1.16.1 structure table corroborated by headless dedicated-server locate checks and the fresh Stage-B lava gate.",
+  "seeds": [
+    {
+      "seed": 12345,
+      "verified": true,
+      "spawn": { "x": 64, "y": 72, "z": -112 },
+      "spawnBiome": "minecraft:taiga_mountains",
+      "lavaAvailable": false,
+      "structures": {
+        "village": { "x": 704, "y": 0, "z": -880 },
+        "stronghold": { "x": -520, "y": 63, "z": -1608 },
+        "fortress": { "x": -336, "y": 64, "z": 128 },
+        "bastion_remnant": { "x": 192, "y": 0, "z": 320, "bastionType": "bridge" },
+        "buried_treasure": { "x": 1065, "y": 63, "z": 1289 }
+      }
+    },
+    {
+      "seed": 20001,
+      "verified": true,
+      "spawn": { "x": 64, "y": 63, "z": 65 },
+      "spawnBiome": "minecraft:forest",
+      "lavaAvailable": false,
+      "structures": {
+        "village": { "x": -496, "y": 63, "z": 704 },
+        "stronghold": { "x": 1864, "y": 63, "z": -280 },
+        "fortress": { "x": -320, "y": 0, "z": -288 },
+        "bastion_remnant": { "x": 352, "y": 0, "z": 352, "bastionType": "bridge" },
+        "buried_treasure": { "x": 185, "y": 63, "z": -183 }
+      }
+    },
+    {
+      "seed": 20002,
+      "verified": true,
+      "spawn": { "x": -112, "y": 64, "z": 116 },
+      "spawnBiome": "minecraft:forest",
+      "lavaAvailable": true,
+      "structures": {
+        "village": { "x": -848, "y": 0, "z": 832 },
+        "stronghold": { "x": -632, "y": 63, "z": 1736 },
+        "fortress": { "x": 336, "y": 64, "z": -256 },
+        "bastion_remnant": { "x": -352, "y": 0, "z": -320, "bastionType": "stables" },
+        "buried_treasure": { "x": -407, "y": 63, "z": 761 }
+      }
+    },
+    {
+      "seed": 20003,
+      "verified": true,
+      "spawn": { "x": -175, "y": 67, "z": 192 },
+      "spawnBiome": "minecraft:plains",
+      "lavaAvailable": false,
+      "structures": {
+        "village": { "x": -160, "y": 63, "z": 160 },
+        "stronghold": { "x": -664, "y": 63, "z": 1880 },
+        "fortress": { "x": 64, "y": 64, "z": 64 },
+        "bastion_remnant": { "x": -144, "y": 64, "z": 272, "bastionType": "stables" },
+        "buried_treasure": { "x": 57, "y": 63, "z": 201 }
+      }
+    },
+    {
+      "seed": 20004,
+      "verified": true,
+      "spawn": { "x": 144, "y": 82, "z": 32 },
+      "spawnBiome": "minecraft:taiga",
+      "lavaAvailable": false,
+      "structures": {
+        "village": { "x": 144, "y": 63, "z": -400 },
+        "stronghold": { "x": 1704, "y": 63, "z": -248 },
+        "fortress": { "x": 240, "y": 64, "z": 160 },
+        "bastion_remnant": { "x": -272, "y": 0, "z": -256, "bastionType": "stables" },
+        "buried_treasure": { "x": 313, "y": 63, "z": 521 }
+      }
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "speedrun-practice",
+  "version": "${version}",
+  "name": "SpeedrunPractice",
+  "description": "Single-player Minecraft speedrun practice suite.",
+  "authors": ["nglmercer"],
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.gregor0410.speedrunpractice.adapter263.SpeedrunPractice263"
+    ],
+    "client": [
+      "com.gregor0410.speedrunpractice.adapter263.client.SpeedrunPracticeClient263"
+    ]
+  },
+  "mixins": [
+    "practice263.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.19.5",
+    "fabric-api": ">=0.160.7",
+    "minecraft": "26.3"
+  }
+}

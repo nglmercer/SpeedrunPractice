@@ -132,7 +132,9 @@ final class LivePlayers implements PlayerAdapter {
         teleport(player, snapshot.position());
         setHealth(player, snapshot.health());
         setFood(player, snapshot.food());
-        entity.getHungerManager().setSaturationLevelClient(Math.max(0.0f, snapshot.saturation()));
+        ((com.gregor0410.speedrunpractice.mixin.HungerManagerAccess) (Object)
+                entity.getHungerManager()).speedrunPractice$setFoodSaturationLevel(
+                Math.max(0.0f, snapshot.saturation()));
         entity.setExperienceLevel(0);
         entity.setExperiencePoints(0);
         entity.addExperience(Math.max(0, snapshot.xpPoints()));

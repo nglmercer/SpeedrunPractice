@@ -16,3 +16,157 @@ subprojects {
         mavenCentral()
     }
 }
+
+// Verification is deliberately explicit. The root remains aggregator-only;
+// these lifecycle tasks orchestrate shared tests, fixture validation and the
+// version-local verification artifacts without putting verification classes
+// in any release jar.
+def verificationCommon = project(':verification:common')
+
+tasks.register('test') {
+    group = 'verification'
+    description = 'Runs the fast Minecraft-independent test pyramid.'
+    dependsOn ':common:test', ':practices:test', ':seed-search:test',
+            ':test-support:test', ':verification:common:test'
+}
+
+tasks.register('testWorldContracts') {
+    group = 'verification'
+    dependsOn ':common:test', ':practices:test', ':test-support:test'
+}
+
+tasks.register('testSeedSearch') {
+    group = 'verification'
+    dependsOn ':common:test', ':seed-search:test'
+}
+
+tasks.register('testAdapterContracts') {
+    group = 'verification'
+    description = 'Runs the shared adapter delegation contract tests for all supported versions.'
+    dependsOn ':versions:fabric-1.16.1:test', ':versions:fabric-1.21.1:test',
+            ':versions:fabric-26.3:test'
+}
+
+def fixtureTask = { String taskName, String version, String fixture ->
+    tasks.register(taskName, JavaExec) {
+        group = 'verification'
+        description = "Validates the canonical ${version} deterministic fixture."
+        dependsOn verificationCommon.tasks.named('classes')
+        classpath = verificationCommon.sourceSets.main.runtimeClasspath
+        mainClass = 'com.gregor0410.speedrunpractice.verification.FixtureValidationMain'
+        args version, fixture, "${rootProject.projectDir}/build/verification/${version}"
+    }
+}
+
+def fixture116 = fixtureTask('validateFixture116', '1.16.1',
+        "${rootProject.projectDir}/verification/fixtures/1.16.1.json")
+def fixture121 = fixtureTask('validateFixture121', '1.21.1',
+        "${rootProject.projectDir}/verification/fixtures/1.21.1.json")
+def fixture263 = fixtureTask('validateFixture263', '26.3',
+        "${rootProject.projectDir}/verification/fixtures/26.3.json")
+
+def headlessTask = { String taskName, String shortVersion, String module, String suite ->
+    tasks.register(taskName, Exec) {
+        group = 'verification'
+        description = "Boots the real ${shortVersion} dedicated server and runs the verification command."
+        dependsOn ":${module}:verificationJar"
+        doFirst {
+            if (!org.gradle.internal.os.OperatingSystem.current().isWindows()) {
+                throw new GradleException('scripts/verify-headless.ps1 currently requires Windows PowerShell')
+            }
+            def command = ['powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass',
+                           '-File', "${rootProject.projectDir}/scripts/verify-headless.ps1",
+                           '-Version', shortVersion, '-Suite', suite]
+            def serverJavaHome = project.findProperty("speedrunPracticeServerJavaHome${shortVersion}")
+            if (serverJavaHome != null && serverJavaHome.toString().trim()) {
+                command += ['-JavaHome', serverJavaHome.toString()]
+            }
+            commandLine command
+        }
+    }
+}
+
+headlessTask('verifyHeadless116', '116', 'versions:fabric-1.16.1', 'lava')
+headlessTask('verifyHeadless121', '121', 'versions:fabric-1.21.1', 'lava')
+headlessTask('verifyHeadless263', '263', 'versions:fabric-26.3', 'lava')
+headlessTask('verifyHeadlessFixtures121', '121', 'versions:fabric-1.21.1', 'fixtures')
+headlessTask('verifyHeadlessAll116', '116', 'versions:fabric-1.16.1', 'all')
+headlessTask('verifyHeadlessAll121', '121', 'versions:fabric-1.21.1', 'all')
+headlessTask('verifyHeadlessAll263', '263', 'versions:fabric-26.3', 'all')
+
+tasks.register('verifyLava116') {
+    group = 'verification'
+    description = 'Runs the 1.16.1 Stage-B lava differential suite.'
+    dependsOn 'verifyHeadless116'
+}
+tasks.register('verifyLava121') {
+    group = 'verification'
+    description = 'Runs the 1.21.1 Stage-B lava differential suite.'
+    dependsOn 'verifyHeadless121'
+}
+tasks.register('verifyLava263') {
+    group = 'verification'
+    description = 'Runs the 26.3 Stage-B lava differential suite.'
+    dependsOn 'verifyHeadless263'
+}
+
+def releaseBoundaryTask = { String taskName, String modulePath ->
+    def module = project(modulePath)
+    tasks.register(taskName) {
+        group = 'verification'
+        description = "Checks that ${modulePath} release jar contains no verification-only classes."
+        dependsOn "${modulePath}:jar"
+        doLast {
+            def releaseJar = module.tasks.named('jar')
+            File artifact = releaseJar.get().archiveFile.get().asFile
+            def forbidden = zipTree(artifact).matching {
+                include '**/Temp*Probe*'
+                include '**/VerificationEntrypoint*'
+                include '**/verification/**'
+            }.files
+            if (!forbidden.isEmpty()) {
+                throw new GradleException("Release jar boundary violation in ${artifact.name}: "
+                        + forbidden.collect { it.name }.sort().join(', '))
+            }
+            logger.lifecycle("Release jar boundary OK: ${artifact.name}")
+        }
+    }
+}
+
+releaseBoundaryTask('verifyReleaseJar116', ':versions:fabric-1.16.1')
+releaseBoundaryTask('verifyReleaseJar121', ':versions:fabric-1.21.1')
+releaseBoundaryTask('verifyReleaseJar263', ':versions:fabric-26.3')
+
+tasks.register('verify116') {
+    group = 'verification'
+    description = 'Builds 1.16.1 and validates its verification artifact and fixture.'
+    dependsOn 'test', 'testAdapterContracts', ':versions:fabric-1.16.1:build',
+            ':versions:fabric-1.16.1:verificationJar', fixture116, 'verifyReleaseJar116',
+            'verifyHeadless116'
+}
+
+tasks.register('verify121') {
+    group = 'verification'
+    description = 'Builds 1.21.1 and validates its verification artifact and fixture.'
+    dependsOn 'test', 'testAdapterContracts', ':versions:fabric-1.21.1:build',
+            ':versions:fabric-1.21.1:verificationJar', fixture121, 'verifyReleaseJar121',
+            'verifyHeadless121'
+}
+
+tasks.register('verify263') {
+    group = 'verification'
+    description = 'Builds 26.3 and validates its verification artifact and fixture.'
+    dependsOn 'test', 'testAdapterContracts', ':versions:fabric-26.3:build',
+            ':versions:fabric-26.3:verificationJar', fixture263, 'verifyReleaseJar263',
+            'verifyHeadless263'
+}
+
+tasks.register('verifyAll') {
+    group = 'verification'
+    description = 'Runs shared tests, all version build gates, and full verification suites.'
+    dependsOn 'test', 'testAdapterContracts', fixture116, fixture121, fixture263,
+            ':versions:fabric-1.16.1:build', ':versions:fabric-1.21.1:build',
+            ':versions:fabric-26.3:build', 'verifyReleaseJar116', 'verifyReleaseJar121',
+            'verifyReleaseJar263',
+            'verifyHeadlessAll116', 'verifyHeadlessAll121', 'verifyHeadlessAll263'
+}

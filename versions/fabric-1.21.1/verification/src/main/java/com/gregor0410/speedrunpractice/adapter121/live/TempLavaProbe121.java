@@ -8,6 +8,7 @@ import com.gregor0410.speedrunpractice.common.seeds.SeedAnalyzer;
 import com.gregor0410.speedrunpractice.common.seeds.SeedFilters;
 import com.gregor0410.speedrunpractice.common.seeds.SeedQuery;
 import com.gregor0410.speedrunpractice.common.util.SpeedrunLogger;
+import com.gregor0410.speedrunpractice.verification.VerificationSession;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.minecraft.block.BlockState;
 import net.minecraft.fluid.FluidState;
@@ -30,18 +31,10 @@ import java.util.concurrent.atomic.AtomicReference;
 public final class TempLavaProbe121 {
     private static final long[] SEEDS = {
         12345L,
-        20001L,
-        -5442079527854560511L,
-        424242L,
-        987654321L,
-        555555555L,
+        20001L, 20002L, 20003L, 20004L,
+        // Positive Stage-B control retained alongside the five canonical
+        // fixture rows.
         12L,
-        39L,
-        70L,
-        28L,
-        53L,
-        67L,
-        89L,
     };
     private static final int RADIUS = 64;
     private static final int TICKET_RADIUS = 6;
@@ -68,6 +61,18 @@ public final class TempLavaProbe121 {
         });
     }
 
+    /** Starts this probe only when the verification command explicitly asks for it. */
+    public static void runNow(final MinecraftServer server) {
+        Thread worker = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                probe(server);
+            }
+        }, "verify-lava-121");
+        worker.setDaemon(true);
+        worker.start();
+    }
+
     private static void probe(MinecraftServer server) {
         LiveAdapter121 live = Runtime121.live();
         for (int i = 0; i < 600 && (live == null || live.server() == null); i++) {
@@ -81,45 +86,10 @@ public final class TempLavaProbe121 {
         final LiveAdapter121 adapter = live;
         SeedAnalyzer seeds = adapter.seeds();
         SpeedrunLogger.warn("PROBELAVA121 START supportsLava=" + seeds.supportsLava());
-        // Distribution scan first (analyze-only): how often is Stage-B true?
-        StringBuilder dist = new StringBuilder();
-        int distTrue = 0;
-        int distTotal = 0;
-        for (long scan = 1; scan <= 10; scan++) {
-            try {
-                boolean verdict = seeds.analyze(scan, SeedQuery.builder()
-                        .version(com.gregor0410.speedrunpractice.common.api.GameVersion.MC_1_21_1)
-                        .requireLava().build()).matches();
-                distTotal++;
-                if (verdict) {
-                    distTrue++;
-                }
-                dist.append(verdict ? 'T' : 'f');
-            } catch (RuntimeException failure) {
-                dist.append('E');
-            }
-        }
-        SpeedrunLogger.warn("PROBELAVA121 DIST true=" + distTrue + "/" + distTotal + " " + dist);
-        // True-seek: DIST is mostly false, so find true seeds to
-        // ground-truth the positive side too.
-        java.util.List<Long> extra = new java.util.ArrayList<Long>();
-        for (long scan = 41; scan <= 60 && extra.size() < 3; scan++) {
-            try {
-                if (seeds.analyze(scan, SeedQuery.builder()
-                        .version(com.gregor0410.speedrunpractice.common.api.GameVersion.MC_1_21_1)
-                        .requireLava().build()).matches()) {
-                    extra.add(scan);
-                }
-            } catch (RuntimeException failure) {
-                // Ignore; DIST already logs analyze health.
-            }
-        }
-        SpeedrunLogger.warn("PROBELAVA121 TRUESEEK " + extra);
         java.util.List<Long> targets = new java.util.ArrayList<Long>();
         for (long seed : SEEDS) {
             targets.add(seed);
         }
-        targets.addAll(extra);
         int match = 0;
         int total = 0;
         for (long seed : targets) {
@@ -147,6 +117,11 @@ public final class TempLavaProbe121 {
                     + " MATCH=" + ok);
         }
         SpeedrunLogger.warn("PROBELAVA121 DONE match=" + match + "/" + total);
+        try {
+            VerificationSession.complete("lava.stage-b", match, total, "real generated chunks");
+        } catch (java.io.IOException failure) {
+            SpeedrunLogger.warn("Verification report write failed: " + failure.getMessage());
+        }
     }
 
     /** Real generated-chunk lava scan in a practice world for the seed. */

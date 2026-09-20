@@ -1,0 +1,18 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.gregor0410.speedrunpractice.adapter263.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "mixins": [
+    "EnderDragonFightAccess263",
+    "EndPortalBlockMixin263",
+    "MinecraftServerMixin263",
+    "NetherPortalBlockMixin263",
+    "PlayerListMixin263",
+    "ServerLevelSeedMixin263",
+    "SinglePoolElementAccess263"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

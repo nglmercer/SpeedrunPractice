@@ -234,9 +234,6 @@ final class StageBLava121 {
         if (replay.isEmpty()) {
             return false;
         }
-        // TEMP probe diagnostics: revert after verification.
-        SpeedrunLogger.warn("PROBELAVA121-DIAG steps=" + perStep.size() + " features="
-                + replay.size());
         Registry<Biome> biomeRegistry;
         try {
             biomeRegistry = registries.get(RegistryKeys.BIOME);
@@ -289,7 +286,6 @@ final class StageBLava121 {
                             random.setPopulationSeed(seed, origin.getX(), origin.getZ());
                     for (StepTarget target : replay) {
                         random.setDecoratorSeed(populationSeed, target.index, target.step);
-                        level.noteTarget(chunkX, chunkZ, target.step, target.index);
                         try {
                             target.placed.generate(level, generator, random, origin);
                         } catch (RuntimeException unsupported) {
@@ -310,21 +306,6 @@ final class StageBLava121 {
             // steps (trees) raise the surface above early lava, so gating
             // at write time forges false positives (seed 12: an oak
             // branch 14 blocks above a lava pocket).
-            if (level.foundLava()) {
-                // TEMP probe diagnostics: revert after verification.
-                BlockPos first = level.firstLava();
-                SpeedrunLogger.warn("PROBELAVA121-DIAG seed=" + seed + " lavaAt="
-                        + first + " noiseSurf=" + level.surfaceAt(first)
-                        + " how=" + level.firstLavaHow() + " failed=" + failed);
-            }
-            // TEMP round-5: final replay column for the seed-12 fix check.
-            if (seed == 12L) {
-                for (int y = 55; y <= 90; y++) {
-                    BlockPos at = new BlockPos(-24, y, 23);
-                    SpeedrunLogger.warn("PROBELAVA121-RCOL seed=12 at=-24," + y + ",23"
-                            + " block=" + level.getBlockState(at).getBlock());
-                }
-            }
         } catch (RuntimeException failure) {
             SpeedrunLogger.warn("Stage-B lava check failed for seed " + seed + ": " + failure);
             return false;
@@ -476,7 +457,6 @@ final class StageBLava121 {
             }
         }
 
-        // TEMP probe diagnostics: revert after verification.
         BlockPos firstLava() {
             for (int i = 0; i < lava.size(); i++) {
                 BlockPos at = lava.get(i);
@@ -487,38 +467,7 @@ final class StageBLava121 {
             return null;
         }
 
-        // TEMP probe diagnostics: revert after verification.
-        String firstLavaHow() {
-            for (int i = 0; i < lava.size(); i++) {
-                BlockPos at = lava.get(i);
-                if (at.getY() >= surfaceFloor(at.getX(), at.getZ())) {
-                    return i < firstLavaHows.size() ? firstLavaHows.get(i) : "?";
-                }
-            }
-            return "?";
-        }
-
-        /** Placing chunk/step/index of the feature currently generating. */
-        private String currentHow = "?";
-        /** Parallel to {@link #lava}: where each candidate came from. */
-        private final List<String> firstLavaHows = new ArrayList<String>();
         private boolean budgetTripped;
-
-        void noteTarget(int chunkX, int chunkZ, int step, int index) {
-            currentHow = chunkX + "," + chunkZ + "/s" + step + "i" + index;
-        }
-
-        // TEMP probe diagnostics: revert after verification.
-        int surfaceAt(BlockPos at) {
-            if (at == null) {
-                return Integer.MIN_VALUE;
-            }
-            try {
-                return getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, at.getX(), at.getZ());
-            } catch (RuntimeException unreadable) {
-                return Integer.MIN_VALUE;
-            }
-        }
 
         @Override
         public long getSeed() {
@@ -561,52 +510,8 @@ final class StageBLava121 {
             overrides.put(pos.toImmutable(), state);
             if (isLava(state) && withinRadius(pos)) {
                 lava.add(pos.toImmutable());
-                firstLavaHows.add(currentHow);
-                // TEMP substrate dump: revert after verification.
-                if (lava.size() == 1) {
-                    dumpSubstrate(pos.toImmutable());
-                }
             }
             return true;
-        }
-
-        // TEMP substrate dump: revert after verification.
-        private void dumpSubstrate(BlockPos at) {
-            StringBuilder out = new StringBuilder();
-            out.append("PROBELAVA121-SUB seed=").append(seed).append(" at=").append(at)
-                    .append(" built=").append(built);
-            int[][] offsets = {{0, 0, 0}, {0, 1, 0}, {0, -1, 0}, {-1, 0, 0}, {1, 0, 0},
-                {0, 0, -1}, {0, 0, 1}};
-            for (int[] o : offsets) {
-                int x = at.getX() + o[0];
-                int y = at.getY() + o[1];
-                int z = at.getZ() + o[2];
-                out.append(" [").append(o[0]).append(',').append(o[1]).append(',')
-                        .append(o[2]).append('=');
-                try {
-                    long key = (((long) ChunkSectionPos.getSectionCoord(x)) << 32)
-                            | (ChunkSectionPos.getSectionCoord(z) & 0xFFFFFFFFL);
-                    ProtoChunk chunk = chunks.get(key);
-                    BlockState state = chunk == null ? null
-                            : chunk.getBlockState(new BlockPos(x, y, z));
-                    if (state == null) {
-                        out.append('?');
-                    } else {
-                        String name = state.getBlock().getTranslationKey();
-                        int dot = name.lastIndexOf('.');
-                        out.append(dot >= 0 ? name.substring(dot + 1) : name);
-                        if (!state.getFluidState().isEmpty()) {
-                            out.append('+').append(state.getFluidState().getFluid() == Fluids.WATER
-                                    || state.getFluidState().getFluid() == Fluids.FLOWING_WATER
-                                    ? "W" : "F");
-                        }
-                    }
-                } catch (RuntimeException unreadable) {
-                    out.append('?');
-                }
-                out.append(']');
-            }
-            SpeedrunLogger.warn(out.toString());
         }
 
         private boolean withinRadius(BlockPos at) {

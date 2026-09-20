@@ -1,8 +1,8 @@
-# SpeedrunPractice — Fix All Remaining Issues
+# SpeedrunPractice — Test-First Completion Plan
 
-## Goal
+## Primary Goal
 
-Deliver fully working Fabric mods for:
+Finish and validate:
 
 ```text
 Minecraft 1.16.1
@@ -10,219 +10,491 @@ Minecraft 1.21.1
 Minecraft 26.3
 ```
 
-Single-player practice only.
+But **DO NOT continue normal feature development first**.
 
-Do not add multiplayer, Ranked, matchmaking, accounts, or online services.
-
-## Important
-
-GitHub Actions failures are currently caused by account/billing infrastructure and are **not an implementation blocker**.
-
-Do not spend time debugging hosted Actions.
-
-Validate with:
+Current biggest problem is validation cost:
 
 ```text
-local Gradle builds
-unit tests
-architecture guards
-jar inspection
-real Minecraft testing
-dedicated-server testing where applicable
+code change
+→ launch Minecraft
+→ create world
+→ reproduce state
+→ manually test
+→ discover another issue
+→ edit
+→ repeat
 ```
 
-## Current progress checkpoint (2026-09-19)
+Replace this workflow with:
 
-Implementation order is currently at step 09. Stage-B lava verification now
-has production paths in all three version adapters and is being checked
-against real generated worlds. The parity work is not complete yet: temporary
-headless probes and diagnostics remain during false-positive/false-negative
-investigation, so no lava capability or runtime-status row should be marked
-verified until those probes pass and are removed.
+```text
+code change
+→ automated unit tests
+→ adapter contract tests
+→ headless Minecraft verification
+→ JSON verification report
+→ only final client smoke test
+```
+
+GitHub Actions billing/status is irrelevant for this task.
+
+Use local testing.
 
 ---
 
-# 1. Finish and Verify 1.16.1
+# PHASE 0 — Freeze Feature Development
 
-The new 1.16.1 runtime already exists:
+Before changing more gameplay code:
 
 ```text
+[x] stop adding new features
+[x] do not add temporary probes to production runtime
+[x] freeze common adapter contracts
+[x] freeze scenario interfaces
+[x] create automated verification infrastructure
+```
+
+No large refactors until the verification system works.
+
+---
+
+# PHASE 1 — Build One Verification Framework
+
+Create:
+
+```text
+verification/
+├── common/
+├── fixtures/
+├── reports/
+└── scripts/
+
+versions/fabric-1.16.1/
+└── verification/
+
+versions/fabric-1.21.1/
+└── verification/
+
+versions/fabric-26.3/
+└── verification/
+```
+
+Verification code must NOT ship inside release jars.
+
+Do not put temporary probes in:
+
+```text
+src/main/
 Runtime116
-AdapterSet116
-LiveAdapter116
-LiveWorlds
-LivePlayers
-LiveInventories
-LiveStructures
-LivePortals
-LiveDragons
-LiveCommands
-LiveGui
-LiveTimer
-SeedAnalyzer116
-EventPoller116
-client screens/keybinds
+Runtime121
+Runtime263
 ```
 
-Tasks:
+---
 
-```text
-[ ] run real Minecraft 1.16.1 client with compatible JDK
-[ ] test every /practice command
-[ ] test every practice
-[ ] test GUI
-[ ] test keybinds
-[ ] test timer triggers
-[ ] test completion events
-[ ] test checkpoints
-[ ] test same/new/previous seed reset
-[ ] test seed search
-[ ] test loadouts
-[ ] test statistics persistence
-```
+# PHASE 2 — Remove Current Production Probes
 
-Fix every runtime bug discovered.
-
-After verification, enable only capabilities proven to work:
+Immediately remove production startup calls like:
 
 ```java
-supports(Capability.X) == true
+TempLavaProbe116.arm();
+TempLavaProbe121.arm();
+TempLavaProbe263.arm();
 ```
 
-Do not enable capabilities merely because code compiles.
+Move all:
+
+```text
+TempLavaProbe*
+TempSurfProbe*
+TempSubstrateProbe*
+TempBasinProbe*
+PROBELAVA*
+temporary diagnostic logging
+```
+
+into verification-only code.
+
+Production launch must never automatically execute test scans.
 
 ---
 
-# 2. Remove 1.16.1 Legacy Duplication
+# PHASE 3 — Testing Pyramid
 
-Once new-runtime parity is verified:
+Use 5 validation levels.
+
+## L0 — Pure Unit Tests
+
+No Minecraft.
+
+Test:
 
 ```text
-remove unnecessary legacy direct practice execution
-keep only reusable legacy internals needed by LiveAdapter116
-route user-facing practice operations through PracticeRuntime
+ScenarioEngine
+PracticeRuntime state transitions
+timer conditions
+completion conditions
+statistics
+seed stores
+search presets
+filters
+loadouts
+checkpoint serialization
+config migration
+custom scenarios
+command action dispatch
+seed-search lifecycle
 ```
 
-Avoid two competing practice engines.
+These must be fast.
+
+Target:
+
+```text
+seconds, not minutes
+```
 
 ---
 
-# 3. Finish 26.3 World Handling
+## L1 — Adapter Contract Tests
 
-Current `LiveWorlds263` only binds to the existing vanilla world.
+Each version must run the same contract suite.
 
-This is incorrect for requested practice seeds.
+Example:
 
-Fix:
-
-```text
-Practice seed
-→ actual generated practice world using that seed
+```java
+interface AdapterContract {
+    testRegistry();
+    testInventoryRoundTrip();
+    testWorldLifecycle();
+    testTeleport();
+    testStructureLookup();
+    testPortalCreation();
+    testCheckpointRoundTrip();
+}
 ```
 
-Implement:
+Implement once and run against:
 
 ```text
-createPracticeWorld(seed)
-deletePracticeWorld(world)
-resetPracticeWorld(world, seed)
+Adapter116
+Adapter121
+Adapter263
 ```
 
-Requirements:
-
-```text
-requested seed matches actual world seed
-isolated practice state
-Overworld/Nether/End linkage
-safe cleanup
-same-seed reset
-new-seed reset
-previous-seed reset
-no stale worlds
-```
-
-Do not merely store a different seed in the handle.
+Do not duplicate expectations between versions unless behavior genuinely differs.
 
 ---
 
-# 4. Finish AdapterSet263
+# PHASE 4 — Headless Real-Minecraft Test Harness
 
-Implement all remaining production `pending()` paths.
+This is the most important part.
+
+Create a verification entrypoint for each version that can run inside:
+
+```text
+dedicated Minecraft server
++
+real Fabric mod
++
+real mappings/APIs
+```
+
+It should automatically:
+
+```text
+boot server
+create practice world
+execute test
+record result
+cleanup world
+continue next test
+shutdown server
+```
+
+No human input.
+
+---
+
+# PHASE 5 — Verification Command
+
+Add a verification-only command:
+
+```text
+/practiceverify run
+```
+
+NOT included in release jars.
+
+It should execute suites like:
+
+```text
+worlds
+structures
+portals
+dragon
+registries
+seed-search
+scenarios
+resets
+checkpoints
+all
+```
+
+Example:
+
+```text
+/practiceverify run worlds
+/practiceverify run seeds
+/practiceverify run all
+```
+
+---
+
+# PHASE 6 — Machine-Readable Report
+
+Never rely only on console logs.
+
+Every run writes:
+
+```text
+build/verification/<version>/report.json
+```
+
+Example:
+
+```json
+{
+  "version": "1.21.1",
+  "passed": 42,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "world.create.seed",
+      "status": "PASS"
+    }
+  ]
+}
+```
+
+Also create:
+
+```text
+summary.txt
+```
+
+with readable failures.
+
+A failed verification must return non-zero exit status.
+
+---
+
+# PHASE 7 — Deterministic Test Seeds
+
+Create one canonical fixture format:
+
+```text
+verification/fixtures/
+├── 1.16.1.json
+├── 1.21.1.json
+└── 26.3.json
+```
+
+Minimum:
+
+```text
+5 verified seeds/version
+```
+
+Each should record useful facts:
+
+```text
+seed
+spawn
+spawn biome
+village
+buried treasure
+ruined portal
+bastion
+bastion type
+fortress
+stronghold
+lava
+```
+
+Do not keep separate contradictory fixture formats.
+
+Consolidate current 26.3 verified data.
+
+Add missing 1.21.1 fixtures.
+
+---
+
+# PHASE 8 — World Lifecycle Tests
+
+Automatically test:
+
+```text
+create seed A
+assert actual world seed == A
+
+delete world
+assert removed
+
+create seed A
+reset same seed
+assert seed == A
+
+reset seed B
+assert seed == B
+
+delete
+assert no leaked practice worlds
+```
+
+Run repeatedly:
+
+```text
+50-100 cycles
+```
+
+to detect lifecycle leaks.
+
+This test is critical.
+
+---
+
+# PHASE 9 — Seed Analyzer Differential Tests
+
+For every fixture:
+
+```text
+SeedAnalyzer prediction
+vs
+real generated Minecraft result
+```
+
+Compare:
+
+```text
+spawn
+biome
+structure coordinates
+bastion type
+stronghold
+lava
+```
+
+Use actual Minecraft structure lookup/generation as truth.
+
+Fail automatically on mismatch.
+
+Do not rely on eyeballing logs.
+
+---
+
+# PHASE 10 — Stage-B Lava Tests
+
+Stage-B is expensive and complex.
+
+Separate it from normal unit tests.
+
+Create:
+
+```text
+verifyLava116
+verifyLava121
+verifyLava263
+```
+
+Test known:
+
+```text
+positive seeds
+negative seeds
+edge cases
+```
+
+For each:
+
+```text
+Stage-B prediction
+→ generate real chunks
+→ scan real blocks
+→ compare
+```
+
+Only after this passes:
+
+```text
+remove temporary diagnostics
+```
+
+Production Stage-B must contain no:
+
+```text
+TEMP
+PROBE
+debug-only behavior
+```
+
+---
+
+# PHASE 11 — Headless Player Harness
+
+Many remaining features need a player.
+
+Do NOT require a human for every test.
+
+Create a verification-only controlled server player/test player.
+
+It should allow tests to call the real:
+
+```text
+PlayerAdapter
+InventoryAdapter
+ScenarioEngine
+PracticeRuntime
+```
+
+Test:
+
+```text
+teleport
+health
+food
+effects
+inventory
+loadouts
+checkpoint capture
+checkpoint restore
+scenario start
+scenario reset
+statistics
+completion
+```
+
+The player harness is only verification infrastructure.
+
+Do not use FakeMinecraftAdapter for these integration tests.
+
+---
+
+# PHASE 12 — Scenario Integration Tests
+
+For each scenario:
+
+```text
+start
+verify setup
+simulate/reach required state
+emit real/shared event
+verify completion
+verify result
+verify cleanup
+```
 
 Required:
-
-```text
-StructureAdapter
-- locateNearest
-- locate
-- structure metadata
-
-PortalAdapter
-- createNetherPortal
-- linkPortals
-
-DragonAdapter
-- resetFight
-- forcePerch
-- hasLivingDragon
-
-GuiAdapter
-- main menu
-- scenario setup
-- results
-
-TimerAdapter
-- real integration if external timer support exists
-```
-
-Replace interim registry behavior with real registry access:
-
-```text
-itemExists
-maxStackSize
-```
-
-After completion:
-
-```bash
-grep -R "throw pending" versions/fabric-26.3/src/main
-```
-
-must return nothing on supported practice paths.
-
----
-
-# 5. Finish 26.3 Client Features
-
-Add real:
-
-```text
-GUI screens
-keybindings
-client initializer
-results UI
-seed search UI
-loadout UI
-stats UI
-```
-
-Keybinds:
-
-```text
-open practice menu
-restart same seed
-restart new seed
-previous seed
-save checkpoint
-load checkpoint
-stop practice
-```
-
----
-
-# 6. Verify 26.3 Practices
-
-Test all:
 
 ```text
 Overworld
@@ -238,499 +510,340 @@ One Cycle
 Custom
 ```
 
-Verify actual setup and completion behavior.
-
-Do not mark a practice supported because commands register.
+Test every scenario on all three versions where supported.
 
 ---
 
-# 7. Finish 26.3 Seed Search
+# PHASE 13 — Scenario Tests Should Avoid Full Gameplay
 
-Current real analyzer covers useful worldgen data.
+Do NOT automate an entire speedrun.
 
-Complete missing filters:
+Test the important boundaries.
 
-```text
-bastion type
-lava availability
-any remaining structure metadata
-```
-
-Implement Stage-B verification where chunk generation is required.
-
-Remove the current rejection for:
+Example End:
 
 ```text
-lava=true
+create End practice
+→ verify dragon exists/reset
+→ trigger dragon death state
+→ poll engine
+→ assert COMPLETED
 ```
 
-once real verification exists.
+Example Blind Travel:
 
-Reuse one `SeedAnalysis` per seed.
+```text
+create practice
+→ simulate/perform portal exit
+→ calculate nearest stronghold
+→ assert recorded error/distance
+```
 
-Do not repeat expensive analysis per filter.
+Example Bastion:
+
+```text
+seed known bastion
+→ start scenario
+→ assert player spawn/setup
+→ assert expected bastion metadata
+```
+
+This makes validation fast.
 
 ---
 
-# 8. Fully Port 1.21.1
+# PHASE 14 — Client Tests Are Last Layer Only
 
-Current 1.21.1 is still a plain Java skeleton.
+Do not use client/manual testing for everything.
 
-Convert it into a real Fabric module.
-
-Required build:
+Only client-specific features require it:
 
 ```text
-Java 21
-Fabric Loom
-Minecraft 1.21.1
-correct mappings
-Fabric Loader
-Fabric API
-fabric.mod.json
-version-local mixins
+GUI rendering
+button clicks
+keybind registration
+key presses
+screen transitions
 ```
 
-Use the existing compatibility branch only as reference.
+Create a tiny final smoke checklist.
 
-Do not merge incomplete/stub implementations wholesale.
+For each version:
+
+```text
+[ ] Minecraft client starts
+[ ] menu opens
+[ ] scenario setup screen opens
+[ ] Start works
+[ ] results screen opens
+[ ] restart button works
+[ ] keybinds work
+```
+
+Everything else should already have automated verification.
 
 ---
 
-# 9. Implement LiveAdapter121
+# PHASE 15 — Create Gradle Verification Tasks
 
-Mirror the completed architecture used by 1.16.1/26.3.
+Target workflow:
 
-Create:
+```bash
+./gradlew test
+./gradlew verify116
+./gradlew verify121
+./gradlew verify263
+./gradlew verifyAll
+```
+
+`verifyAll` should:
 
 ```text
-Runtime121
-LiveAdapter121
-LiveWorlds121
-LivePlayers121
-LiveInventories121
-LiveStructures121
-LivePortals121
-LiveDragons121
-LiveRegistries121
-LiveCommands121
-LiveGui121
-LiveTimer121
-EventPoller121
-SeedAnalyzer121
-client initializer
-screens
-keybinds
+run shared tests
+run adapter contracts
+build all 3 mods
+launch version verification servers
+run suites
+collect reports
+fail if any test fails
 ```
 
-Then make `AdapterSet121` a delegation shell like 116/263.
-
-Remove every:
-
-```java
-throw pending(...)
-```
-
-from normal supported paths.
+Do not depend on GitHub Actions.
 
 ---
 
-# 10. Verify Scenario Semantics
+# PHASE 16 — Fast Development Loop
 
-Review every scenario against actual gameplay.
+Developers/LLMs should normally run only relevant tests.
 
-### Bastion
+Example:
 
-Implement distinct:
+World change:
 
-```text
-outside
-entrance
-route
-random_exterior
-portal_exit
+```bash
+./gradlew testWorldContracts
+./gradlew verify121Worlds
 ```
 
-with safe positions and real bastion subtype handling.
+Seed change:
 
-### Fortress
-
-Implement distinct:
-
-```text
-find
-enter
-blaze
-navigation
-exit
+```bash
+./gradlew testSeedSearch
+./gradlew verify121Seeds
 ```
 
-### Blind Travel
+Before commit:
 
-Must actually perform:
-
-```text
-Nether start
-→ portal creation/use
-→ Overworld exit
-→ nearest stronghold comparison
-→ distance/error result
+```bash
+./gradlew test
+./gradlew verify<changed-version>
 ```
 
-### Post Blind
+Before release:
 
-Finish based on configured target:
-
-```text
-stronghold
-portal room
-manual
-```
-
-### Stronghold
-
-Use real portal-room detection.
-
-### End / One Cycle
-
-Verify:
-
-```text
-dragon reset
-fight state
-force perch
-completion once
-correct loadout
+```bash
+./gradlew verifyAll
 ```
 
 ---
 
-# 11. Safe Spawn Logic
+# PHASE 17 — Prevent Merge Conflicts
 
-All versions must avoid unsafe teleports.
+Do NOT let multiple LLMs edit shared core simultaneously.
 
-Implement/version-test:
+Use ownership:
 
 ```text
-solid floor
-two-block headroom
-no lava
-no fire
-inside world bounds
+Agent A → common/practices
+Agent B → fabric-1.16.1
+Agent C → fabric-1.21.1
+Agent D → fabric-26.3
+Agent E → verification/fixtures/docs
 ```
 
-Never blindly teleport to structure Y values.
+Rules:
+
+```text
+one writer per subsystem
+small commits
+no unrelated formatting
+no mass renames
+no shared-file edits unless required
+```
+
+Freeze adapter contracts before parallel version work.
+
+Parallelize only version-local implementations.
 
 ---
 
-# 12. Complete Checkpoints
+# PHASE 18 — One Task = One Commit
 
-Verify real capture/restore of:
+Every LLM task should be small.
 
-```text
-seed
-dimension
-position
-rotation
-health
-food
-saturation
-XP
-level
-inventory
-armor
-offhand
-selected slot
-effects
-timer
-scenario state
-```
-
-If seed/dimension differs:
+Bad:
 
 ```text
-recreate correct world
-→ restore player
+finish 1.21.1
 ```
 
-Add bounded block-region restoration where required for:
+Good:
 
 ```text
-beds
-portals
-obsidian
-dragon setup
+Implement and verify LivePortals121.createNetherPortal.
 ```
 
----
-
-# 13. Complete Seed Search UX
-
-Already implemented:
+Commit format:
 
 ```text
-search preset execution
-results
-export
-seed.filters parsing
-```
-
-Now ensure all versions support them correctly.
+adapter121: implement portal creation
 
 Test:
-
-```text
-/practice seeds search <preset>
-/practice seeds results
-/practice seeds cancel
-/practice seeds export
-```
-
-No game-thread blocking.
-
-No leaked worker threads.
-
----
-
-# 14. Add Verified Seed Fixtures
-
-Current known-seed data is not sufficient.
-
-Add at least:
-
-```text
-5 verified seeds for 1.16.1
-5 verified seeds for 1.21.1
-5 verified seeds for 26.3
-```
-
-Verify in the actual target Minecraft version.
-
-Include:
-
-```text
-structure positions
-bastion type where possible
-stronghold data
-biome data
-```
-
-Only use:
-
-```json
-"verified": true
-```
-
-after real checking.
-
----
-
-# 15. Capability Flags
-
-After runtime tests, update:
-
-```java
-supports(Capability capability)
-```
-
-Capability may be `true` only when:
-
-```text
-implemented
-compiled
-runtime-tested
-```
-
-Examples:
-
-```text
-CUSTOM_DIMENSION_RUNTIME
-FAST_WORLD_RESET
-BASTION_TYPE_QUERY
-DRAGON_FORCE_PERCH
-PORTAL_STATE_CAPTURE
-STRUCTURE_METADATA_SEARCH
+./gradlew verify121Portals
+PASS 4/4
 ```
 
 ---
 
-# 16. Documentation Cleanup
+# PHASE 19 — Completion Report Required
 
-Keep:
+Every coding task must end with:
+
+```markdown
+## Completed
+
+### Changed
+- ...
+
+### Automated tests
+- command:
+- result:
+
+### Minecraft verification
+- version:
+- suite:
+- passed:
+- failed:
+
+### Production stubs
+- remaining:
+
+### Next task
+- ...
+```
+
+No vague:
 
 ```text
-docs/version-status.md
-versions/README.md
-README.md
-```
-
-aligned with reality.
-
-Use:
-
-```text
-✅ verified
-runtime unverified
-adapter pending
-```
-
-Do not call partial versions fully supported.
-
-Fix stale statements whenever implementation changes.
-
----
-
-# 17. Local Validation
-
-Ignore hosted GitHub Actions billing failures.
-
-Run locally:
-
-```bash
-./gradlew build
-```
-
-plus version-specific builds.
-
-Also run:
-
-```bash
-scripts/verify-architecture.sh
-scripts/verify-supported-versions.sh
-```
-
-or PowerShell equivalents.
-
-Validate built jars contain:
-
-```text
-fabric.mod.json
-correct entrypoint
-mixins
-PracticeRuntime
-version adapter
-shared engine
+should work
+probably fixed
+compile successful
 ```
 
 ---
 
-# 18. Runtime Verification Matrix
+# PHASE 20 — After Test Infrastructure Exists
 
-For each Minecraft version verify:
+Only then finish remaining project work.
+
+Order:
 
 ```text
-[ ] mod launches
-[ ] /practice registers
-[ ] Overworld
-[ ] Buried Treasure
-[ ] Nether
-[ ] Bastion
-[ ] Fortress
-[ ] Blind Travel
-[ ] Post Blind
-[ ] Stronghold
-[ ] End
-[ ] One Cycle
-[ ] custom scenario
-[ ] same seed
-[ ] new seed
-[ ] previous seed
-[ ] checkpoints
-[ ] loadouts
-[ ] timer
-[ ] completion
-[ ] stats
-[ ] seed search
-[ ] favorites
-[ ] GUI
-[ ] keybinds
+01 build verification framework
+02 move temporary probes out of production
+03 deterministic fixtures
+04 world lifecycle tests
+05 seed differential tests
+06 Stage-B tests
+07 player harness
+08 scenario integration tests
+09 verify/fix 1.16.1
+10 verify/fix 1.21.1
+11 verify/fix 26.3
+12 client smoke tests
+13 capability flags
+14 documentation
+15 release cleanup
 ```
 
 ---
 
-# 19. Implementation Order
+# PHASE 21 — Current Known Cleanup
 
-Follow:
+Fix current HEAD specifically:
 
 ```text
-01 verify/fix 1.16.1 runtime
-02 finish 1.16.1 parity
-03 verified 1.16.1 seeds
-04 fix 26.3 real seeded worlds
-05 finish 26.3 structures
-06 finish 26.3 portals
-07 finish 26.3 dragon
-08 finish 26.3 GUI/keybinds
-09 finish 26.3 seed Stage-B analysis
-10 verify all 26.3 practices
-11 verified 26.3 seeds
-12 convert 1.21.1 to Loom/Fabric
-13 implement LiveAdapter121
-14 implement SeedAnalyzer121
-15 implement 1.21.1 GUI/keybinds/events
-16 verify all 1.21.1 practices
-17 verified 1.21.1 seeds
-18 enable verified capabilities
-19 documentation cleanup
-20 final local builds + release jars
+[x] remove TempLavaProbe116.arm()
+[x] remove TempLavaProbe121.arm()
+[x] remove TempLavaProbe263.arm()
+
+[x] move Temp*Probe classes to verification code
+[x] remove PROBELAVA logging
+[x] remove TEMP diagnostics
+
+[x] verify latest Stage-B changes again
+
+[x] add 5 verified 1.21.1 fixtures
+[x] consolidate 26.3 fixtures
+
+[x] update docs/version-status.md
 ```
 
 ---
 
-# 20. Agent Rules
+# PHASE 22 — Final Verification
 
-Continue autonomously through the list.
-
-For every task:
+A version is complete only when:
 
 ```text
-inspect
-implement
-test
-build
-runtime-verify when possible
-fix discovered issues
-update version-status
-continue
-```
-
-Do not stop merely because compilation passes.
-
-Never:
-
-```text
-fake world seeds
-ship pending adapters
-use fake test adapters in production
-mark unverified features working
-put Minecraft imports in common/
-block seed search on the Minecraft main thread
+build PASS
+unit tests PASS
+adapter contracts PASS
+headless Minecraft tests PASS
+seed fixtures PASS
+scenario tests PASS
+world cleanup PASS
+client smoke PASS
 ```
 
 ---
 
 # Definition of Done
 
-All three versions must support:
+The final automated command should be:
 
-```text
-launch
-→ open practice UI
-→ choose practice
-→ choose seed/search
-→ create real seeded practice world
-→ run scenario
-→ timer works
-→ completion detected
-→ stats saved
-→ retry same/new/previous
+```bash
+./gradlew verifyAll
 ```
 
-with no normal production path containing:
+and output something equivalent to:
 
 ```text
-throw pending(...)
-fake adapters
-placeholder world behavior
-unimplemented commands
+Shared tests        PASS
+Minecraft 1.16.1   PASS
+Minecraft 1.21.1   PASS
+Minecraft 26.3     PASS
+
+World lifecycle     PASS
+Seed analyzers      PASS
+Stage-B lava        PASS
+Portals             PASS
+Dragon              PASS
+Loadouts            PASS
+Checkpoints         PASS
+Scenarios           PASS
+Statistics          PASS
+
+0 failures
+```
+
+After this, only a small final manual client smoke test should be necessary.
+
+# Critical Rule
+
+From now on:
+
+```text
+NO NEW COMPLEX FEATURE
+WITHOUT AN AUTOMATED TEST THAT CAN PROVE IT.
 ```

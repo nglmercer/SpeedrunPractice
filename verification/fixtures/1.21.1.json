@@ -1,0 +1,72 @@
+{
+  "version": "1.21.1",
+  "verifiedOn": "2026-09-19",
+  "method": "Fresh 1.21.1 dedicated-server run: generated practice worlds, live structure lookup, and surface lava scan.",
+  "seeds": [
+    {
+      "seed": 12345,
+      "verified": true,
+      "spawn": { "x": 96, "y": 144, "z": -32 },
+      "spawnBiome": "minecraft:dark_forest",
+      "lavaAvailable": false,
+      "structures": {
+        "village": { "x": -144, "y": 0, "z": -832 },
+        "stronghold": { "x": 1760, "y": 0, "z": 368, "portalRoom": "1826,-12,373" },
+        "fortress": { "x": -208, "y": 0, "z": -592 },
+        "bastion_remnant": { "x": 176, "y": 0, "z": -256, "bastionType": "bridge" }
+      }
+    },
+    {
+      "seed": 20001,
+      "verified": true,
+      "spawn": { "x": 0, "y": 72, "z": 0 },
+      "spawnBiome": "minecraft:forest",
+      "lavaAvailable": false,
+      "structures": {
+        "village": { "x": 592, "y": 0, "z": 368 },
+        "stronghold": { "x": -1440, "y": 0, "z": -1712, "portalRoom": "-1465,40,-1700" },
+        "fortress": { "x": 352, "y": 0, "z": 352 },
+        "bastion_remnant": { "x": -320, "y": 0, "z": -288, "bastionType": "bridge" }
+      }
+    },
+    {
+      "seed": 20002,
+      "verified": true,
+      "spawn": { "x": -48, "y": 66, "z": -96 },
+      "spawnBiome": "minecraft:old_growth_spruce_taiga",
+      "lavaAvailable": false,
+      "structures": {
+        "village": { "x": 64, "y": 0, "z": -400 },
+        "stronghold": { "x": -1264, "y": 0, "z": -1520, "portalRoom": "-1319,31,-1510" },
+        "fortress": { "x": -816, "y": 0, "z": -672 },
+        "bastion_remnant": { "x": -352, "y": 0, "z": -320, "bastionType": "bridge" }
+      }
+    },
+    {
+      "seed": 20003,
+      "verified": true,
+      "spawn": { "x": 0, "y": 80, "z": 0 },
+      "spawnBiome": "minecraft:savanna",
+      "lavaAvailable": false,
+      "structures": {
+        "village": { "x": 368, "y": 0, "z": 352 },
+        "stronghold": { "x": -992, "y": 0, "z": -1120, "portalRoom": "-966,-50,-1130" },
+        "fortress": { "x": -240, "y": 0, "z": -224 },
+        "bastion_remnant": { "x": 64, "y": 0, "z": 64, "bastionType": "stables" }
+      }
+    },
+    {
+      "seed": 20004,
+      "verified": true,
+      "spawn": { "x": 0, "y": 64, "z": 0 },
+      "spawnBiome": "minecraft:savanna",
+      "lavaAvailable": true,
+      "structures": {
+        "village": { "x": -368, "y": 0, "z": -144 },
+        "stronghold": { "x": -848, "y": 0, "z": -1040, "portalRoom": "-848,-20,-1030" },
+        "fortress": { "x": -272, "y": 0, "z": -256 },
+        "bastion_remnant": { "x": 240, "y": 0, "z": 160, "bastionType": "treasure" }
+      }
+    }
+  ]
+}

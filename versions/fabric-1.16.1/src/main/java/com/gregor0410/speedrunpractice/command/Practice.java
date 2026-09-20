@@ -122,7 +122,8 @@ public class Practice {
         player.setExperienceLevel(0);
         player.setExperiencePoints(0);
         player.getHungerManager().setFoodLevel(20);
-        player.getHungerManager().setSaturationLevelClient(5f);
+        ((com.gregor0410.speedrunpractice.mixin.HungerManagerAccess) (Object)
+                player.getHungerManager()).speedrunPractice$setFoodSaturationLevel(5f);
         player.clearStatusEffects();
         player.setVelocity(Vec3d.ZERO);
         player.setAir(300);

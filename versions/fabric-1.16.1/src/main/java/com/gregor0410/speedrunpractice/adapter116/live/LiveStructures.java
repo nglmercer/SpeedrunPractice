@@ -8,6 +8,7 @@ import com.gregor0410.speedrunpractice.common.api.PracticeDimension;
 import com.gregor0410.speedrunpractice.common.util.SpeedrunLogger;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.structure.PoolStructurePiece;
 import net.minecraft.structure.StructurePiece;
 import net.minecraft.structure.StructureStart;
 import net.minecraft.util.math.BlockPos;
@@ -27,8 +28,8 @@ import java.util.Optional;
  * Structure location on the 1.16.1 chunk generator. Every returned position
  * is a genuine {@code locateStructure} hit — multi-results come from
  * re-querying ringed centers and de-duplicating, never from invented data.
- * Bastion subtype metadata stays empty until chunk-backed type detection
- * lands (the scenarios fall back to random picks meanwhile).
+ * Bastion subtype metadata is read from the generated structure start when
+ * the legacy generator has materialized it.
  */
 final class LiveStructures implements StructureAdapter {
     private final LiveAdapter116 adapter;
@@ -127,6 +128,11 @@ final class LiveStructures implements StructureAdapter {
             if (portalRoom != null) {
                 metadata = Collections.singletonMap(StructureLocation.PORTAL_ROOM_KEY, portalRoom);
             }
+        } else if (isBastion(structureId)) {
+            String bastionType = findBastionType(backing, found);
+            if (bastionType != null) {
+                metadata = Collections.singletonMap(StructureLocation.BASTION_TYPE_KEY, bastionType);
+            }
         }
         return new StructureLocation(structureId,
                 new PracticePosition(found.getX(), found.getY(), found.getZ()), metadata);
@@ -155,6 +161,50 @@ final class LiveStructures implements StructureAdapter {
 
     private static boolean isStronghold(String structureId) {
         return "stronghold".equals(FeatureIds.bare(structureId));
+    }
+
+    private static boolean isBastion(String structureId) {
+        return "bastion_remnant".equals(FeatureIds.bare(structureId));
+    }
+
+    /** Reads the start pool chosen by the generated bastion pieces. */
+    private static String findBastionType(ServerWorld backing, BlockPos found) {
+        try {
+            Chunk chunk = backing.getChunk(found);
+            ChunkPos chunkPos = new ChunkPos(found);
+            for (int sectionY = 0; sectionY < 16; sectionY++) {
+                StructureStart<?> start = backing.getStructureAccessor().getStructureStart(
+                        ChunkSectionPos.from(chunkPos, sectionY), StructureFeature.BASTION_REMNANT, chunk);
+                if (start == null || start.getChildren() == null) {
+                    continue;
+                }
+                for (StructurePiece piece : start.getChildren()) {
+                    if (!(piece instanceof PoolStructurePiece)) {
+                        continue;
+                    }
+                    String pool = String.valueOf(((PoolStructurePiece) piece).getPoolElement());
+                    if (pool.contains("bastion/units/base")) {
+                        return "housing";
+                    }
+                    if (pool.contains("bastion/hoglin_stable/origin")) {
+                        return "stables";
+                    }
+                    if (pool.contains("bastion/treasure/starters")) {
+                        return "treasure";
+                    }
+                    if (pool.contains("bastion/bridge/start")) {
+                        return "bridge";
+                    }
+                }
+            }
+            // A legacy start can expose no pool pieces until a later chunk
+            // stage. The start chunk has already been proven by locateStructure,
+            // so use the same version-owned draw as a deterministic fallback.
+            return SeedAnalyzer116.predictBastionType(backing.getSeed(), chunkPos);
+        } catch (RuntimeException bad) {
+            SpeedrunLogger.warn("Bastion type scan failed, returning location only: " + bad.getMessage());
+        }
+        return null;
     }
 
     /**

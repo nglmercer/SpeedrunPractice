@@ -1,4 +1,4 @@
-package com.gregor0410.speedrunpractice.adapter263.live;
+package com.gregor0410.speedrunpractice.adapter116.live;
 
 import com.gregor0410.speedrunpractice.common.adapter.WorldAdapter;
 import com.gregor0410.speedrunpractice.common.api.GameVersion;
@@ -9,40 +9,43 @@ import com.gregor0410.speedrunpractice.common.seeds.SeedAnalyzer;
 import com.gregor0410.speedrunpractice.common.seeds.SeedFilters;
 import com.gregor0410.speedrunpractice.common.seeds.SeedQuery;
 import com.gregor0410.speedrunpractice.common.util.SpeedrunLogger;
+import com.gregor0410.speedrunpractice.verification.VerificationSession;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
-import net.minecraft.core.BlockPos;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
+import net.minecraft.fluid.FluidState;
+import net.minecraft.fluid.Fluids;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.TicketType;
-import net.minecraft.world.level.ChunkPos;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.material.FluidState;
-import net.minecraft.world.level.material.Fluids;
+import net.minecraft.server.world.ChunkTicketType;
+import net.minecraft.server.world.ServerWorld;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.ChunkPos;
+import net.minecraft.world.Heightmap;
+import net.minecraft.world.biome.source.VanillaLayeredBiomeSource;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * TEMPORARY headless probe for the gated Stage-B lava verifier:
- * compares the production {@link SeedAnalyzer} lava verdict against real
- * generated chunks in a practice world per fixture seed. Delete after
- * passing.
+ * TEMPORARY headless probe for the 1.16.1 Stage-B lava port: compares
+ * the production {@link SeedAnalyzer} lava verdict against real generated
+ * chunks in a practice world per seed. Delete after passing.
  */
-public final class TempLavaProbe263 {
+public final class TempLavaProbe116 {
     private static final long[] SEEDS = {
-        12345L, 987654321L, 555555555L, -123456789L, 20260918L,
-        6L, 14L, 39L,
-        28L, 35L, 36L, 53L, 63L, 67L,
-        // Seed 42 pinned: phantom-lava FP fixed by the NO_LEAVES tag fix.
-        42L,
+        12345L, 20001L, 20002L, 20003L, 20004L, 987654321L,
+        // Seed 17 documents the known cross-chunk order-inversion FN
+        // (tall-grass plant shifting the lava-lake box up by one).
+        17L,
     };
     private static final int RADIUS = 64;
     private static final int TICKET_RADIUS = 6;
+    /** FORCED tickets (unmapped yarn name: field_14031). */
+    private static final ChunkTicketType<ChunkPos> FORCED = ChunkTicketType.field_14031;
     private static boolean armed;
 
-    private TempLavaProbe263() {
+    private TempLavaProbe116() {
     }
 
     /** TEMP: registers the one-shot probe. Call sites must be reverted. */
@@ -57,61 +60,66 @@ public final class TempLavaProbe263 {
                 public void run() {
                     probe(server);
                 }
-            }, "probe-lava-263");
+            }, "probe-lava-116");
             worker.setDaemon(true);
             worker.start();
         });
     }
 
+    /** Starts this probe only when the verification command explicitly asks for it. */
+    public static void runNow(final MinecraftServer server) {
+        Thread worker = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                probe(server);
+            }
+        }, "verify-lava-116");
+        worker.setDaemon(true);
+        worker.start();
+    }
+
     private static void probe(MinecraftServer server) {
-        LiveAdapter263 live = Runtime263.live();
+        LiveAdapter116 live = Runtime116.live();
         for (int i = 0; i < 600 && (live == null || live.server() == null); i++) {
             sleep(500);
-            live = Runtime263.live();
+            live = Runtime116.live();
         }
         if (live == null || live.server() == null) {
-            SpeedrunLogger.warn("PROBELAVA263 ABORT no-live-adapter");
+            SpeedrunLogger.warn("PROBELAVA116 ABORT no-live-adapter");
             return;
         }
-        final LiveAdapter263 adapter = live;
+        final LiveAdapter116 adapter = live;
         SeedAnalyzer seeds = adapter.seeds();
-        SpeedrunLogger.warn("PROBELAVA263 START supportsLava=" + seeds.supportsLava());
+        SpeedrunLogger.warn("PROBELAVA116 START supportsLava=" + seeds.supportsLava());
         StringBuilder dist = new StringBuilder();
         int distTrue = 0;
         int distTotal = 0;
+        java.util.List<Long> distTrues = new java.util.ArrayList<Long>();
         for (long scan = 1; scan <= 20; scan++) {
             try {
                 boolean verdict = seeds.analyze(scan, SeedQuery.builder()
-                        .version(GameVersion.V_26_3).requireLava().build()).matches();
+                        .version(GameVersion.MC_1_16_1).requireLava().build()).matches();
                 distTotal++;
                 if (verdict) {
                     distTrue++;
+                    distTrues.add(scan);
                 }
                 dist.append(verdict ? 'T' : 'f');
             } catch (RuntimeException failure) {
                 dist.append('E');
             }
         }
-        SpeedrunLogger.warn("PROBELAVA263 DIST true=" + distTrue + "/" + distTotal + " " + dist);
-        // True-seek: DIST is mostly false, so find true seeds to
-        // ground-truth the positive side too.
-        java.util.List<Long> extra = new java.util.ArrayList<Long>();
-        for (long scan = 21; scan <= 120 && extra.size() < 3; scan++) {
-            try {
-                if (seeds.analyze(scan, SeedQuery.builder()
-                        .version(GameVersion.V_26_3).requireLava().build()).matches()) {
-                    extra.add(scan);
-                }
-            } catch (RuntimeException failure) {
-                // Ignore; DIST already logs analyze health.
-            }
-        }
-        SpeedrunLogger.warn("PROBELAVA263 TRUESEEK " + extra);
+        SpeedrunLogger.warn("PROBELAVA116 DIST true=" + distTrue + "/" + distTotal + " " + dist
+                + " trues=" + distTrues);
         java.util.List<Long> targets = new java.util.ArrayList<Long>();
         for (long seed : SEEDS) {
             targets.add(seed);
         }
-        targets.addAll(extra);
+        for (Long found : distTrues) {
+            if (!targets.contains(found)) {
+                targets.add(found);
+            }
+        }
         int match = 0;
         int total = 0;
         for (long seed : targets) {
@@ -120,11 +128,11 @@ public final class TempLavaProbe263 {
             Object finding;
             try {
                 SeedAnalyzer.SeedAnalysis analysis = seeds.analyze(seed, SeedQuery.builder()
-                        .version(GameVersion.V_26_3).requireLava().build());
+                        .version(GameVersion.MC_1_16_1).requireLava().build());
                 stageB = analysis.matches();
                 finding = analysis.findings().get(SeedFilters.FIND_LAVA);
             } catch (RuntimeException failure) {
-                SpeedrunLogger.warn("PROBELAVA263 SEED=" + seed + " ANALYZE-FAIL " + failure);
+                SpeedrunLogger.warn("PROBELAVA116 SEED=" + seed + " ANALYZE-FAIL " + failure);
                 continue;
             }
             String truth = groundTruth(server, adapter, seed);
@@ -133,25 +141,20 @@ public final class TempLavaProbe263 {
             if (ok) {
                 match++;
             }
-            SpeedrunLogger.warn("PROBELAVA263 SEED=" + seed + " STAGEB=" + stageB
+            SpeedrunLogger.warn("PROBELAVA116 SEED=" + seed + " STAGEB=" + stageB
                     + " FIND_LAVA=" + finding + " TRUTH=" + truth + " SURFACE=" + surface
                     + " MATCH=" + ok);
         }
-        SpeedrunLogger.warn("PROBELAVA263 DONE match=" + match + "/" + total);
+        SpeedrunLogger.warn("PROBELAVA116 DONE match=" + match + "/" + total);
+        try {
+            VerificationSession.complete("lava.stage-b", match, total, "real generated chunks");
+        } catch (java.io.IOException failure) {
+            SpeedrunLogger.warn("Verification report write failed: " + failure.getMessage());
+        }
     }
 
     /** Real generated-chunk lava scan in a practice world for the seed. */
-    private static String groundTruth(MinecraftServer server, LiveAdapter263 adapter, long seed) {
-        BlockPos spawn;
-        try {
-            spawn = ((SeedAnalyzer263) adapter.seeds()).spawnCenter(seed);
-        } catch (RuntimeException failure) {
-            return "spawn-fail:" + failure;
-        }
-        if (spawn == null) {
-            return "spawn-null";
-        }
-        final BlockPos center = spawn;
+    private static String groundTruth(MinecraftServer server, LiveAdapter116 adapter, long seed) {
         final AtomicReference<PracticeWorld> handle = new AtomicReference<PracticeWorld>();
         final AtomicReference<String> error = new AtomicReference<String>();
         CountDownLatch created = new CountDownLatch(1);
@@ -172,12 +175,15 @@ public final class TempLavaProbe263 {
         if (!await(created, 120)) {
             return "create-timeout";
         }
-        if (handle.get() == null || !(handle.get() instanceof LiveWorld263)) {
+        if (handle.get() == null || !(handle.get() instanceof LiveWorld)) {
             return "create-fail:" + error.get();
         }
-        ServerLevel level = ((LiveWorld263) handle.get()).level();
+        ServerWorld world = ((LiveWorld) handle.get()).world();
+        BlockPos spawn = SeedAnalyzer116.predictSpawn(
+                new VanillaLayeredBiomeSource(seed, false, false), world.getSeaLevel(), seed);
+        final BlockPos center = spawn;
         try {
-            ChunkPos middle = ChunkPos.containing(center);
+            ChunkPos middle = new ChunkPos(center);
             CountDownLatch tickets = new CountDownLatch(1);
             server.execute(new Runnable() {
                 @Override
@@ -185,8 +191,8 @@ public final class TempLavaProbe263 {
                     try {
                         for (int dx = -TICKET_RADIUS; dx <= TICKET_RADIUS; dx++) {
                             for (int dz = -TICKET_RADIUS; dz <= TICKET_RADIUS; dz++) {
-                                level.getChunkSource().addTicketWithRadius(TicketType.FORCED,
-                                        new ChunkPos(middle.x() + dx, middle.z() + dz), 2);
+                                ChunkPos at = new ChunkPos(middle.x + dx, middle.z + dz);
+                                world.getChunkManager().addTicket(FORCED, at, 2, at);
                             }
                         }
                     } finally {
@@ -197,7 +203,7 @@ public final class TempLavaProbe263 {
             if (!await(tickets, 60)) {
                 return "ticket-timeout";
             }
-            if (!waitLoaded(server, level, middle)) {
+            if (!waitLoaded(server, world, middle)) {
                 return "load-timeout";
             }
             final AtomicReference<String> found = new AtomicReference<String>("none");
@@ -206,7 +212,11 @@ public final class TempLavaProbe263 {
                 @Override
                 public void run() {
                     try {
-                        found.set(scan(level, center, seed));
+                        found.set(scan(world, center));
+                        // TEMP round-7: dump the real spring neighborhood.
+                        if (seed == 17L) {
+                            dumpSpring(world);
+                        }
                     } catch (RuntimeException failure) {
                         found.set("scan-fail:" + failure);
                     } finally {
@@ -225,20 +235,19 @@ public final class TempLavaProbe263 {
                 public void run() {
                     try {
                         try {
-                            int middleX = ChunkPos.containing(center).x();
-                            int middleZ = ChunkPos.containing(center).z();
+                            ChunkPos middle = new ChunkPos(center);
                             for (int dx = -TICKET_RADIUS; dx <= TICKET_RADIUS; dx++) {
                                 for (int dz = -TICKET_RADIUS; dz <= TICKET_RADIUS; dz++) {
-                                    level.getChunkSource().removeTicketWithRadius(TicketType.FORCED,
-                                            new ChunkPos(middleX + dx, middleZ + dz), 2);
+                                    ChunkPos at = new ChunkPos(middle.x + dx, middle.z + dz);
+                                    world.getChunkManager().removeTicket(FORCED, at, 2, at);
                                 }
                             }
                         } catch (RuntimeException ignored) {
-                            // Best effort; the level is deleted below anyway.
+                            // Best effort; the world is deleted below anyway.
                         }
                         adapter.worlds().deletePracticeWorld(handle.get());
                     } catch (PracticeException | RuntimeException failure) {
-                        SpeedrunLogger.warn("PROBELAVA263 cleanup failed: " + failure);
+                        SpeedrunLogger.warn("PROBELAVA116 cleanup failed: " + failure);
                     } finally {
                         removed.countDown();
                     }
@@ -248,7 +257,7 @@ public final class TempLavaProbe263 {
         }
     }
 
-    private static boolean waitLoaded(MinecraftServer server, ServerLevel level, ChunkPos middle) {
+    private static boolean waitLoaded(MinecraftServer server, ServerWorld world, ChunkPos middle) {
         for (int i = 0; i < 240; i++) {
             final AtomicReference<Boolean> ready = new AtomicReference<Boolean>(Boolean.FALSE);
             CountDownLatch polled = new CountDownLatch(1);
@@ -259,9 +268,8 @@ public final class TempLavaProbe263 {
                         boolean all = true;
                         for (int dx = -TICKET_RADIUS; dx <= TICKET_RADIUS && all; dx++) {
                             for (int dz = -TICKET_RADIUS; dz <= TICKET_RADIUS && all; dz++) {
-                                all = level.getChunk(middle.x() + dx, middle.z() + dz,
-                                        net.minecraft.world.level.chunk.status.ChunkStatus.FULL,
-                                        false) != null;
+                                all = world.getChunk(middle.x + dx, middle.z + dz,
+                                        net.minecraft.world.chunk.ChunkStatus.FULL, false) != null;
                             }
                         }
                         ready.set(all ? Boolean.TRUE : Boolean.FALSE);
@@ -281,37 +289,48 @@ public final class TempLavaProbe263 {
         return false;
     }
 
+    // TEMP round-8 diagnostics: revert after use. Runs on the server thread.
+    // Smart dump: all lava + cave air (lake extent) plus the top solid per
+    // column (hill surface the lake gates read).
+    private static void dumpSpring(ServerWorld world) {
+        for (int x = 34; x <= 54; x++) {
+            for (int z = -32; z <= -14; z++) {
+                BlockPos topPos = null;
+                BlockState topState = null;
+                for (int y = 60; y <= 85; y++) {
+                    BlockPos pos = new BlockPos(x, y, z);
+                    BlockState state;
+                    try {
+                        state = world.getBlockState(pos);
+                    } catch (RuntimeException unreadable) {
+                        continue;
+                    }
+                    if (state == null || state.isAir()) {
+                        continue;
+                    }
+                    topPos = pos;
+                    topState = state;
+                    if (state.getBlock() == Blocks.LAVA
+                            || state.getBlock() == Blocks.CAVE_AIR) {
+                        SpeedrunLogger.warn("PROBELAVA116-DUMP seed=17 at=" + x + "," + y + ","
+                                + z + " state=" + state);
+                    }
+                }
+                if (topPos != null) {
+                    SpeedrunLogger.warn("PROBELAVA116-DTOP seed=17 at=" + x + ","
+                            + topPos.getY() + "," + z + " state=" + topState);
+                }
+            }
+        }
+    }
+
     /**
      * Lava census within the radius: first (bottom-up) hit plus the
      * highest lava Y and a surface count (lava no deeper than 8 below
      * the real local surface, mirroring the Stage-B gate). Runs on the
      * server thread.
      */
-    private static String scan(ServerLevel level, BlockPos spawn, long seed) {
-        int bottom = level.getMinY();
-        int top = level.getMinY() + level.getHeight() - 1;
-        // TEMP round-5: wide fluid-only dump around the seed-42 phantom.
-        if (seed == 42L) {
-            for (int x = -64; x <= -24; x++) {
-                for (int y = 55; y <= 75; y++) {
-                    for (int z = -64; z <= -24; z++) {
-                        BlockPos at = new BlockPos(x, y, z);
-                        BlockState state;
-                        try {
-                            state = level.getBlockState(at);
-                        } catch (RuntimeException unreadable) {
-                            continue;
-                        }
-                        if (state == null || (!state.is(Blocks.WATER)
-                                && !state.is(Blocks.LAVA) && !state.is(Blocks.CAVE_AIR))) {
-                            continue;
-                        }
-                        SpeedrunLogger.warn("PROBELAVA263-DUMP seed=42 at=" + x + "," + y + ","
-                                + z + " state=" + state);
-                    }
-                }
-            }
-        }
+    private static String scan(ServerWorld world, BlockPos spawn) {
         String first = null;
         int highest = Integer.MIN_VALUE;
         int surface = 0;
@@ -326,19 +345,16 @@ public final class TempLavaProbe263 {
                 }
                 int realSurface;
                 try {
-                    realSurface = level.getHeight(
-                            net.minecraft.world.level.levelgen.Heightmap.Types
-                                    .MOTION_BLOCKING_NO_LEAVES,
-                            x, z);
+                    realSurface = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z);
                 } catch (RuntimeException unreadable) {
                     continue;
                 }
                 int floor = realSurface - 8;
-                for (int y = bottom; y <= top; y++) {
+                for (int y = 0; y < 256; y++) {
                     BlockPos pos = new BlockPos(x, y, z);
                     BlockState state;
                     try {
-                        state = level.getBlockState(pos);
+                        state = world.getBlockState(pos);
                     } catch (RuntimeException unreadable) {
                         continue;
                     }
@@ -372,12 +388,12 @@ public final class TempLavaProbe263 {
         if (state == null) {
             return false;
         }
-        if (state.is(Blocks.LAVA)) {
+        if (state.getBlock() == net.minecraft.block.Blocks.LAVA) {
             return true;
         }
         FluidState fluid = state.getFluidState();
         return fluid != null && !fluid.isEmpty()
-                && (fluid.getType() == Fluids.LAVA || fluid.getType() == Fluids.FLOWING_LAVA);
+                && (fluid.getFluid() == Fluids.LAVA || fluid.getFluid() == Fluids.FLOWING_LAVA);
     }
 
     private static boolean await(CountDownLatch latch, int seconds) {
