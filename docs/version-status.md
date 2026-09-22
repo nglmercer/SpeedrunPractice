@@ -34,9 +34,16 @@ server fixture run and include spawn, biome, village, stronghold portal-room,
 fortress, bastion subtype, and lava metadata. The 1.16.1 rows use the live
 structure table plus the fresh Stage-B lava gate. All runs used fresh
 server logs/RCON, generated real practice chunks, and left no verification
-server listening after shutdown. The `all` command is registered on every
-version, but its remaining world/structure/portal/player/scenario suites still
-report an explicit not-implemented failure rather than claiming coverage.
+server listening after shutdown. Since 2026-09-22 every registered suite is
+implemented on all three versions (`worlds`, `structures`, `portals`,
+`dragon`, `registries`, `seed-search`, `scenarios`, `resets`,
+`checkpoints`, plus `lava`, `fixtures`, `all`); per-suite suites run through
+`./gradlew verify<116|121|263><Worlds|Structures|Portals|Dragon|Registries|
+Seeds|Scenarios|Resets|Checkpoints>` on Windows (`verify-headless.ps1`) or
+Linux/macOS (`verify-headless.sh`). Player-dependent suites share one
+reusable verification-only harness player per version
+(`VerificationPlayer116/121/263`); the `all` aggregate keeps its original
+checks byte-identical.
 
 ## New architecture (`PracticeRuntime` + `ScenarioEngine` + `AdapterSet`)
 
@@ -59,35 +66,35 @@ needing a player is still unverified.
 | Mod loads (new adapter entrypoint) | ✅ dedicated server 2026-09-18 (JDK 17, Loader 0.13.2) | ✅ dedicated server 2026-09-19 (runtime armed, 17-child tree registered) | ✅ dedicated server 2026-09-18 |
 | `/practice` commands register | ✅ dedicated server 2026-09-18 (17 shared children; searches, exports and alias routing driven over RCON) | ✅ dedicated server 2026-09-19 (17 shared children; dispatch needs a player) | ✅ dedicated server 2026-09-18 |
 | Short practice aliases route to engine | ✅ dedicated server 2026-09-18 (all 9 alias forms reach the engine; actual starts need a player) | runtime unverified (routing is shared-model; starts need a player) | runtime unverified |
-| Practice world creation | runtime unverified | ✅ dedicated server 2026-09-19 (seeded triples incl. KNOWN_SEED; worlds probe 8/8) | ✅ dedicated server 2026-09-18 (seeded triples for 5 fixture seeds, archived RCON logs) |
-| Practice world deletion/reset | runtime unverified (same reset-aliasing fix as 26.3 applied; needs a player to verify) | ✅ dedicated server 2026-09-19 (rebuild reset + triple deletion; worlds probe 8/8) | ✅ dedicated server 2026-09-18 (reset reseed 424242→424243, deletion leaves zero practice levels) |
-| `/practice start overworld` | runtime unverified | runtime unverified (adapter paths verified headless; engine routing needs a player) | ❌ adapter pending |
-| `/practice start nether` | runtime unverified | runtime unverified (adapter paths verified headless; engine routing needs a player) | ❌ adapter pending |
-| `/practice start bastion` | runtime unverified | runtime unverified (adapter paths verified headless; engine routing needs a player) | ❌ adapter pending |
-| `/practice start fortress` | runtime unverified | runtime unverified (adapter paths verified headless; engine routing needs a player) | ❌ adapter pending |
-| `/practice start blind_travel` | runtime unverified | runtime unverified (adapter paths verified headless; engine routing needs a player) | ❌ adapter pending |
-| `/practice start postblind` | runtime unverified | runtime unverified (adapter paths verified headless; engine routing needs a player) | ❌ adapter pending |
-| `/practice start stronghold` | runtime unverified | runtime unverified (adapter paths verified headless; engine routing needs a player) | ❌ adapter pending |
-| `/practice start end` | runtime unverified | runtime unverified (adapter paths verified headless; engine routing needs a player) | ❌ adapter pending |
-| Nether portals (create/link) | runtime unverified | ✅ dedicated server 2026-09-19 (portals 3/3 plus 4-direction pig travel headless) | ✅ dedicated server 2026-09-18 (linked pair built headless; portal blocks confirmed overworld + nether) |
-| Dragon fight (reset/perch/query) | runtime unverified | ✅ dedicated server 2026-09-19 (dragons 5/5; no living dragon without a player in the end) | ✅ dedicated server 2026-09-18 (reset/query/perch-error paths exercised; no live dragon without a player in the end) |
-| Registry item lookups | runtime unverified | ✅ dedicated server 2026-09-19 (registries 3/3 headless) | ✅ dedicated server 2026-09-18 (sword exists, pearl stacks to 16, bogus id rejected) |
-| `/practice start onecycle` | runtime unverified | runtime unverified (adapter paths verified headless; engine routing needs a player) | ❌ adapter pending |
+| Practice world creation | ✅ headless 2026-09-22 (worlds 5/5: seed/spawn/50-cycle lifecycle/cleanup) | ✅ dedicated server 2026-09-19 (seeded triples incl. KNOWN_SEED; worlds probe 8/8) | ✅ dedicated server 2026-09-18 (seeded triples for 5 fixture seeds, archived RCON logs) |
+| Practice world deletion/reset | ✅ headless 2026-09-22 (worlds 5/5: 50 create/reset/delete cycles, zero leaks) | ✅ dedicated server 2026-09-19 (rebuild reset + triple deletion; worlds probe 8/8) | ✅ dedicated server 2026-09-18 (reset reseed 424242→424243, deletion leaves zero practice levels) |
+| `/practice start overworld` | ✅ headless 2026-09-22 (engine start/setup/completion/cleanup via harness player; literal command parsing needs a player) | ✅ headless 2026-09-22 (engine start/setup/completion/cleanup via harness player; literal command parsing needs a player) | ✅ headless 2026-09-22 (engine start/setup/completion/cleanup via harness player; literal command parsing needs a player) |
+| `/practice start nether` | ✅ headless 2026-09-22 (engine start/setup/completion/cleanup via harness player; literal command parsing needs a player) | ✅ headless 2026-09-22 (engine start/setup/completion/cleanup via harness player; literal command parsing needs a player) | ✅ headless 2026-09-22 (engine start/setup/completion/cleanup via harness player; literal command parsing needs a player) |
+| `/practice start bastion` | ✅ headless 2026-09-22 (engine start/setup/completion/cleanup via harness player; literal command parsing needs a player) | ✅ headless 2026-09-22 (engine start/setup/completion/cleanup via harness player; literal command parsing needs a player) | ✅ headless 2026-09-22 (engine start/setup/completion/cleanup via harness player; literal command parsing needs a player) |
+| `/practice start fortress` | ✅ headless 2026-09-22 (engine start/setup/completion/cleanup via harness player; literal command parsing needs a player) | ✅ headless 2026-09-22 (engine start/setup/completion/cleanup via harness player; literal command parsing needs a player) | ✅ headless 2026-09-22 (engine start/setup/completion/cleanup via harness player; literal command parsing needs a player) |
+| `/practice start blind_travel` | ✅ headless 2026-09-22 (engine start/setup/completion/cleanup via harness player; literal command parsing needs a player) | ✅ headless 2026-09-22 (engine start/setup/completion/cleanup via harness player; literal command parsing needs a player) | ✅ headless 2026-09-22 (engine start/setup/completion/cleanup via harness player; literal command parsing needs a player) |
+| `/practice start postblind` | ✅ headless 2026-09-22 (engine start/setup/completion/cleanup via harness player; literal command parsing needs a player) | ✅ headless 2026-09-22 (engine start/setup/completion/cleanup via harness player; literal command parsing needs a player) | ✅ headless 2026-09-22 (engine start/setup/completion/cleanup via harness player; literal command parsing needs a player) |
+| `/practice start stronghold` | ✅ headless 2026-09-22 (engine start/setup/completion/cleanup via harness player; literal command parsing needs a player) | ✅ headless 2026-09-22 (engine start/setup/completion/cleanup via harness player; literal command parsing needs a player) | ✅ headless 2026-09-22 (engine start/setup/completion/cleanup via harness player; literal command parsing needs a player) |
+| `/practice start end` | ✅ headless 2026-09-22 (engine start/setup/completion/cleanup via harness player; literal command parsing needs a player) | ✅ headless 2026-09-22 (engine start/setup/completion/cleanup via harness player; literal command parsing needs a player) | ✅ headless 2026-09-22 (engine start/setup/completion/cleanup via harness player; literal command parsing needs a player) |
+| Nether portals (create/link) | ✅ headless 2026-09-22 (portal.created) | ✅ dedicated server 2026-09-19 (portals 3/3 plus 4-direction pig travel headless) | ✅ dedicated server 2026-09-18 (linked pair built headless; portal blocks confirmed overworld + nether) |
+| Dragon fight (reset/perch/query) | ✅ headless 2026-09-22 (resetFight; no living dragon without a player in the end) | ✅ dedicated server 2026-09-19 (dragons 5/5; no living dragon without a player in the end) | ✅ dedicated server 2026-09-18 (reset/query/perch-error paths exercised; no live dragon without a player in the end) |
+| Registry item lookups | ✅ headless 2026-09-22 (registry.items) | ✅ dedicated server 2026-09-19 (registries 3/3 headless) | ✅ dedicated server 2026-09-18 (sword exists, pearl stacks to 16, bogus id rejected) |
+| `/practice start onecycle` | ✅ headless 2026-09-22 (engine start/setup/completion/cleanup via harness player; literal command parsing needs a player) | ✅ headless 2026-09-22 (engine start/setup/completion/cleanup via harness player; literal command parsing needs a player) | ✅ headless 2026-09-22 (engine start/setup/completion/cleanup via harness player; literal command parsing needs a player) |
 | Same-seed reset | runtime unverified | runtime unverified (adapter reset path verified headless; engine routing needs a player + active practice) | runtime unverified (adapter reset path verified headless; engine routing needs a player + active practice) |
 | New-seed reset | runtime unverified | runtime unverified (adapter reset path verified headless; engine routing needs a player + active practice) | runtime unverified (adapter reset path verified headless; engine routing needs a player + active practice) |
 | Previous-seed reset | runtime unverified | runtime unverified (adapter reset path verified headless; engine routing needs a player + active practice) | runtime unverified (adapter reset path verified headless; engine routing needs a player + active practice) |
-| Loadouts | runtime unverified | runtime unverified (adapter capture/apply need a player) | ❌ adapter pending |
-| Checkpoints | runtime unverified | runtime unverified (need a player + active practice) | ❌ adapter pending |
-| Timer | runtime unverified | ✅ dedicated server 2026-09-19 (bridge contract: unavailable no-op 4/4; shared monotonic timer is the real timer) | ❌ adapter pending |
-| Completion detection | runtime unverified | runtime unverified | ❌ adapter pending |
+| Loadouts | ✅ headless 2026-09-22 (checkpoints suite: apply/capture via harness player) | ✅ headless 2026-09-22 (checkpoints suite: apply/capture via harness player) | ✅ headless 2026-09-22 (checkpoints suite: apply/capture via harness player) |
+| Checkpoints | ✅ headless 2026-09-22 (capturePlayerState via harness player) | ✅ headless 2026-09-22 (capturePlayerState via harness player) | ✅ headless 2026-09-22 (capturePlayerState via harness player) |
+| Timer | ✅ headless 2026-09-22 (bridge unavailable no-op; shared monotonic timer is the real timer) | ✅ dedicated server 2026-09-19 (bridge contract: unavailable no-op 4/4; shared monotonic timer is the real timer) | ✅ headless 2026-09-22 (bridge unavailable no-op; shared monotonic timer is the real timer) |
+| Completion detection | ✅ headless 2026-09-22 (COMPLETED asserted per scenario boundary) | ✅ headless 2026-09-22 (COMPLETED asserted per scenario boundary) | ✅ headless 2026-09-22 (COMPLETED asserted per scenario boundary) |
 | Statistics | runtime unverified | runtime unverified | ❌ adapter pending |
 | Seed list | runtime unverified | runtime unverified | ❌ adapter pending |
-| Seed search | ✅ dedicated server 2026-09-18 (village/stronghold/treasure/fortress/bastion + biome searches and exports on 5 seeds, all doorstep-cross-checked via /locate; lava presets need a stage-B chunk verifier) | ✅ real analyzer verified on dedicated server 2026-09-19 (biome/village/stronghold/fortress/bastion+type/end-city vs live locate 7/7, re-probed 7/7 after the practice-seed gate fix; lava/unknown mismatch by design) | ✅ real analyzer verified on dedicated server 2026-09-19 (walk-order first-hit fix; 19/19 vs live locate on 3 seeds incl. bastion-type round-trips; lava via Stage-B separately) |
+| Seed search | ✅ dedicated server 2026-09-18 (village/stronghold/treasure/fortress/bastion + biome searches and exports on 5 seeds, all doorstep-cross-checked via /locate; lava presets need a stage-B chunk verifier; 5/5 differential re-verified 2026-09-22) | ✅ real analyzer verified on dedicated server 2026-09-19 (biome/village/stronghold/fortress/bastion+type/end-city vs live locate 7/7, re-probed 7/7 after the practice-seed gate fix; lava/unknown mismatch by design; 5/5 differential re-verified 2026-09-22) | ✅ real analyzer verified on dedicated server 2026-09-19 (walk-order first-hit fix; 19/19 vs live locate on 3 seeds incl. bastion-type round-trips; lava via Stage-B separately; 5/5 differential re-verified 2026-09-22) |
 | Verified seed fixtures (plan section 14) | ✅ 5 seeds (12345, 20001–20004) with structure positions, spawn, spawn biome and bastion type in `test-data/1.16.1/structures.json` | ✅ 5 seeds (12345, 20001–20004), including spawn, biome, lava, portal-room and bastion metadata in `verification/fixtures/1.21.1.json` | ✅ 5 seeds, all 16 fields each corroborated against the archived live-server log |
 | Favorites | runtime unverified | runtime unverified | ❌ adapter pending |
 | GUI screens | runtime unverified | ✅ server behavior 2026-09-19 (unavailable + foreign/live-handle guards 4/4 headless); screens need a client | ❌ adapter pending |
 | Keybinds | runtime unverified | runtime unverified (client entrypoint wired; presses need a client) | ❌ adapter pending |
-| `CUSTOM_DIMENSION_RUNTIME` | ❌ | ✅ tested 2026-09-19 (seeded triples created/reset/deleted headless) | ✅ tested 2026-09-18 (seeded triples created/deleted headless) |
+| `CUSTOM_DIMENSION_RUNTIME` | ✅ headless 2026-09-22 (seeded practice worlds created/reset/deleted) | ✅ tested 2026-09-19 (seeded triples created/reset/deleted headless) | ✅ tested 2026-09-18 (seeded triples created/deleted headless) |
 | `FAST_WORLD_RESET` | ❌ | ❌ (rebuild-only by design) | ❌ (rebuild-only by design) |
 | `BASTION_TYPE_QUERY` | ❌ | ✅ tested 2026-09-19 (housing/bridge metadata from live starts) | ✅ tested 2026-09-18 (bridge/stables metadata from live starts) |
 | `DRAGON_FORCE_PERCH` | ❌ | ❌ | ❌ |
@@ -186,6 +193,48 @@ Key finding: vanilla locate is **first-hit-in-walk-order, not nearest**
 candidate wins — confirmed against 1.21.1 and 26.3 bytecode, same quirk the
 1.16.1 harness documents). The 1.21.1 analyzer mirrors the walk exactly
 (seeds re-probed 7/7 after the gate fix below, identical positions).
+
+## Per-suite Linux verification (2026-09-22)
+
+First full per-suite sweep on Linux (headless dedicated servers; 1.16.1 on
+Temurin JDK 17, 1.21.1 on Java 21, 26.3 on the default Gradle runtime):
+
+| Suite | 1.16.1 | 1.21.1 | 26.3 |
+| ----- | ------ | ------ | ---- |
+| registries | 3/3 | 3/3 | 3/3 |
+| structures | 2/2 | 2/2 | 2/2 |
+| worlds (incl. 50-cycle lifecycle) | 5/5 | 5/5 | 5/5 |
+| scenarios (11 types + adapter) | 12/12 | 12/12 | 12/12 |
+| portals | 2/2 | 2/2 | 2/2 |
+| dragon | 2/2 | 2/2 | 2/2 |
+| resets | 2/2 | 2/2 | 2/2 |
+| checkpoints | 3/3 | 3/3 | 3/3 |
+| seed-search (5 fixtures) | 5/5 | 5/5 | 5/5 |
+| lava (Stage-B vs generated chunks) | 10/10 | 6/6 | pass |
+| all (aggregate) | 29/29 | 29/29 | 29/29 |
+
+Findings fixed in the same pass:
+
+- The 1.16.1 seed-20003 `buried_treasure` fixture row (`57,201`) disagreed
+  with both live `locateStructure` from the practice spawn and the analyzer
+  (`41,409`); the row predates the practice-spawn lookup center. Both
+  `verification/fixtures/1.16.1.json` and `test-data/1.16.1/structures.json`
+  now record `41,63,409`, and the differential prints the analyzer prediction
+  inside every fixture/live mismatch for the next one.
+- Verification servers now boot with `max-tick-time=-1` (heavy synchronous
+  worldgen tripped the vanilla watchdog on slower machines; hangs are still
+  bounded by the runner's suite timeout) and distinct game ports
+  (116→25566, 121→25565, 263→25567) so versions can verify side by side.
+- The 1.16.1 shutdown mixin no longer NPEs when startup fails before the
+  player manager exists (e.g. port bind failure).
+- Verification servers run with a 6 GB heap by default
+  (`--server-heap` / `-ServerHeap` / `-PspeedrunPracticeServerHeap`): the
+  grown `all` aggregate OOMed the default ~3.8 GB runServer heap on 1.21.1.
+  Run lava suites sequentially: one 1.21.1 lava run crashed with
+  tick-scheduler corruption while a second lava suite ran concurrently.
+- Both runners now reap a hung server JVM by RCON port before killing the
+  Gradle client, so a wedged shutdown can no longer orphan a spinning
+  server behind `verifyAll`.
 
 ## Practice-seed gate fix + 26.3 seeds re-verification (2026-09-19)
 

@@ -35,17 +35,14 @@ public final class VerificationEntrypoint263 implements ModInitializer {
                 source.sendFailure(Component.literal("A verification run is already active."));
                 return 0;
             }
-            if (!"lava".equals(suite) && !"fixtures".equals(suite) && !"all".equals(suite)) {
-                VerificationSession.fail("suite." + suite, "suite is registered but has no implementation yet");
-                source.sendFailure(Component.literal("Verification suite " + suite + " is not implemented yet."));
-                return 0;
-            }
             if ("fixtures".equals(suite)) {
                 AllProbe263.runFixturesNow(source.getServer());
             } else if ("all".equals(suite)) {
                 AllProbe263.runNow(source.getServer());
-            } else {
+            } else if ("lava".equals(suite)) {
                 TempLavaProbe263.runNow(source.getServer());
+            } else {
+                AllProbe263.runSuiteNow(source.getServer(), suite);
             }
         } catch (Exception failure) {
             source.sendFailure(Component.literal("Could not start verification: " + failure.getMessage()));

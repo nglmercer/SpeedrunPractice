@@ -286,6 +286,12 @@ public abstract class MinecraftServerMixin implements IMinecraftServer {
 
     @Inject(method="shutdown",at=@At("HEAD"))
     private void removePracticeWorlds(CallbackInfo ci) throws IOException {
+        // The player manager does not exist when startup fails before the
+        // server finishes booting (e.g. port bind failure). No practice
+        // world can exist on that path either, so there is nothing to clean.
+        if (this.getPlayerManager() == null) {
+            return;
+        }
         for (ServerPlayerEntity player : this.getPlayerManager().getPlayerList()) {
             //reset spawn point to overworld if spawn point is in a PracticeWorld
             if (Objects.equals(player.getSpawnPointDimension().getValue().getNamespace(), "speedrun_practice")) {

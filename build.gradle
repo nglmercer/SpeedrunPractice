@@ -68,18 +68,35 @@ def fixture263 = fixtureTask('validateFixture263', '26.3',
 def headlessTask = { String taskName, String shortVersion, String module, String suite ->
     tasks.register(taskName, Exec) {
         group = 'verification'
-        description = "Boots the real ${shortVersion} dedicated server and runs the verification command."
+        description = "Boots the real ${shortVersion} dedicated server and runs the ${suite} verification suite."
         dependsOn ":${module}:verificationJar"
         doFirst {
-            if (!org.gradle.internal.os.OperatingSystem.current().isWindows()) {
-                throw new GradleException('scripts/verify-headless.ps1 currently requires Windows PowerShell')
-            }
-            def command = ['powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass',
+            def serverJavaHome = project.findProperty("speedrunPracticeServerJavaHome${shortVersion}")
+            def serverJavaVersion = project.findProperty('speedrunPracticeServerJavaVersion')
+            def serverHeap = project.findProperty('speedrunPracticeServerHeap')
+            List<String> command
+            if (org.gradle.internal.os.OperatingSystem.current().isWindows()) {
+                command = ['powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass',
                            '-File', "${rootProject.projectDir}/scripts/verify-headless.ps1",
                            '-Version', shortVersion, '-Suite', suite]
-            def serverJavaHome = project.findProperty("speedrunPracticeServerJavaHome${shortVersion}")
-            if (serverJavaHome != null && serverJavaHome.toString().trim()) {
-                command += ['-JavaHome', serverJavaHome.toString()]
+                if (serverJavaHome != null && serverJavaHome.toString().trim()) {
+                    command += ['-JavaHome', serverJavaHome.toString()]
+                }
+                if (serverHeap != null && serverHeap.toString().trim()) {
+                    command += ['-ServerHeap', serverHeap.toString().trim()]
+                }
+            } else {
+                command = ['bash', "${rootProject.projectDir}/scripts/verify-headless.sh",
+                           '--version', shortVersion, '--suite', suite]
+                if (serverJavaHome != null && serverJavaHome.toString().trim()) {
+                    command += ['--java-home', serverJavaHome.toString().trim()]
+                }
+                if (serverJavaVersion != null && serverJavaVersion.toString().trim()) {
+                    command += ['--server-java-version', serverJavaVersion.toString().trim()]
+                }
+                if (serverHeap != null && serverHeap.toString().trim()) {
+                    command += ['--server-heap', serverHeap.toString().trim()]
+                }
             }
             commandLine command
         }
@@ -89,10 +106,36 @@ def headlessTask = { String taskName, String shortVersion, String module, String
 headlessTask('verifyHeadless116', '116', 'versions:fabric-1.16.1', 'lava')
 headlessTask('verifyHeadless121', '121', 'versions:fabric-1.21.1', 'lava')
 headlessTask('verifyHeadless263', '263', 'versions:fabric-26.3', 'lava')
+headlessTask('verifyHeadlessFixtures116', '116', 'versions:fabric-1.16.1', 'fixtures')
 headlessTask('verifyHeadlessFixtures121', '121', 'versions:fabric-1.21.1', 'fixtures')
+headlessTask('verifyHeadlessFixtures263', '263', 'versions:fabric-26.3', 'fixtures')
 headlessTask('verifyHeadlessAll116', '116', 'versions:fabric-1.16.1', 'all')
 headlessTask('verifyHeadlessAll121', '121', 'versions:fabric-1.21.1', 'all')
 headlessTask('verifyHeadlessAll263', '263', 'versions:fabric-26.3', 'all')
+
+// Fast development loop (plan phase 16): one focused headless suite per
+// version, e.g. `./gradlew verify121Worlds` after a world change or
+// `./gradlew verify121Seeds` after a seed change.
+def perSuiteTasks = [
+        Worlds     : 'worlds',
+        Structures : 'structures',
+        Portals    : 'portals',
+        Dragon     : 'dragon',
+        Registries : 'registries',
+        Seeds      : 'seed-search',
+        Scenarios  : 'scenarios',
+        Resets     : 'resets',
+        Checkpoints: 'checkpoints'
+]
+[
+        ['116', 'versions:fabric-1.16.1'],
+        ['121', 'versions:fabric-1.21.1'],
+        ['263', 'versions:fabric-26.3']
+].each { ver, module ->
+    perSuiteTasks.each { name, suite ->
+        headlessTask("verify${ver}${name}", ver, module, suite)
+    }
+}
 
 tasks.register('verifyLava116') {
     group = 'verification'

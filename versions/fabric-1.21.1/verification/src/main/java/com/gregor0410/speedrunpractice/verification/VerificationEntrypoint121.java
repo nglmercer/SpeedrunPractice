@@ -35,17 +35,14 @@ public final class VerificationEntrypoint121 implements ModInitializer {
                 source.sendError(Text.literal("A verification run is already active."));
                 return 0;
             }
-            if (!"lava".equals(suite) && !"fixtures".equals(suite) && !"all".equals(suite)) {
-                VerificationSession.fail("suite." + suite, "suite is registered but has no implementation yet");
-                source.sendError(Text.literal("Verification suite " + suite + " is not implemented yet."));
-                return 0;
-            }
             if ("fixtures".equals(suite)) {
                 AllProbe121.runFixturesNow(source.getServer());
             } else if ("all".equals(suite)) {
                 AllProbe121.runNow(source.getServer());
-            } else {
+            } else if ("lava".equals(suite)) {
                 TempLavaProbe121.runNow(source.getServer());
+            } else {
+                AllProbe121.runSuiteNow(source.getServer(), suite);
             }
         } catch (Exception failure) {
             source.sendError(Text.literal("Could not start verification: " + failure.getMessage()));

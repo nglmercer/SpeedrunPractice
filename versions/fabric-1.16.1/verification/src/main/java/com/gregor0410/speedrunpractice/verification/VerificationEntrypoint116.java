@@ -35,17 +35,14 @@ public final class VerificationEntrypoint116 implements ModInitializer {
                 source.sendError(new LiteralText("A verification run is already active."));
                 return 0;
             }
-            if (!"lava".equals(suite) && !"fixtures".equals(suite) && !"all".equals(suite)) {
-                VerificationSession.fail("suite." + suite, "suite is registered but has no implementation yet");
-                source.sendError(new LiteralText("Verification suite " + suite + " is not implemented yet."));
-                return 0;
-            }
             if ("fixtures".equals(suite)) {
                 AllProbe116.runFixturesNow(source.getMinecraftServer());
             } else if ("all".equals(suite)) {
                 AllProbe116.runNow(source.getMinecraftServer());
-            } else {
+            } else if ("lava".equals(suite)) {
                 TempLavaProbe116.runNow(source.getMinecraftServer());
+            } else {
+                AllProbe116.runSuiteNow(source.getMinecraftServer(), suite);
             }
         } catch (Exception failure) {
             source.sendError(new LiteralText("Could not start verification: " + failure.getMessage()));

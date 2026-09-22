@@ -66,6 +66,17 @@ if (verificationServerJavaVersion != null) {
     }
 }
 
+// Verification suites create/delete 100+ worlds per run; the default
+// runServer heap is too small for the aggregate suites.
+def verificationServerHeap = project.findProperty('speedrunPracticeServerHeap')
+if (verificationServerHeap != null && !verificationServerHeap.toString().trim().isEmpty()) {
+    tasks.matching { it.name == 'runServer' }.configureEach {
+        if (it instanceof JavaExec) {
+            it.maxHeapSize = verificationServerHeap.toString().trim()
+        }
+    }
+}
+
 // Verification-only probes never enter the production mod jar.
 sourceSets {
     verification {

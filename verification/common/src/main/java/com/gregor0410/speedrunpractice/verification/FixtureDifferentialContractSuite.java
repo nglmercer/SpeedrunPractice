@@ -98,7 +98,15 @@ public final class FixtureDifferentialContractSuite {
                 StructureAdapter.StructureLocation live = adapter.structures().locateNearest(world,
                         StructureAdapter.StructureQuery.builder(id).radius(STRUCTURE_RADIUS).build())
                         .orElseThrow(() -> new IllegalStateException("live structure missing " + id));
-                requireHorizontalPosition(live.position(), expectedPosition, id + " live", seed);
+                try {
+                    requireHorizontalPosition(live.position(), expectedPosition, id + " live", seed);
+                } catch (IllegalStateException mismatch) {
+                    // The analyzer already ran for this row; report its
+                    // prediction alongside so a fixture/live mismatch shows
+                    // whether the analyzer agrees with the fixture or live.
+                    throw new IllegalStateException(mismatch.getMessage()
+                            + "; analyzer=" + analysis.findings().get("location." + id), mismatch);
+                }
                 Object predictedValue = analysis.findings().get("location." + id);
                 if (!(predictedValue instanceof PracticePosition)) {
                     throw new IllegalStateException("analyzer has no location for " + id);

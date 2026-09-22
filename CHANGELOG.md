@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased — full plan verification
+
+- Every `practiceverify run` suite is implemented on 1.16.1, 1.21.1 and
+  26.3 (`worlds`, `structures`, `portals`, `dragon`, `registries`,
+  `seed-search`, `scenarios`, `resets`, `checkpoints`, plus `lava`,
+  `fixtures`, `all`), with one Gradle task per version × suite
+  (`verify<116|121|263><Worlds|…|Checkpoints>`) for the fast dev loop.
+- Reusable verification-only harness player per version
+  (`VerificationPlayer116/121/263`); player suites exercise the real
+  player/inventory/scenario paths with no human input.
+- Linux/macOS headless runner (`scripts/verify-headless.sh`, python3 RCON)
+  mirroring `verify-headless.ps1`; both bootstrap EULA + RCON + watchdog
+  settings, use distinct game ports, and fail fast when the server dies.
+- Corrected the stale 1.16.1 seed-20003 buried-treasure fixture row
+  (live lookup + analyzer agree on `41,409`); differential mismatches now
+  print the analyzer prediction.
+- Fixed 1.16.1 shutdown-mixin NPE on early startup failure.
+- New client smoke checklist (`docs/client-smoke.md`); version status
+  updated with the 2026-09-22 per-suite sweep.
+
 ## 2.0.0 — Practice suite v1.0 milestone
 
 New architecture: one practice engine + scenario/seed/statistics systems with
