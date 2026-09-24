@@ -27,7 +27,7 @@ public final class VerificationEntrypoint121 implements ModInitializer {
         if (!knownSuite(suite)) {
             source.sendError(Text.literal("Unsupported verification suite: " + suite
                     + ". Available: worlds, structures, portals, dragon, registries, seed-search, "
-                    + "scenarios, resets, checkpoints, lava, fixtures, all."));
+                    + "scenarios, resets, checkpoints, eventbridge, lava, fixtures, all."));
             return 0;
         }
         try {
@@ -56,6 +56,7 @@ public final class VerificationEntrypoint121 implements ModInitializer {
         return "worlds".equals(suite) || "structures".equals(suite) || "portals".equals(suite)
                 || "dragon".equals(suite) || "registries".equals(suite) || "seed-search".equals(suite)
                 || "scenarios".equals(suite) || "resets".equals(suite) || "checkpoints".equals(suite)
+                || "eventbridge".equals(suite)
                 || "lava".equals(suite) || "fixtures".equals(suite) || "all".equals(suite);
     }
 }

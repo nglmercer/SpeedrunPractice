@@ -6,6 +6,8 @@ import com.gregor0410.speedrunpractice.common.api.PracticePosition;
 import com.gregor0410.speedrunpractice.common.api.PracticeWorld;
 import com.gregor0410.speedrunpractice.common.loadout.Loadout;
 import com.gregor0410.speedrunpractice.common.util.SpeedrunLogger;
+import com.gregor0410.speedrunpractice.verification.EventBridgeContractSuite;
+import com.gregor0410.speedrunpractice.verification.ResetContractSuite;
 import com.gregor0410.speedrunpractice.verification.ScenarioContractSuite;
 import com.gregor0410.speedrunpractice.verification.FixtureDifferentialContractSuite;
 import com.gregor0410.speedrunpractice.verification.VerificationSession;
@@ -174,6 +176,13 @@ public final class AllProbe116 {
             matches += scenarios.matches();
             evidence.addAll(scenarios.evidence());
 
+            EventBridgeContractSuite.Result bridge =
+                    EventBridgeContractSuite.run(new EventBridgeDriver116(adapter,
+                            Runtime116.runtime(), harnessPlayer, player), SEED);
+            total += bridge.total();
+            matches += bridge.matches();
+            evidence.addAll(bridge.evidence());
+
             net.minecraft.server.world.ServerWorld vanillaEnd = server.getWorld(World.END);
             end = new LiveWorld(vanillaEnd, vanillaEnd.getSeed(), PracticeDimension.END);
             adapter.dragons().resetFight(end);
@@ -276,6 +285,8 @@ public final class AllProbe116 {
             runResets(server);
         } else if ("checkpoints".equals(suite)) {
             runCheckpoints(server);
+        } else if ("eventbridge".equals(suite)) {
+            runEvents(server);
         } else {
             try {
                 VerificationSession.fail("suite." + suite, "unknown suite " + suite);
@@ -562,6 +573,16 @@ public final class AllProbe116 {
                 matches++;
                 evidence.add("player.reset");
             }
+            ResetContractSuite.Result resets = ResetContractSuite.run(
+                    Runtime116.runtime(), player, new ResetContractSuite.LeakCheck() {
+                        @Override
+                        public int trackedCount() {
+                            return adapter.trackedPracticeWorlds();
+                        }
+                    });
+            total += resets.total();
+            matches += resets.matches();
+            evidence.addAll(resets.evidence());
         } catch (Exception failure) {
             SpeedrunLogger.warn("Verification resets.116 failed: " + failure);
         } finally {
@@ -632,6 +653,49 @@ public final class AllProbe116 {
             }
         }
         complete("suite.checkpoints", matches, total, evidence, "checkpoint");
+    }
+
+    private static void runEvents(MinecraftServer server) {
+        int total = 0;
+        int matches = 0;
+        List<String> evidence = new ArrayList<String>();
+        LiveAdapter116 adapter = Runtime116.live();
+        PracticeWorld world = null;
+        VerificationPlayer116.Handle harness = null;
+        try {
+            total++;
+            if (adapter == null || adapter.server() != server) {
+                complete("suite.eventbridge", matches, total, evidence, "eventbridge");
+                return;
+            }
+            matches++;
+            evidence.add("adapter");
+            world = adapter.worlds().createPracticeWorld(SEED,
+                    com.gregor0410.speedrunpractice.common.adapter.WorldAdapter.PracticeWorldOptions
+                            .builder(PracticeDimension.OVERWORLD).build());
+            harness = VerificationPlayer116.create(server, (LiveWorld) world, "verification116");
+            EventBridgeContractSuite.Result bridge = EventBridgeContractSuite.run(
+                    new EventBridgeDriver116(adapter, Runtime116.runtime(),
+                            harness.entity(), harness.player()),
+                    SEED);
+            total += bridge.total();
+            matches += bridge.matches();
+            evidence.addAll(bridge.evidence());
+        } catch (Exception failure) {
+            SpeedrunLogger.warn("Verification eventbridge.116 failed: " + failure);
+        } finally {
+            if (harness != null) {
+                harness.close();
+            }
+            if (world != null) {
+                try {
+                    adapter.worlds().deletePracticeWorld(world);
+                } catch (Exception ignored) {
+                    // Server shutdown prunes any leftover practice world.
+                }
+            }
+        }
+        complete("suite.eventbridge", matches, total, evidence, "eventbridge");
     }
 
     private static void complete(String test, int matches, int total,

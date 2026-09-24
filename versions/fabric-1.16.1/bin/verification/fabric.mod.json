@@ -1,9 +1,0 @@
-{
-  "schemaVersion": 1,
-  "id": "speedrun-practice-verification-116",
-  "version": "1.0.0",
-  "name": "SpeedrunPractice Verification 1.16.1",
-  "environment": "server",
-  "entrypoints": { "main": ["com.gregor0410.speedrunpractice.verification.VerificationEntrypoint116"] },
-  "depends": { "fabricloader": ">=0.12.12", "minecraft": "1.16.1" }
-}
