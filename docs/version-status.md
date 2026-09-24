@@ -37,9 +37,9 @@ server logs/RCON, generated real practice chunks, and left no verification
 server listening after shutdown. Since 2026-09-22 every registered suite is
 implemented on all three versions (`worlds`, `structures`, `portals`,
 `dragon`, `registries`, `seed-search`, `scenarios`, `resets`,
-`checkpoints`, plus `lava`, `fixtures`, `all`); per-suite suites run through
+`checkpoints`, `eventbridge`, plus `lava`, `fixtures`, `all`); per-suite suites run through
 `./gradlew verify<116|121|263><Worlds|Structures|Portals|Dragon|Registries|
-Seeds|Scenarios|Resets|Checkpoints>` on Windows (`verify-headless.ps1`) or
+Seeds|Scenarios|Resets|Checkpoints|Eventbridge>` on Windows (`verify-headless.ps1`) or
 Linux/macOS (`verify-headless.sh`). Player-dependent suites share one
 reusable verification-only harness player per version
 (`VerificationPlayer116/121/263`); the `all` aggregate keeps its original
@@ -53,13 +53,16 @@ dragon, registry, commands, timer) inside the 1.16.1 module jar, and
 `AdapterSet116` is a delegation shell with no `pending()` left. 1.21.1 is a
 full Loom module with every slice live (`Runtime121` → `AdapterSet121` →
 `LiveAdapter121`, no `pending()` left); all server-side slices are verified
-on a headless dedicated server (2026-09-19, temp-probe runs, probes removed
-after passing), while everything needing a player or a client window is
-still unverified. 26.3 wires the same runtime shape (`Runtime263` →
-`AdapterSet263` → `LiveAdapter263`); its entrypoint, command registration,
-search/export/reload dispatch and error paths are verified on a headless
-dedicated server (2026-09-18, `scripts/verify-server-263`), while everything
-needing a player is still unverified.
+on a headless dedicated server (2026-09-19 temp-probe runs, re-verified in
+the 2026-09-22 per-suite sweep; probes stay verification-only and never
+enter release jars). Engine practice starts run headless via the harness
+player; literal command parsing still needs a real player, and screens plus
+keybind presses still need a client. 26.3 wires the same runtime shape
+(`Runtime263` → `AdapterSet263` → `LiveAdapter263`); its entrypoint,
+command registration, search/export/reload dispatch and error paths are
+verified on a headless dedicated server (2026-09-18, `scripts/verify-server-263`,
+re-verified in the 2026-09-22 per-suite sweep), with the same
+player/client boundary as 1.21.1.
 
 | Feature | 1.16.1 | 1.21.1 | 26.3 |
 | ------- | ------ | ------ | ---- |
@@ -96,7 +99,7 @@ needing a player is still unverified.
 | Keybinds | runtime unverified | runtime unverified (client entrypoint wired; presses need a client) | ❌ adapter pending |
 | `CUSTOM_DIMENSION_RUNTIME` | ✅ headless 2026-09-22 (seeded practice worlds created/reset/deleted) | ✅ tested 2026-09-19 (seeded triples created/reset/deleted headless) | ✅ tested 2026-09-18 (seeded triples created/deleted headless) |
 | `FAST_WORLD_RESET` | ❌ | ❌ (rebuild-only by design) | ❌ (rebuild-only by design) |
-| `BASTION_TYPE_QUERY` | ❌ | ✅ tested 2026-09-19 (housing/bridge metadata from live starts) | ✅ tested 2026-09-18 (bridge/stables metadata from live starts) |
+| `BASTION_TYPE_QUERY` | ✅ headless 2026-09-22 (live metadata matched the reviewed fixture type on all 5 seeds in the seed-search differential) | ✅ tested 2026-09-19 (housing/bridge metadata from live starts) | ✅ tested 2026-09-18 (bridge/stables metadata from live starts) |
 | `DRAGON_FORCE_PERCH` | ❌ | ❌ | ❌ |
 | `PORTAL_STATE_CAPTURE` | ❌ | ❌ | ❌ |
 | `STRUCTURE_METADATA_SEARCH` | ❌ | ❌ | ❌ |
@@ -137,8 +140,10 @@ Stage-4 local verification (2026-09-18, offline): full
 `--rerun-tasks` run: 41 suites / 291 tests / 0 failures / 0 errors /
 0 skipped; `scripts/verify-architecture.ps1` exit 0 (no Minecraft/Fabric
 imports in shared modules); `scripts/verify-supported-versions.ps1` exit 0
-(the script scans `AdapterSet` files only, which delegate: the 26.3 live
-adapter tested-claims `CUSTOM_DIMENSION_RUNTIME` + `BASTION_TYPE_QUERY`).
+(the script scans `AdapterSet` + `LiveAdapter` `supports()` bodies and fails
+only when a claim coexists with `pending()`: all three live adapters
+tested-claim `CUSTOM_DIMENSION_RUNTIME` + `BASTION_TYPE_QUERY` with zero
+`pending()` sites left).
 
 ## Legacy baseline (migrated into `:versions:fabric-1.16.1`, 1.16.1 only)
 

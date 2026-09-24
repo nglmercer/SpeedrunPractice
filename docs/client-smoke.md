@@ -51,6 +51,9 @@ behavior in-game on that version.
 
 ## Notes
 
+- Headless passes (dedicated-server suites, RCON runs, `./gradlew verifyAll`)
+  never check these boxes: only a human-driven Minecraft client run counts,
+  and no client row is ever marked verified from a headless run.
 - Record the date, jar version, and any failure in `docs/version-status.md`
   when a row is checked off; never flip a shared status cell from this
   checklist alone without naming the observed build.

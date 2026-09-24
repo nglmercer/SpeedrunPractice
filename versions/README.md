@@ -22,9 +22,9 @@ and passes in-game testing on that version (plan sections 7 and 98).
 
 | Capability | 1.16.1 | 1.21.1 | 26.3 |
 | ---------- | :----: | :----: | :--: |
-| `CUSTOM_DIMENSION_RUNTIME` | no | yes (headless 2026-09-19) | yes (headless 2026-09-18) |
-| `FAST_WORLD_RESET` | no | no (rebuild-only by design) | no (rebuild-only by design) |
-| `BASTION_TYPE_QUERY` | no | yes (headless 2026-09-19) | yes (headless 2026-09-18) |
+| `CUSTOM_DIMENSION_RUNTIME` | yes (headless 2026-09-22) | yes (headless 2026-09-19) | yes (headless 2026-09-18) |
+| `FAST_WORLD_RESET` | no (rebuild-only by design) | no (rebuild-only by design) | no (rebuild-only by design) |
+| `BASTION_TYPE_QUERY` | yes (headless 2026-09-22 differential) | yes (headless 2026-09-19) | yes (headless 2026-09-18) |
 | `DRAGON_FORCE_PERCH` | no | no (player-gated) | no (player-gated) |
 | `PORTAL_STATE_CAPTURE` | no | no (no API) | no (no API) |
 | `STRUCTURE_METADATA_SEARCH` | no | no | no |
@@ -63,9 +63,11 @@ keybinds, timer bridge, and `SeedAnalyzer121`. No `pending()` remains.
 Headless-verified on the real 1.21.1 dedicated server 2026-09-19: worlds
 8/8, structures 8/8, portals 3/3 plus 4-direction pig travel, dragons 5/5,
 registries 3/3, seeds 7/7 against live `locateStructure` (walk-order
-first-hit, bytecode-verified), GUI/timer server behavior 4/4. Anything
-needing a player or a client window (practice starts, screens, keybind
-presses) is still unverified. The 26.3 probe exposed a main-seed presence
+first-hit, bytecode-verified), GUI/timer server behavior 4/4. The
+2026-09-22 per-suite sweep re-verified every suite headless (see
+`docs/version-status.md`), including engine practice starts via the
+harness player; literal command parsing still needs a real player, and
+screens/keybind presses still need a client. The 26.3 probe exposed a main-seed presence
 gate on practice worlds (same bug shape on 1.21.1, confirmed in bytecode);
 `ServerWorldSeedMixin121` redirects it to the practice seed, and seeds
 re-probed 7/7 afterwards with identical positions.
@@ -79,7 +81,9 @@ Do not touch `common` just to fix mapping names.
 slices for every sub-adapter plus `SeedAnalyzer263`, with no `pending()`
 left; `supports()` claims `CUSTOM_DIMENSION_RUNTIME` + `BASTION_TYPE_QUERY`
 (headless-verified 2026-09-18). Runtime truth per feature lives in
-`docs/version-status.md`; anything needing a player is still unverified.
+`docs/version-status.md`; engine practice starts are verified headless via
+the harness player, literal command parsing still needs a real player,
+and screens/keybind presses still need a client.
 2026-09-19: `SeedAnalyzer263` got the walk-order first-hit fix (same root
 cause as 1.21.1, both bytecode-verified) plus a public `spawnCenter` API
 for the seed-dependent 26.3 spawn, and probed 19/19 against live locate on

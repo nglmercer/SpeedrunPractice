@@ -14,10 +14,10 @@ Forked from [Gregor0410/SpeedrunPractice](https://github.com/Gregor0410/Speedrun
 | Minecraft | Role | Status |
 | --------- | ---- | ------ |
 | 1.16.1 | Primary speedrunning build | Playable (legacy runtime) |
-| 1.21.1 | Modern compatibility build | In development (adapter pending in-game wiring) |
-| 26.3 | Latest supported build | In development (adapter pending in-game wiring) |
+| 1.21.1 | Modern compatibility build | Server-side verified headless; client smoke pending |
+| 26.3 | Latest supported build | Server-side verified headless; client smoke pending |
 
-Releases currently ship only the legacy 1.16.1 jar. Per-version jars return once each new adapter is wired and verified in-game (see [docs/version-status.md](docs/version-status.md)). Until then, the playable 1.16.1 experience is the legacy runtime described below.
+Releases currently ship only the legacy 1.16.1 jar. All three new adapters are wired (no `pending()` left) and server-side verified on headless dedicated servers; per-version release jars return once the client smoke checklist passes per version (see [docs/version-status.md](docs/version-status.md) and [docs/client-smoke.md](docs/client-smoke.md)). Until then, the playable 1.16.1 experience is the legacy runtime described below.
 
 ## Features
 
@@ -29,7 +29,7 @@ Releases currently ship only the legacy 1.16.1 jar. Per-version jars return once
 - **Customizable Structure Generation:** Change bastion types and nether structure frequency.
 - **Seed List:** Practice on a specific set of seeds from a file.
 
-Coming with the new engine (shared code done, in-game wiring pending): Bastion, Fortress, Blind Travel, Stronghold, and One Cycle scenarios, named loadouts, filtered seed search, checkpoints, timers, statistics, and data-driven custom scenarios via JSON. See [docs/practices.md](docs/practices.md), [docs/seed-search.md](docs/seed-search.md), [docs/loadouts.md](docs/loadouts.md), and [docs/custom-scenarios.md](docs/custom-scenarios.md).
+Coming with the new engine (shared code done, server-side verified headless, client smoke pending): Bastion, Fortress, Blind Travel, Stronghold, and One Cycle scenarios, named loadouts, filtered seed search, checkpoints, timers, statistics, and data-driven custom scenarios via JSON. See [docs/practices.md](docs/practices.md), [docs/seed-search.md](docs/seed-search.md), [docs/loadouts.md](docs/loadouts.md), and [docs/custom-scenarios.md](docs/custom-scenarios.md).
 
 ## Settings
 
@@ -77,7 +77,7 @@ To use a specific list of seeds:
 
 ## Building from source
 
-Requires JDK 17. Shared modules compile offline; only the Loom version modules download Minecraft artifacts (needs network).
+Requires JDK 17 for shared modules and 1.16.1, JDK 21 for 1.21.1, and JDK 25 for 26.3. Shared modules compile offline; only the Loom version modules download Minecraft artifacts (needs network).
 
 ```bash
 ./gradlew :common:build :practices:build :seed-search:build :test-support:build
