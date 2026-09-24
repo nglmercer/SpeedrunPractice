@@ -125,7 +125,8 @@ def perSuiteTasks = [
         Seeds      : 'seed-search',
         Scenarios  : 'scenarios',
         Resets     : 'resets',
-        Checkpoints: 'checkpoints'
+        Checkpoints: 'checkpoints',
+        Eventbridge: 'eventbridge'
 ]
 [
         ['116', 'versions:fabric-1.16.1'],
@@ -163,13 +164,37 @@ def releaseBoundaryTask = { String taskName, String modulePath ->
             def releaseJar = module.tasks.named('jar')
             File artifact = releaseJar.get().archiveFile.get().asFile
             def forbidden = zipTree(artifact).matching {
-                include '**/Temp*Probe*'
+                include '**/*Probe*'
+                include '**/Temp*'
+                include '**/EventBridgeDriver*'
                 include '**/VerificationEntrypoint*'
                 include '**/verification/**'
             }.files
             if (!forbidden.isEmpty()) {
                 throw new GradleException("Release jar boundary violation in ${artifact.name}: "
                         + forbidden.collect { it.name }.sort().join(', '))
+            }
+            // Tripwire for the verification-only lava probe marker: no
+            // production class may emit it. Entry bytes are uncompressed
+            // first (a raw jar scan would miss DEFLATEd strings).
+            def markerHits = []
+            def zip = new java.util.zip.ZipFile(artifact)
+            try {
+                zip.entries().each { entry ->
+                    if (!entry.name.endsWith('.class')) {
+                        return
+                    }
+                    byte[] bytes = zip.getInputStream(entry).bytes
+                    if (new String(bytes, 'ISO-8859-1').contains('PROBELAVA')) {
+                        markerHits += entry.name
+                    }
+                }
+            } finally {
+                zip.close()
+            }
+            if (!markerHits.isEmpty()) {
+                throw new GradleException("Release jar boundary violation in ${artifact.name}: "
+                        + "PROBELAVA marker in " + markerHits.sort().join(', '))
             }
             logger.lifecycle("Release jar boundary OK: ${artifact.name}")
         }
@@ -204,12 +229,25 @@ tasks.register('verify263') {
             'verifyHeadless263'
 }
 
+// Every headless suite on every version. verifyAll gates the full pyramid:
+// shared unit tests, adapter contracts, offline fixture validation, all
+// three builds, the release-jar boundary checks, and each headless suite
+// (per-suite suites + lava + fixtures + the all aggregate) per version.
+// Gradle fails fast on the first failing dependency and every headless
+// runner exits non-zero on any failed check, so verifyAll fails on any
+// failure anywhere in the pyramid (plan phase 15).
+def verifyAllHeadless = []
+['116', '121', '263'].each { ver ->
+    verifyAllHeadless += ["verifyHeadless${ver}", "verifyHeadlessFixtures${ver}",
+            "verifyHeadlessAll${ver}"]
+    perSuiteTasks.each { name, suite -> verifyAllHeadless += "verify${ver}${name}" }
+}
+
 tasks.register('verifyAll') {
     group = 'verification'
-    description = 'Runs shared tests, all version build gates, and full verification suites.'
+    description = 'Runs shared tests, all version build gates, and every verification suite on all versions.'
     dependsOn 'test', 'testAdapterContracts', fixture116, fixture121, fixture263,
             ':versions:fabric-1.16.1:build', ':versions:fabric-1.21.1:build',
             ':versions:fabric-26.3:build', 'verifyReleaseJar116', 'verifyReleaseJar121',
-            'verifyReleaseJar263',
-            'verifyHeadlessAll116', 'verifyHeadlessAll121', 'verifyHeadlessAll263'
+            'verifyReleaseJar263', verifyAllHeadless
 }

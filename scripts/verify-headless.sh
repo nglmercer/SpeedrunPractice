@@ -44,7 +44,7 @@ case "$VERSION" in
 esac
 
 case "$SUITE" in
-  worlds|structures|portals|dragon|registries|seed-search|scenarios|resets|checkpoints|lava|fixtures|all) ;;
+  worlds|structures|portals|dragon|registries|seed-search|scenarios|resets|checkpoints|eventbridge|lava|fixtures|all) ;;
   *) echo "Invalid --suite: $SUITE" >&2; exit 2;;
 esac
 

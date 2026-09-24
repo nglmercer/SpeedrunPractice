@@ -1,7 +1,7 @@
 param(
     [ValidateSet('116', '121', '263')]
     [string]$Version,
-[ValidateSet('worlds', 'structures', 'portals', 'dragon', 'registries', 'seed-search', 'scenarios', 'resets', 'checkpoints', 'lava', 'fixtures', 'all')]
+[ValidateSet('worlds', 'structures', 'portals', 'dragon', 'registries', 'seed-search', 'scenarios', 'resets', 'checkpoints', 'eventbridge', 'lava', 'fixtures', 'all')]
     [string]$Suite = 'lava',
     [int]$StartupTimeoutSeconds = 1800,
     [int]$SuiteTimeoutSeconds = 3600,

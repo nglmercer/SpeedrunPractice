@@ -30,6 +30,8 @@ atlassian-ide-plugin.xml
 *.zip
 *.tar.gz
 *.rar
+# Except the vendored 1.16.1 file-repo (patched PTLib, see versions/fabric-1.16.1/build.gradle).
+!versions/fabric-1.16.1/repo/**/*.jar
 
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
@@ -110,6 +112,7 @@ gradle-app.setting
 .gradletasknamecache
 
 **/build/
+**/bin/
 
 # Common working directory
 run/

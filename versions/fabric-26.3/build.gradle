@@ -47,6 +47,7 @@ dependencies {
     include project(':practices')
     include project(':seed-search')
 
+    testImplementation project(':test-support')
     testImplementation 'junit:junit:4.13.2'
 }
 
@@ -118,7 +119,12 @@ processResources {
 
 jar {
     archiveBaseName = 'speedrun-practice-26.3'
-    exclude '**/Temp*Probe*'
+    // Verification-only classes never enter the production jar. The
+    // verification source set already keeps them out; these excludes are the
+    // second net (mirrored by the root verifyReleaseJar boundary check).
+    exclude '**/*Probe*'
+    exclude '**/Temp*'
+    exclude '**/EventBridgeDriver*'
     exclude '**/VerificationEntrypoint*'
     exclude '**/verification/**'
 }
