@@ -6,11 +6,10 @@ import com.gregor0410.speedrunpractice.common.api.PracticeException;
 import com.gregor0410.speedrunpractice.common.api.PracticeWorld;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.boss.enderdragon.EnderDragon;
 import net.minecraft.world.level.dimension.end.EnderDragonFight;
 import net.minecraft.world.entity.boss.enderdragon.phases.EnderDragonPhase;
-
-import java.util.List;
 
 /**
  * Dragon-fight control on the live end level. Reset mirrors the legacy end
@@ -25,8 +24,10 @@ final class LiveDragons263 implements DragonAdapter {
     public void resetFight(PracticeWorld world) throws PracticeException {
         LiveWorld263 handle = requireHandle(world, "resetFight");
         ServerLevel backing = handle.level();
-        for (EnderDragon dragon : backing.getDragons()) {
-            dragon.discard();
+        EnderDragon stale = livingDragon(backing);
+        while (stale != null) {
+            stale.discard();
+            stale = livingDragon(backing);
         }
         EnderDragonFight fresh = EnderDragonFight.createDefault();
         fresh.init(backing, backing.getSeed(), BlockPos.ZERO);
@@ -54,10 +55,11 @@ final class LiveDragons263 implements DragonAdapter {
     }
 
     private static EnderDragon livingDragon(ServerLevel level) {
-        List<? extends EnderDragon> dragons = level.getDragons();
-        for (EnderDragon dragon : dragons) {
-            if (dragon.isAlive()) {
-                return dragon;
+        // Loaded entities only: the by-type lookup misses freshly spawned
+        // dragons whose sections are not indexed yet.
+        for (Entity entity : level.getAllEntities()) {
+            if (entity instanceof EnderDragon && entity.isAlive()) {
+                return (EnderDragon) entity;
             }
         }
         return null;

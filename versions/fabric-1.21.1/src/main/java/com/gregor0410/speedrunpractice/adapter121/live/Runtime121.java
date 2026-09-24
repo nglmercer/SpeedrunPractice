@@ -2,6 +2,7 @@ package com.gregor0410.speedrunpractice.adapter121.live;
 
 import com.gregor0410.speedrunpractice.adapter121.AdapterSet121;
 import com.gregor0410.speedrunpractice.common.api.PracticeException;
+import com.gregor0410.speedrunpractice.common.api.PracticeResult;
 import com.gregor0410.speedrunpractice.common.api.PracticeState;
 import com.gregor0410.speedrunpractice.common.commands.PracticeCommands;
 import com.gregor0410.speedrunpractice.common.util.SpeedrunLogger;
@@ -118,7 +119,15 @@ public final class Runtime121 {
                 net.minecraft.server.network.ServerPlayerEntity player =
                         ((LivePlayer121) runtime.engine().currentContext().player()).entity();
                 player.sendMessage(net.minecraft.text.Text.literal(
-                        "Completed " + name + " in " + formatTime(ms) + "!"), false);
+                        "§aCompleted " + name + " in " + formatTime(ms) + "!"), false);
+                try {
+                    live.gui().openResultsScreen(runtime.engine().currentContext().player(),
+                            new PracticeResult(runtime.engine().currentScenario().id(),
+                                    runtime.engine().currentContext().seed(), ms,
+                                    PracticeResult.Status.COMPLETED));
+                } catch (PracticeException unavailable) {
+                    // Dedicated server: chat message above is the whole UI.
+                }
             }
             if (FabricLoader.getInstance().getEnvironmentType() == EnvType.CLIENT) {
                 SpeedrunLogger.info("Completed " + name + " in " + formatTime(ms));

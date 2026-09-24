@@ -1,5 +1,6 @@
 package com.gregor0410.speedrunpractice.adapter263;
 
+import com.gregor0410.speedrunpractice.adapter263.live.LiveAdapter263;
 import com.gregor0410.speedrunpractice.common.adapter.Capability;
 import org.junit.Test;
 
@@ -27,5 +28,21 @@ public class AdapterCapabilitiesTest {
         AdapterSet263 adapter = new AdapterSet263(live);
         assertTrue(adapter.supports(Capability.DRAGON_FORCE_PERCH));
         assertFalse(adapter.supports(Capability.CUSTOM_DIMENSION_RUNTIME));
+    }
+
+    @Test
+    public void liveClaimsOnlyHeadlessVerifiedCapabilities() {
+        // Plan section 15: CUSTOM_DIMENSION_RUNTIME (linked triples across
+        // the headless world probes) and BASTION_TYPE_QUERY (live-start
+        // metadata plus type-filtered seed probes) passed on the real 26.3
+        // dedicated server; the rest stay false (see LiveAdapter263).
+        LiveAdapter263 live = new LiveAdapter263();
+        assertTrue(live.supports(Capability.CUSTOM_DIMENSION_RUNTIME));
+        assertTrue(live.supports(Capability.BASTION_TYPE_QUERY));
+        assertFalse(live.supports(Capability.FAST_WORLD_RESET));
+        assertFalse(live.supports(Capability.DRAGON_FORCE_PERCH));
+        assertFalse(live.supports(Capability.PORTAL_STATE_CAPTURE));
+        assertFalse(live.supports(Capability.STRUCTURE_METADATA_SEARCH));
+        assertFalse(live.supports(null));
     }
 }

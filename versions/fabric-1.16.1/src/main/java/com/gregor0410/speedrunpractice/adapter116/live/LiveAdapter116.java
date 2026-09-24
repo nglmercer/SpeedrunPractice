@@ -185,10 +185,28 @@ public final class LiveAdapter116 implements MinecraftAdapter {
 
     @Override
     public boolean supports(Capability capability) {
-        // Plan sections 7 and 98: nothing is claimed until the implementation
-        // passes in-game testing on 1.16.1. Flip per capability after the
-        // section 11 verification checklist runs in the real game.
-        return false;
+        // Plan section 15: true only when implemented, compiled, and
+        // runtime-tested. CUSTOM_DIMENSION_RUNTIME (linked practice triples
+        // created/reset/deleted: headless worlds suite 5/5 on 2026-09-22,
+        // incl. the 50-cycle lifecycle, seed, spawn and cleanup checks) and
+        // BASTION_TYPE_QUERY (live bastion-start metadata matched the
+        // reviewed fixture type on all 5 canonical seeds in the headless
+        // seed-search differential 5/5 on 2026-09-22) passed on the real
+        // 1.16.1 dedicated server. The rest stay false: FAST_WORLD_RESET has
+        // no recycled-world path (rebuild only), DRAGON_FORCE_PERCH never ran
+        // against a living dragon (player-gated spawn; the dragon suite only
+        // exercises resetFight), PORTAL_STATE_CAPTURE has no capture/restore
+        // API, and seed search reads no portal-room/eye-count metadata.
+        if (capability == null) {
+            return false;
+        }
+        switch (capability) {
+            case CUSTOM_DIMENSION_RUNTIME:
+            case BASTION_TYPE_QUERY:
+                return true;
+            default:
+                return false;
+        }
     }
 
     /** Resolves the backing world for a practice handle, failing readably. */

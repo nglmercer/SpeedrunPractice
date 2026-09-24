@@ -5,13 +5,12 @@ import com.gregor0410.speedrunpractice.adapter121.world.PracticeWorld121;
 import com.gregor0410.speedrunpractice.common.adapter.DragonAdapter;
 import com.gregor0410.speedrunpractice.common.api.PracticeException;
 import com.gregor0410.speedrunpractice.common.api.PracticeWorld;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.boss.dragon.EnderDragonEntity;
 import net.minecraft.entity.boss.dragon.EnderDragonFight;
 import net.minecraft.entity.boss.dragon.phase.PhaseType;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.world.level.LevelProperties;
-
-import java.util.List;
 
 /**
  * Dragon-fight control on the live end world. Reset mirrors the legacy end
@@ -31,8 +30,10 @@ final class LiveDragons121 implements DragonAdapter {
     public void resetFight(PracticeWorld world) throws PracticeException {
         requireHandle(world, "resetFight");
         ServerWorld backing = LiveAdapter121.requireWorld(adapter, world, "resetFight");
-        for (EnderDragonEntity dragon : backing.getAliveEnderDragons()) {
-            dragon.discard();
+        EnderDragonEntity stale = livingDragon(backing);
+        while (stale != null) {
+            stale.discard();
+            stale = livingDragon(backing);
         }
         EnderDragonFight old = backing.getEnderDragonFight();
         if (old != null) {
@@ -73,10 +74,12 @@ final class LiveDragons121 implements DragonAdapter {
     }
 
     private static EnderDragonEntity livingDragon(ServerWorld world) {
-        List<? extends EnderDragonEntity> dragons = world.getAliveEnderDragons();
-        for (EnderDragonEntity dragon : dragons) {
-            if (dragon != null && dragon.isAlive()) {
-                return dragon;
+        // Loaded entities only: the by-type lookup misses freshly spawned
+        // dragons whose sections are not indexed yet, and a box query would
+        // force-generate every chunk it touches.
+        for (Entity entity : world.iterateEntities()) {
+            if (entity instanceof EnderDragonEntity && entity.isAlive()) {
+                return (EnderDragonEntity) entity;
             }
         }
         return null;

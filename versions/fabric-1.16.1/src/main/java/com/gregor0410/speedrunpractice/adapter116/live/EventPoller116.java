@@ -192,11 +192,15 @@ final class EventPoller116 {
     }
 
     private static boolean isInside(ServerWorld world, StructureFeature<?> feature, BlockPos pos) {
+        // Reference-resolving lookup: the start recorded for this chunk
+        // column may live in a neighbouring chunk (multi-chunk villages),
+        // which a holder-local scan misses.
         Chunk chunk = world.getChunk(pos);
         ChunkPos chunkPos = chunk.getPos();
-        for (int sectionY = 0; sectionY < 16; sectionY++) {
-            StructureStart<?> start = world.getStructureAccessor()
-                    .getStructureStart(ChunkSectionPos.from(chunkPos, sectionY), feature, chunk);
+        Object[] starts = world.getStructureAccessor()
+                .getStructuresWithChildren(ChunkSectionPos.from(chunkPos, 0), feature).toArray();
+        for (int s = 0; s < starts.length; s++) {
+            StructureStart<?> start = (StructureStart<?>) starts[s];
             if (start == null) {
                 continue;
             }

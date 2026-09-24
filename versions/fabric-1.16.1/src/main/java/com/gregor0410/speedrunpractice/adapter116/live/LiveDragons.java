@@ -3,13 +3,11 @@ package com.gregor0410.speedrunpractice.adapter116.live;
 import com.gregor0410.speedrunpractice.common.adapter.DragonAdapter;
 import com.gregor0410.speedrunpractice.common.api.PracticeException;
 import com.gregor0410.speedrunpractice.common.api.PracticeWorld;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.boss.dragon.EnderDragonEntity;
 import net.minecraft.entity.boss.dragon.phase.PhaseType;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.Box;
-
-import java.util.List;
 
 /**
  * Dragon-fight control on the live end world. Reset mirrors the legacy end
@@ -43,11 +41,14 @@ final class LiveDragons implements DragonAdapter {
     }
 
     private static EnderDragonEntity livingDragon(ServerWorld world) {
-        Box everywhere = new Box(-30000000.0, -30000000.0, -30000000.0,
-                30000000.0, 30000000.0, 30000000.0);
-        List<EnderDragonEntity> dragons =
-                world.getEntities(EnderDragonEntity.class, everywhere, EnderDragonEntity::isAlive);
-        return dragons.isEmpty() ? null : dragons.get(0);
+        // Loaded entities only: a box query would force-generate every
+        // chunk it touches and hang the server thread on a fresh world.
+        for (Entity entity : world.iterateEntities()) {
+            if (entity instanceof EnderDragonEntity && entity.isAlive()) {
+                return (EnderDragonEntity) entity;
+            }
+        }
+        return null;
     }
 
     private static LiveWorld requireHandle(PracticeWorld world, String operation) throws PracticeException {
